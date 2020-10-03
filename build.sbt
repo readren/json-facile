@@ -1,0 +1,42 @@
+ThisBuild / organization := "readren"
+ThisBuild / version      := "0.1.0-SNAPSHOT"
+ThisBuild / scalaVersion := "2.13.3"
+
+lazy val akkaHttpVersion = "10.2.0"
+
+lazy val commonSettings = Seq(
+//   target := { baseDirectory.value / "target2" }
+)
+
+lazy val core = (project in file("core")).dependsOn(macros, comun)
+	.settings(
+		commonSettings
+		// other settings
+	)
+
+lazy val macros = (project in file("macros")).dependsOn(comun)
+	.settings(
+		commonSettings
+		// other settings
+  	)
+
+lazy val comun = (project in file("comun"))
+
+ThisBuild / libraryDependencies ++= Seq(
+	// scala reflection required for macros
+	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
+
+	// spray json used for testing
+	"com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % Test,
+
+	// test
+	"org.scalatest" %% "scalatest" % "3.2.2" % Test,
+	"org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test
+
+)
+
+ThisBuild / scalacOptions ++= Seq(
+	"-deprecation",
+	"-feature",
+	"-Ymacro-debug-lite"
+)

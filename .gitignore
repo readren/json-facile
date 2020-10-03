@@ -1,0 +1,71 @@
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+/dist
+/tmp
+/out-tsc
+
+# dependencies
+/node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+/bin/
+/.cache-main
+/.cache-tests
+/.worksheet/
+
+botofono.iml
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+testem.log
+/typings
+/logs
+
+# e2e
+/e2e/*.js
+/e2e/*.map
+
+# System Files
+.DS_Store
+Thumbs.db
+
+#sbt
+**/target/
+
+#no se
+.angulardoc.json
+
+#basura
+/arena/depositoArchivos/*
+/arena/logos/cliente/*
+/arena/logos/grupo/*
+/arena/logos/operario/*
+
+#seguridad
+*.p12
+*.pkcs12
+*.pem
+*.crt
+*.cer
+*.csr
+*.jks
+botofono-*-firebase-adminsdk-*.json
