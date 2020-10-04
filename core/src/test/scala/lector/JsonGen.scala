@@ -35,7 +35,7 @@ trait JsonGen {
 	} yield JsObject(Map((ks zip vals):_*))
 
 	/** generate a list of keys to be used in the map of a JSONObject */
-	def keys(n: Int) = listOfN(n, cadena)
+	def keys(n: Int): Gen[List[String]] = listOfN(n, cadena)
 
 	/**
 	  * generate a list of values to be used in the map of a JSONObject or in the list
@@ -54,13 +54,13 @@ trait JsonGen {
 			oneOf(jsonType(depth - 1), terminalType)
 
 	/** generate a terminal value type */
-	def terminalType = oneOf(jsNumber, jsString, jsBoolean, jsNull)
+	def terminalType: Gen[JsValue] = oneOf(jsNumber, jsString, jsBoolean, jsNull)
 
 	def jsNull: Gen[JsNull.type] = Gen.const(JsNull)
 
 	def jsBoolean: Gen[JsBoolean] = for {b <- Arbitrary.arbitrary[Boolean]} yield JsBoolean(b)
 
-	def jsNumber = for (bd <- Arbitrary.arbitrary[BigDecimal]) yield JsNumber(bd)
+	def jsNumber: Gen[JsNumber] = for (bd <- Arbitrary.arbitrary[BigDecimal]) yield JsNumber(bd)
 
 	def cadena: Gen[String] = for {
 		simbolo <- choose[Int](0, 0x10FFFF)
@@ -70,7 +70,7 @@ trait JsonGen {
 		list.foreach(sb.appendCodePoint)
 		sb.toString
 	}
-	def jsString = for { str <- cadena } yield JsString(str);
+	def jsString: Gen[JsString] = for {str <- cadena} yield JsString(str);
 
 	def jsText: Gen[String] = for { js <- Arbitrary.arbitrary[JsValue] } yield js.prettyPrint
 

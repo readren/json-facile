@@ -5,7 +5,8 @@ import scala.collection.mutable
 object LectorJson {
 	import Interpretador._
 
-	private val MIN_LONG_DIV_10 = java.lang.Long.MIN_VALUE / 10;
+	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
+	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 	private val MIN_INT_DIV_10 = java.lang.Integer.MIN_VALUE / 10;
 
 
@@ -23,10 +24,63 @@ object LectorJson {
 		};
 	}
 
-	/** Invocador de instancias de [[LectorJson]] */
-	def apply[T <: AnyRef](implicit i: LectorJson[T]): LectorJson[T] = i;
+	//////////////////////////////////////////////////
+	//  Interpretadores para tipos nativos de scala //
 
-	implicit val ijInt: LectorJson[java.lang.Integer] = { puntero =>
+	/** Interpretador de String en Json */
+	implicit val ijString: LectorJson[String] = new LectorJson[String] {
+		override def interpretar(puntero: Puntero): String = this.string.interpretar(puntero)
+	}
+
+	/** Interpretador de Int en Json */
+	implicit val ijInt: Interpretador[Int] = { puntero =>
+		if (puntero.ok) {
+			var acum: Int = 0;
+			var limit = 9; // longitud de la mantisa
+
+			var elemApuntado = puntero.elemApuntado;
+			val esNegativo = elemApuntado == '-';
+			if (esNegativo) {
+				limit = java.lang.Integer.MIN_VALUE;
+				puntero.avanzar()
+				elemApuntado = puntero.elemApuntado;
+			};
+			var digit = elemApuntado - '0';
+			if (esNegativo && (digit < 0 || 9 < digit)) {
+				puntero.retroceder();
+				nulo[java.lang.Integer];
+			} else {
+				do {
+					acum = acum * 10 + digit;
+					limit -= 1;
+					puntero.avanzar();
+					elemApuntado = puntero.elemApuntado;
+					digit = elemApuntado - '0';
+				} while (0 <= digit && digit <= 9 && limit > 0);
+
+				if (0 <= digit && digit <= 9) {
+					if (acum > MAX_INT_DIV_10 || (acum == MAX_INT_DIV_10 && (digit == 9 || !esNegativo && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
+						throw new NumberFormatException(s"Overflow while parsing an Int at $puntero");
+					} else {
+						acum = acum * 10 + digit
+						puntero.avanzar();
+						elemApuntado = puntero.elemApuntado;
+						if ('0' <= elemApuntado && elemApuntado <= '9') {
+							throw new NumberFormatException(s"Overflow while parsing an Int at $puntero");
+						}
+					}
+				}
+				if (esNegativo) -acum
+				else acum
+			}
+		} else
+			nulo[java.lang.Integer];
+	}
+
+	/** Interpretador de Int en Json
+	 *
+	 * @deprecated */
+	implicit val ijInt_old: Interpretador[Int] = { puntero =>
 		if (puntero.ok) {
 			var acum: Int = 0;
 			var ok = true;
@@ -39,8 +93,8 @@ object LectorJson {
 				puntero.avanzar()
 				elemApuntado = puntero.elemApuntado;
 			};
-			var digit = Character.digit(elemApuntado, 10);
-			if(esNegativo && (digit < 0 || 9 < digit)) {
+			var digit = elemApuntado - '0';
+			if (esNegativo && (digit < 0 || 9 < digit)) {
 				puntero.retroceder();
 				ok = false;
 			}
@@ -73,53 +127,50 @@ object LectorJson {
 			nulo[java.lang.Integer];
 	}
 
-	implicit val ijLong: LectorJson[java.lang.Long] = { puntero =>
+	/** Interpretador de Long en Json */
+	implicit val ijLong: Interpretador[Long] = { puntero =>
 		if (puntero.ok) {
 			var acum: Long = 0;
-			var ok = true;
-			var limit = -java.lang.Long.MAX_VALUE;
+			var limit = 18; // longitud de la mantisa
 
 			var elemApuntado = puntero.elemApuntado;
 			val esNegativo = elemApuntado == '-';
 			if (esNegativo) {
-				limit = java.lang.Long.MIN_VALUE;
+				limit = java.lang.Integer.MIN_VALUE;
 				puntero.avanzar()
 				elemApuntado = puntero.elemApuntado;
 			};
 			var digit = elemApuntado - '0';
-			if(esNegativo && (digit < 0 || 9 < digit)) {
+			if (esNegativo && (digit < 0 || 9 < digit)) {
 				puntero.retroceder();
-				ok = false;
-			}
-			while (0 <= digit && digit <= 9 && ok) {
-				// si multiplicar por 10 no causará overflow
-				if (acum >= MIN_LONG_DIV_10) {
-					acum = acum * 10L;
-					// si sumar el dígito no causará overflow
-					if (acum >= limit + digit) {
-						acum -= digit;
+				nulo[java.lang.Long];
+			} else {
+				do {
+					acum = acum * 10L + digit;
+					limit -= 1;
+					puntero.avanzar();
+					elemApuntado = puntero.elemApuntado;
+					digit = elemApuntado - '0';
+				} while (0 <= digit && digit <= 9 && limit > 0);
+
+				if (0 <= digit && digit <= 9) {
+					if (acum > MAX_LONG_DIV_10 || (acum == MAX_LONG_DIV_10 && (digit == 9 || !esNegativo && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
+						throw new NumberFormatException(s"Overflow while parsing a Long at $puntero");
+					} else {
+						acum = acum * 10 + digit
 						puntero.avanzar();
 						elemApuntado = puntero.elemApuntado;
-						digit = elemApuntado - '0';
-					} else {
-						ok = false;
+						if ('0' <= elemApuntado && elemApuntado <= '9') {
+							throw new NumberFormatException(s"Overflow while parsing a Long at $puntero");
+						}
 					}
-				} else {
-					ok = false;
 				}
-			}
-			if (ok) {
-				if (esNegativo) acum
-				else -acum
-			} else {
-				//				// dado que Long no tiene nulo, poner el puntero en falla.
-				//				puntero.ponerEnFalla(true);
-				nulo[java.lang.Long]
+				if (esNegativo) -acum
+				else acum
 			}
 		} else
 			nulo[java.lang.Long];
 	}
-
 }
 
 import LectorJson._
@@ -149,7 +200,7 @@ abstract class LectorJson[T <: AnyRef] extends Interpretador[T] {
 		case 'r' => '\r'.toInt
 		case 't' => '\t'.toInt
 	} | hexCode
-	protected def string: Interpretador[String] = skipSpaces ~> '\"' ~> (normalChar | escape).repGen(new CodePointStrBuilder) <~ '\"'
+	def string: Interpretador[String] = skipSpaces ~> '\"' ~> (normalChar | escape).repGen(new CodePointStrBuilder) <~ '\"'
 
 	private def digit: Interpretador[Elem] = aceptaElemSi(Character.isDigit)
 	private def skipDigits: Interpretador[Pos] = { puntero =>

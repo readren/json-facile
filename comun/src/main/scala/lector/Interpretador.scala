@@ -93,6 +93,9 @@ object Interpretador {
 			nulo[A]
 		}
 	}
+
+	/** Invocador de instancias de [[Interpretador]] */
+	def apply[T](implicit i: Interpretador[T]): Interpretador[T] = i;
 }
 
 

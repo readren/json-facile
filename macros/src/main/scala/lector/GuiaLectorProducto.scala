@@ -5,18 +5,18 @@ import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 
 
-trait GuiaLectorProducto[+T <: AnyRef] {
+trait GuiaLectorProducto[T <: AnyRef] {
 	val className: String;
-	val infoCampos: ListMap[String, GuiaLectorProducto.InfoCampo[_ <: AnyRef]];
+	val infoCampos: ListMap[String, GuiaLectorProducto.InfoCampo[_]];
 	def crear(args: Seq[AnyRef]): T
 }
 
 object GuiaLectorProducto {
 
-	case class InfoCampo[T <: AnyRef](interpretador: Interpretador[T], oValorPorOmision: Option[T])
+	case class InfoCampo[C](interpretador: Interpretador[C], oValorPorOmision: Option[C])
 
 	/** Invocador de instancias de Guia */
-	implicit def apply[T <: AnyRef](implicit guia: GuiaLectorProducto[T]): GuiaLectorProducto[T] = guia;
+//	implicit def apply[T <: AnyRef](implicit guia: GuiaLectorProducto[T]): GuiaLectorProducto[T] = guia;
 
 	/** Macro implicit materializer de instancias de [[GuiaLectorProducto]] que extienden [[AnyRef]]. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeGuia[T <: AnyRef]: GuiaLectorProducto[T] = macro materializeGuiaImpl[T]
@@ -30,15 +30,15 @@ object GuiaLectorProducto {
 	 *	new GuiaLectorProducto[Person[Double]] {
 	 *		override val className: String = className;
 	 *
-	 *		override val infoCampos: ListMap[String, InfoCampo[_ <: Any]] = {
+	 *		override val infoCampos: ListMap[String, InfoCampo[_]] = {
 	 *
 	 *			val builder = ListMap.newBuilder[String, InfoCampo[_ <: Any]];
 	 *
-	 *			val name = LectorJson.apply[String];
+	 *			val name = Interpretador.apply[String];
 	 *			builder.addOne(("name", InfoCampo(name, None)));
-	 *			val age = LectorJson.apply[Int];
+	 *			val age = Interpretador.apply[Int];
 	 *			builder.addOne(("age", InfoCampo(age, None)));
-	 *			val work = LectorJson.apply[Double];
+	 *			val work = Interpretador.apply[Double];
 	 *			builder.addOne(("campoN", InfoCampo(work, None)));
 	 *
 	 *			builder.result();
@@ -50,14 +50,18 @@ object GuiaLectorProducto {
 	 *	}
 	 * }}}
 	 */
-	def materializeGuiaImpl[T <: AnyRef](c: blackbox.Context)(implicit wtt: c.WeakTypeTag[T]): c.Expr[GuiaLectorProducto[T]] = {
+	def materializeGuiaImpl[T <: AnyRef : c.WeakTypeTag](c: blackbox.Context): c.Expr[GuiaLectorProducto[T]] = {
 		import c.universe._
-		val tpe: Type = wtt.tpe
-		val className: String = tpe.toString
+		val tWtt: WeakTypeTag[T] = c.weakTypeTag[T];
+		val tType: Type = tWtt.tpe;
+		val tSymbol: Symbol = tType.typeSymbol;
+		if (!tSymbol.isClass) c.abort(c.enclosingPosition, s"$tSymbol is not a class and only classes are supported");
+
+		val className: String = show(tType)
 		c.echo(c.enclosingPosition, s"Expandiendo GuiaLectorProducto[$className]")
 
-		val ctorSymbol = tpe.decl(termNames.CONSTRUCTOR).asTerm.alternatives.map(_.asMethod).find(_.isPrimaryConstructor).get
-		val paramLists = ctorSymbol.typeSignatureIn(tpe).paramLists;
+		val ctorSymbol = tType.decl(termNames.CONSTRUCTOR).asTerm.alternatives.map(_.asMethod).find(_.isPrimaryConstructor).get
+		val paramLists = ctorSymbol.typeSignatureIn(tType).paramLists;
 		c.echo(c.enclosingPosition, s"CtorSymbos=$ctorSymbol, paramsList=$paramLists")
 
 		val invocacionesLectoresArgs = for {
@@ -66,8 +70,8 @@ object GuiaLectorProducto {
 		} yield {
 			val paramTerm = param.asTerm
 			q"""
-					val ${paramTerm.name} = LectorJson.apply[${paramTerm.typeSignatureIn(tpe)}];
-	   				builder.addOne(${paramTerm.name.toString}, ${paramTerm.name})
+					val ${paramTerm.name} = Interpretador.apply[${paramTerm.typeSignatureIn(tType)}];
+	   				builder.addOne((${paramTerm.name.toString}, lector.GuiaLectorProducto.InfoCampo(${paramTerm.name}, None)));
 				"""
 		}
 		c.echo(c.enclosingPosition, s"invocacionesLectores=$invocacionesLectoresArgs")
@@ -77,7 +81,7 @@ object GuiaLectorProducto {
 		val ctorArguments = for (params <- paramLists) yield {
 			for (param <- params) yield {
 				val paramTerm = param.asTerm;
-				val argTree = q"$argsTermName($indiceArg).asInstanceOf[${paramTerm.typeSignatureIn(tpe)}]";
+				val argTree = q"$argsTermName($indiceArg).asInstanceOf[${paramTerm.typeSignatureIn(tType)}]";
 				indiceArg += 1;
 				argTree
 			}
@@ -85,17 +89,17 @@ object GuiaLectorProducto {
 		c.echo(c.enclosingPosition, s"ctorArguments=$ctorArguments")
 
 		val guia =
-			q"""new GuiaLectorProducto[$tpe] {
+			q"""new GuiaLectorProducto[$tType] {
 						override val className: String = $className;
 
-	  					override val infoCampos: ListMap[String, InfoCampo[_ <: AnyRef]] = {
-							val builder = ListMap.newBuilder[String, InfoCampo[_ <: AnyRef]];
+	  					override val infoCampos: ListMap[String, lector.GuiaLectorProducto.InfoCampo[_]] = {
+							val builder = ListMap.newBuilder[String, lector.GuiaLectorProducto.InfoCampo[_]];
 							..${invocacionesLectoresArgs}
 							builder.result();
 						}
 
-   						override def crear($argsTermName: Seq[AnyRef]):$tpe = {
-		 					new ${tpe.typeSymbol}[${tpe.dealias.typeArgs}](...${ctorArguments});
+   						override def crear($argsTermName: Seq[AnyRef]):$tType = {
+		 					new ${tType.typeSymbol}[${tType.dealias.typeArgs}](...${ctorArguments});
 		 				}
 	   				}
 					"""

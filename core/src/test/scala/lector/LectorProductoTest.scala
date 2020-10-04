@@ -6,11 +6,14 @@ import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
 import scala.language.experimental.macros
-
+import scala.collection.immutable.ListMap;
 
 //noinspection TypeAnnotation
 object LectorProductoTest extends DefaultJsonProtocol {
 
+	case class Simple(texto: String, numero: Long)
+
+	/*
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
 		val Meter, Milimeter = Value;
@@ -35,11 +38,11 @@ object LectorProductoTest extends DefaultJsonProtocol {
 	type Catalog = Map[ThingId, Price]
 	type Inventory = Map[ThingId, Int]
 	case class PresentationData(catalog: Catalog, inventory: Inventory, things: Map[ThingId, Thing])
-
-	case class Simple(texto: String, numero: Long)
+	*/
 
 	// ---- //
-
+	private implicit val simpleFormat = jsonFormat2(Simple)
+	/*
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
 
@@ -74,29 +77,28 @@ object LectorProductoTest extends DefaultJsonProtocol {
 		}
 	}
 	private implicit val presentationDataFormat = jsonFormat3(PresentationData)
-
-	private implicit val simpleFormat = jsonFormat2(Simple)
+	*/
 }
 
 
 class LectorProductoTest extends RefSpec with Matchers with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import LectorProductoTest._
-	import GuiaLectorProducto.apply
 
 	object `blahh` {
 
 		def `ADT simple`: Unit = {
-			val simple = new Simple("hola", 5L)
+			val simple = Simple("hola", 5L)
 
 			val json = simple.toJson.prettyPrint
 			val puntero = new PunteroStr(json)
 
-
-			val inter = new LectorProducto[Long]
+			import LectorJson._;
+			val inter = new LectorProducto[Simple]
 			val pd = inter.interpretar(puntero)
 			assert(pd == simple)
 		}
 
+		/*
 		def `ADT complejo`: Unit = {
 			val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
 			val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
@@ -113,6 +115,7 @@ class LectorProductoTest extends RefSpec with Matchers with ScalaCheckDrivenProp
 
 			assert(pd == presentationData)
 		}
+		 */
 
 		def `viejo`: Unit = {
 //			forAll { (jsObject: JsObject) =>

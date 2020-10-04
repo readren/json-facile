@@ -9,10 +9,10 @@ import lector.LectorJson.MissingFieldException
 class LectorProducto[T <: AnyRef](implicit guia: GuiaLectorProducto[T]) extends LectorJson[T] {
 	import Interpretador._
 
-	private case class Campo[V <: AnyRef](nombre: String, eValor: Either[Pos, V]);
+	private case class Campo[V](nombre: String, eValor: Either[Pos, V]);
 
 
-	private def campo: Interpretador[Campo[_ <: AnyRef]] = skipSpaces ~> string <~ colon >> { nombre =>
+	private def campo: Interpretador[Campo[_]] = skipSpaces ~> string <~ colon >> { nombre =>
 		guia.infoCampos.get(nombre) match {
 			case Some(InfoCampo(interpretadorValorCampo, _)) =>
 				interpretadorValorCampo ^^ { valor => Campo(nombre, Right(valor)) }
