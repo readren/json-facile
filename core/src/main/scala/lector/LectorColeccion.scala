@@ -6,17 +6,18 @@ object LectorColeccion {
 	trait Guia[C, E] {
 		def interpretadorElem: Interpretador[E];
 		def coleccionBuilder: Builder[E, C]
-		val nulableE: Interpretador.Nulable[E];
-		val nulableC: Interpretador.Nulable[C];
+		val ignoraE: Interpretador.Ignora[E];
+		val ignoraC: Interpretador.Ignora[C];
 	}
 }
 
 import LectorColeccion._
 
-class LectorColeccion[C <: AnyRef, E](guia: Guia[C, E]) extends LectorJson[C] {
+class LectorColeccion[C <: AnyRef, E](guia: Guia[C, E]) extends Interpretador[C] {
+	import LectoresJson._
 
-	implicit def nulableE: Interpretador.Nulable[E] = guia.nulableE;
-	implicit def nulableC: Interpretador.Nulable[C] = guia.nulableC;
+	implicit def ignoraE: Interpretador.Ignora[E] = guia.ignoraE;
+	implicit def ignoraC: Interpretador.Ignora[C] = guia.ignoraC;
 
 	private def coleccion: Interpretador[C] =
 		skipSpaces ~> '[' ~> (skipSpaces ~> guia.interpretadorElem).repSepGen(coma, guia.coleccionBuilder) <~ ']'

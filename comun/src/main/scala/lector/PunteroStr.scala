@@ -2,43 +2,61 @@ package lector
 
 import lector.Interpretador.{Elem, Pos, Puntero}
 
-object PunteroStr {
-	private val EN_FALLA_MASK: Long = 0x10_00000000L;
-}
-
-import lector.PunteroStr._
-
 class PunteroStr(contenido: String) extends Puntero {
-	private var posYFalla: Long = 0
 
-	override def pos: Int = posYFalla.toInt
+	private var cursorPos: Int = 0;
+	private var estaFracasado: Boolean = false;
+	private var estaFallado: Boolean = false;
 
-	override def elemApuntado: Elem = contenido.codePointAt(pos);
+	override def pos = cursorPos;
+
+	@inline override def ok: Boolean = !estaFracasado && !estaFallado;
+
+	override def hay: Boolean = {
+		assert(ok);
+		0 <= cursorPos && cursorPos < contenido.length
+	}
+
+	override def enFin: Boolean = {
+		assert(ok)
+		cursorPos == contenido.length
+	}
+
+	override def fracasado: Boolean = estaFracasado;
+
+	override def fallado: Boolean = estaFallado;
+
+	override def elemApuntado: Elem = {
+		assert(hay);
+		contenido.codePointAt(cursorPos)
+	};
 
 	override def viene(esperado: String): Boolean = {
-		((posYFalla & EN_FALLA_MASK)==0) && contenido.regionMatches(pos, esperado, 0, esperado.length)
+		ok && contenido.regionMatches(cursorPos, esperado, 0, esperado.length);
 	};
 
 	override def avanzar(cantPasos: Int): Unit = {
-		val suma = contenido.offsetByCodePoints(pos, cantPasos);
-		posYFalla = suma;
-	}
-	override def retroceder(): Unit = {
-		val suma = contenido.offsetByCodePoints(pos, -1);
-		posYFalla = suma;
+		assert(hay);
+		this.cursorPos = contenido.offsetByCodePoints(cursorPos, cantPasos);
 	}
 
-	override def enFin: Boolean = pos == contenido.length
+	override def fracasar(): Unit = this.estaFracasado = true;
 
-	override def tomarFotoEstado: Long = posYFalla
+	override def fallar(): Unit = this.estaFallado = true;
 
-	override def revertir(estado: Long): this.type = {
-		this.posYFalla = estado
-		this
+	override def reparar(): Unit = {
+		this.estaFracasado = false
+		this.estaFallado = false;
 	}
-	override def ponerEnFalla(enFallaNuevo: Boolean): Unit = {
-		if (enFallaNuevo ^ this.enFalla) posYFalla ^= EN_FALLA_MASK;
-	}
-	override def enFalla: Boolean = (pos & EN_FALLA_MASK) > 0;
 
+
+	override def intentar[@specialized X](bloque: () => X): X = {
+		val memoria = cursorPos;
+		val x = bloque();
+		// si está la marca de fracaso puesta y no la de falla, recuperar posición.
+		if (estaFracasado && !estaFallado) {
+			this.cursorPos = memoria;
+		}
+		x
+	}
 }

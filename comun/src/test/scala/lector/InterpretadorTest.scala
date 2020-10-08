@@ -11,22 +11,25 @@ class InterpretadorTest extends RefSpec {
 		def `aceptaElem('H') debe dar 'H' y avanzar`(): Unit = {
 			val p = new PunteroStr("Hola");
 			assertResult('H')(aceptaChar('H').interpretar(p))
+			assert(p.ok && !p.fallado && !p.enFin)
 			assert(p.pos == 1)
 		}
 		def `aceptaElem('P') debe dar nulo[Char] sin avanzar`(): Unit = {
 			val p = new PunteroStr("Hola");
-			assertResult(nulo[Elem])(aceptaChar('J').interpretar(p))
+			aceptaChar('J').interpretar(p);
+			assert(!p.ok && !p.fallado)
 			assert(p.pos == 0)
 		}
 
 		def `aceptarStr("Hola") debe dar "Hola" y avanzar hasta el final`(): Unit = {
 			val p = new PunteroStr("Hola");
 			assertResult("Hola")(aceptaStr("Hola").interpretar(p))
-			assert(p.pos == "Hola".length)
+			assert(p.ok && !p.fallado && p.enFin)
 		}
-		def `aceptarElem('Hello') debe dar nulo[String] sin avanzar`(): Unit = {
+		def `aceptarElem('Hello') debe fracasar sin avanzar`(): Unit = {
 			val p = new PunteroStr("Hola");
-			assertResult(nulo[String])(aceptaStr("Hello").interpretar(p))
+			aceptaStr("Hello").interpretar(p)
+			assert(!p.ok && !p.fallado)
 			assert(p.pos == 0)
 		}
 	}
@@ -38,8 +41,9 @@ class InterpretadorTest extends RefSpec {
 
 		def `la concatenacion funciona bien`(): Unit = {
 			val p = new PunteroStr("El primero y el segundo");
-			val i = ("El" ~ " ".rep) ~> "primero"
-			assertResult("primero")(i.interpretar(p))
+			val i = ("El" ~ ' '.rep) ~> "primero" ~ (" y el " ~> (aceptaElemSi(Character.isAlphabetic).rep1 ^^ (_.map(_.toChar).mkString)))
+			assertResult(new ~("primero", "segundo"))(i.interpretar(p))
+			assert(p.ok && !p.fallado && p.enFin)
 		}
 
 		def `el | debe funcionar`(): Unit = {
@@ -47,17 +51,22 @@ class InterpretadorTest extends RefSpec {
 			val i = "primero" | "segundo"
 			val t = (letra.rep ~ espacio) ~> i ~ ((espacio ~ "y el" ~ espacio) ~> i)
 			assertResult(new ~("primero", "segundo"))(t.interpretar(p))
+			assert(p.ok && p.enFin && !p.fallado && !p.fracasado)
 		}
 
-		def `el estricto debe funcionar`(): Unit = {
+		def `el orFail debe funcionar`(): Unit = {
 			val p = new PunteroStr("bla/1ble/2bli/3blo/otra");
-			var testimonio = false;
-			val i1 = '/' ~> digito.estricto
-			val i2 = '#' ~> digito.map { x => testimonio = true; x }
-			val t = (i1 | i2 | letra).rep
+			val escape = '/' ~> digito.orFail
+			val t = (escape | letra).rep ^^ {_.map(_.toChar).mkString}
 			t.interpretar(p)
-			assert(p.pos == 18)
-			assert(!testimonio)
+			assert(!p.ok && p.fallado && p.pos == 19)
+		}
+		def `el recoverWith debe funcionar`(): Unit = {
+			val p = new PunteroStr("bla/1ble/bli/3blo");
+			val escape = '/' ~> digito.orFail;
+			val t = (letra | escape).rep1.recover(List('-'.toInt)).rep ^^ { x => x.flatten.map(_.toChar).mkString }
+			assertResult("-bli3blo")(t.interpretar(p));
+			assert(p.ok && p.enFin && !p.fallado);
 		}
 	}
 }

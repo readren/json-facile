@@ -9,11 +9,11 @@ import scala.language.experimental.macros
 import scala.collection.immutable.ListMap;
 
 //noinspection TypeAnnotation
-object LectorProductoTest extends DefaultJsonProtocol {
+object LectorProductoTest extends DefaultJsonProtocol with LectoresJson {
 
 	case class Simple(texto: String, numero: Long)
+	case class Anidado(nombre: String, interno: Simple)
 
-	/*
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
 		val Meter, Milimeter = Value;
@@ -38,11 +38,11 @@ object LectorProductoTest extends DefaultJsonProtocol {
 	type Catalog = Map[ThingId, Price]
 	type Inventory = Map[ThingId, Int]
 	case class PresentationData(catalog: Catalog, inventory: Inventory, things: Map[ThingId, Thing])
-	*/
 
 	// ---- //
 	private implicit val simpleFormat = jsonFormat2(Simple)
-	/*
+	private implicit val anidadoFormat = jsonFormat2(Anidado)
+
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
 
@@ -77,14 +77,16 @@ object LectorProductoTest extends DefaultJsonProtocol {
 		}
 	}
 	private implicit val presentationDataFormat = jsonFormat3(PresentationData)
-	*/
+
 }
 
 
 class LectorProductoTest extends RefSpec with Matchers with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import LectorProductoTest._
+	import LectoresJson._;
+	import GuiaLectorProducto.materializeGuia
 
-	object `blahh` {
+	object `Debe funcionar tanto para ` {
 
 		def `ADT simple`: Unit = {
 			val simple = Simple("hola", 5L)
@@ -92,30 +94,38 @@ class LectorProductoTest extends RefSpec with Matchers with ScalaCheckDrivenProp
 			val json = simple.toJson.prettyPrint
 			val puntero = new PunteroStr(json)
 
-			import LectorJson._;
 			val inter = new LectorProducto[Simple]
 			val pd = inter.interpretar(puntero)
 			assert(pd == simple)
 		}
 
-		/*
-		def `ADT complejo`: Unit = {
-			val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
-			val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
-			val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
+		def `ADT anidado`: Unit = {
+			val anidado = Anidado("chau", Simple("hola", 5L))
 
-			val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
-			val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
-			val presentationData = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
-
-			val json = presentationData.toJson.prettyPrint
+			val json = anidado.toJson.prettyPrint
 			val puntero = new PunteroStr(json)
-			val inter = new LectorProducto[PresentationData]
-			val pd = inter.interpretar(puntero)
 
-			assert(pd == presentationData)
+			val inter = new LectorProducto[Anidado]
+			val pd = inter.interpretar(puntero)
+			assert(pd == anidado)
 		}
-		 */
+
+//		def `ADT complejo`: Unit = {
+//			val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
+//			val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
+//			val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
+//
+//			val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
+//			val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
+//			val presentationData = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
+//
+//			val json = presentationData.toJson.prettyPrint
+//			val puntero = new PunteroStr(json)
+//			val inter = new LectorProducto[PresentationData]
+//			val pd = inter.interpretar(puntero)
+//
+//			assert(pd == presentationData)
+//		}
 
 		def `viejo`: Unit = {
 //			forAll { (jsObject: JsObject) =>

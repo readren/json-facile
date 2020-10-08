@@ -4,31 +4,42 @@ import scala.collection.mutable
 import scala.language.experimental.macros
 
 import lector.GuiaLectorProducto.InfoCampo
-import lector.LectorJson.MissingFieldException
+import lector.LectoresJson.MissingFieldException
 
-class LectorProducto[T <: AnyRef](implicit guia: GuiaLectorProducto[T]) extends LectorJson[T] {
+object LectorProducto {
+	trait Campo[V] { def nombre: String }
+	private case class CampoDefinido[V](nombre: String, valor: V) extends Campo[V];
+	private object CampoIndefinido extends Campo[Nothing] {
+		override def nombre: String = null.asInstanceOf[String]
+	}
+}
+
+class LectorProducto[T <: AnyRef](implicit guia: GuiaLectorProducto[T]) extends Interpretador[T] {
+	import LectorProducto._
 	import Interpretador._
+	import LectoresJson._
 
-	private case class Campo[V](nombre: String, eValor: Either[Pos, V]);
+//	assert(guia != null)
 
+	private val campo: Interpretador[Campo[_]] = {
+		string <~ skipSpaces <~ colon <~ skipSpaces >> { nombre =>
+			guia.infoCampos.get(nombre) match {
+				case Some(InfoCampo(interpretadorValorCampo, _, _)) =>
+					interpretadorValorCampo ^^ { CampoDefinido(nombre, _) }
 
-	private def campo: Interpretador[Campo[_]] = skipSpaces ~> string <~ colon >> { nombre =>
-		guia.infoCampos.get(nombre) match {
-			case Some(InfoCampo(interpretadorValorCampo, _)) =>
-				interpretadorValorCampo ^^ { valor => Campo(nombre, Right(valor)) }
+				case None =>
+					skipJsValue ^^^ CampoIndefinido
 
-			case None =>
-				skipJsValue ^^ { pos =>  Campo(nombre, Left(pos)) }
-
+			}
 		}
 	}
 
-	private def objeto: Interpretador[T] = '{' ~> campo.rep1SepGen(coma, () => List.newBuilder) <~ skipSpaces <~ '}' ^^ { campos =>
-		val argsBuilder: mutable.Builder[AnyRef, List[AnyRef]] = List.newBuilder;
-		for ((nombreCampo, infoCampo) <- guia.infoCampos) {
-			campos.find(_.nombre == nombreCampo) match {
-				case Some(Campo(_, Right(valorInterpretado))) =>
-					argsBuilder.addOne(valorInterpretado)
+	private val objeto: Interpretador[T] = '{' ~> skipSpaces ~> (campo <~ skipSpaces).rep1SepGen(coma ~> skipSpaces, () => List.newBuilder) <~ '}' ^^ { campos =>
+		val argsBuilder: mutable.Builder[Any, List[Any]] = List.newBuilder;
+		for {(nombreCampo, infoCampo) <- guia.infoCampos } {
+			campos.find(nombreCampo == _.nombre) match {
+				case Some(campo) =>
+					argsBuilder.addOne(campo.asInstanceOf[CampoDefinido[_]].valor)
 
 				case None if infoCampo.oValorPorOmision.isDefined =>
 					argsBuilder.addOne(infoCampo.oValorPorOmision.get)
@@ -41,3 +52,4 @@ class LectorProducto[T <: AnyRef](implicit guia: GuiaLectorProducto[T]) extends 
 
 	override def interpretar(puntero: Puntero): T = objeto.interpretar(puntero)
 }
+
