@@ -5,7 +5,7 @@ sealed abstract class Pila {
 	def ::[T](tope: T): ::[T, this.type] = new ::(tope, this)
 }
 
-final case class ::[+T, +P <: Pila](tope: T, pila: P) extends Pila
+final case class ::[@specialized +T, +P <: Pila](tope: T, pila: P) extends Pila
 
 final case object Base extends Pila
 

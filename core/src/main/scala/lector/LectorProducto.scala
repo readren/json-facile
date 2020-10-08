@@ -1,7 +1,6 @@
 package lector
 
 import scala.collection.mutable
-import scala.language.experimental.macros
 
 import lector.GuiaLectorProducto.InfoCampo
 import lector.LectoresJson.MissingFieldException
@@ -19,7 +18,7 @@ class LectorProducto[T <: AnyRef](implicit guia: GuiaLectorProducto[T]) extends 
 	import Interpretador._
 	import LectoresJson._
 
-//	assert(guia != null)
+	assert(guia != null)
 
 	private val campo: Interpretador[Campo[_]] = {
 		string <~ skipSpaces <~ colon <~ skipSpaces >> { nombre =>

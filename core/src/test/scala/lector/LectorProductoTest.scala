@@ -3,10 +3,7 @@ package lector
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
-import scala.language.experimental.macros
-import scala.collection.immutable.ListMap;
 
 //noinspection TypeAnnotation
 object LectorProductoTest extends DefaultJsonProtocol with LectoresJson {
@@ -81,58 +78,61 @@ object LectorProductoTest extends DefaultJsonProtocol with LectoresJson {
 }
 
 
-class LectorProductoTest extends RefSpec with Matchers with ScalaCheckDrivenPropertyChecks with JsonGen {
+//noinspection TypeAnnotation
+class LectorProductoTest extends RefSpec with Matchers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import LectorProductoTest._
-	import LectoresJson._;
 	import GuiaLectorProducto.materializeGuia
 
-	object `Debe funcionar tanto para ` {
+	val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
-		def `ADT simple`: Unit = {
-			val simple = Simple("hola", 5L)
+	object `Given some sample data type's instances...` {
 
-			val json = simple.toJson.prettyPrint
-			val puntero = new PunteroStr(json)
+		val simpleOriginal = Simple("hola", 5L)
+		val simpleJson = simpleOriginal.toJson.prettyPrint
+		val anidadoOriginal = Anidado("chau", Simple("hola", 5L))
+		val anidadoJson = anidadoOriginal.toJson.prettyPrint
 
-			val inter = new LectorProducto[Simple]
-			val pd = inter.interpretar(puntero)
-			assert(pd == simple)
+		val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
+		val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
+		val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
+		val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
+		val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
+		val presentationDataOriginal = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
+		val presentationDataJson = presentationDataOriginal.toJson.prettyPrint
+
+		def `Implicit resolution of the interpreters should work`(): Unit = {
+			//	import universe._
+//			val rs = reify(implicitly[lector.GuiaLectorProducto[Simple]])
+
+			val guiaSimple = implicitly[GuiaLectorProducto[Simple]];
+			assert(guiaSimple != null && guiaSimple.infoCampos.nonEmpty && guiaSimple.infoCampos.forall(_._2.interpretador!=null))
+
+			val lectorProducto = new LectorProducto[Simple]
+			assert(lectorProducto != null && lectorProducto.interpretar(new PunteroStr(simpleJson)) == simpleOriginal)
+
+			val iSimple = Interpretador.apply[Simple]
+			assert(iSimple.isInstanceOf[LectorProducto[Simple]])
 		}
 
-		def `ADT anidado`: Unit = {
-			val anidado = Anidado("chau", Simple("hola", 5L))
-
-			val json = anidado.toJson.prettyPrint
-			val puntero = new PunteroStr(json)
-
-			val inter = new LectorProducto[Anidado]
-			val pd = inter.interpretar(puntero)
-			assert(pd == anidado)
+		def `Json interpretation should work for a simple product`(): Unit = {
+			val puntero = new PunteroStr(simpleJson)
+			val iSimple = Interpretador.apply[Simple]
+			val simpleInterpretado = iSimple.interpretar(puntero)
+			assert(simpleInterpretado == simpleOriginal)
 		}
 
-//		def `ADT complejo`: Unit = {
-//			val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
-//			val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
-//			val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
-//
-//			val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
-//			val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
-//			val presentationData = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
-//
-//			val json = presentationData.toJson.prettyPrint
-//			val puntero = new PunteroStr(json)
-//			val inter = new LectorProducto[PresentationData]
-//			val pd = inter.interpretar(puntero)
-//
-//			assert(pd == presentationData)
-//		}
+		def `Json interpretation should work for ADTs with nested products`(): Unit = {
+			val puntero = new PunteroStr(anidadoJson)
+			val iAnidado = Interpretador.apply[Anidado]
+			val anidadoInterpretado = iAnidado.interpretar(puntero)
+			assert(anidadoInterpretado == anidadoOriginal)
+		}
 
-		def `viejo`: Unit = {
-//			forAll { (jsObject: JsObject) =>
-//				val jsText = jsObject.prettyPrint
-//
-//				val ijo = new InterpretadorJsObject
-//			}
+		def `Json interpretation should work for ADTs with both, products and coproducts`(): Unit = {
+			val puntero = new PunteroStr(presentationDataJson)
+			val iPresentationData = new LectorProducto[PresentationData]
+			val presentationDataInterpretado = iPresentationData.interpretar(puntero)
+			assert(presentationDataInterpretado == presentationDataOriginal)
 		}
 	}
 

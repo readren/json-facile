@@ -1,5 +1,6 @@
 package lector
 
+import scala.collection.immutable.ListMap
 import scala.collection.mutable
 
 /** Tanto los métodos de este objeto como los [[Interpretador]]es dados por ellos son thread safe. */
@@ -77,13 +78,18 @@ object LectoresJson {
 		}
 	}
 
-
 	trait LectoresJsonLowPriority {
+
+//		implicit def materializeGuia[T <: AnyRef]: GuiaLectorProducto[T] = new GuiaLectorProducto[T] {
+//			override val className: String = "Borrame"
+//			override val infoCampos: ListMap[String, GuiaLectorProducto.InfoCampo[_]] = ListMap.empty
+//			override def crear(args: Seq[Any]): T = ???
+//		}
+
 		/** Invocador de instancias de [[LectorProducto]] */
 		implicit def ijClass[C <: AnyRef]: Interpretador[C] = new LectorProducto[C]
 
 	}
-
 }
 
 

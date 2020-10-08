@@ -13,7 +13,7 @@ trait GuiaLectorProducto[T <: AnyRef] {
 
 object GuiaLectorProducto {
 
-	case class InfoCampo[C](interpretador: Interpretador[C], oValorPorOmision: Option[C], borrrame: Any)
+	case class InfoCampo[C](interpretador: Interpretador[C], oValorPorOmision: Option[C], debug: Any) // TODO delete the debug field
 
 	/** Invocador de instancias de Guia */
 //	implicit def apply[T <: AnyRef](implicit guia: GuiaLectorProducto[T]): GuiaLectorProducto[T] = guia;
