@@ -1,4 +1,4 @@
-package lector
+package read
 
 
 import org.scalatest.matchers.should.Matchers
@@ -6,7 +6,7 @@ import org.scalatest.refspec.RefSpec
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
 
 //noinspection TypeAnnotation
-object LectorProductoTest extends DefaultJsonProtocol with LectoresJson {
+object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
 
 	case class Simple(texto: String, numero: Long)
 	case class Anidado(nombre: String, interno: Simple)
@@ -79,9 +79,9 @@ object LectorProductoTest extends DefaultJsonProtocol with LectoresJson {
 
 
 //noinspection TypeAnnotation
-class LectorProductoTest extends RefSpec with Matchers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
-	import LectorProductoTest._
-	import GuiaLectorProducto.materializeGuia
+class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
+	import ProductParserTest._
+	import ProductParserHelper.materializeHelper
 
 	val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
@@ -104,34 +104,34 @@ class LectorProductoTest extends RefSpec with Matchers { // with ScalaCheckDrive
 			//	import universe._
 //			val rs = reify(implicitly[lector.GuiaLectorProducto[Simple]])
 
-			val guiaSimple = implicitly[GuiaLectorProducto[Simple]];
-			assert(guiaSimple != null && guiaSimple.infoCampos.nonEmpty && guiaSimple.infoCampos.forall(_._2.interpretador!=null))
+			val guiaSimple = implicitly[ProductParserHelper[Simple]];
+			assert(guiaSimple != null && guiaSimple.fieldsInfo.nonEmpty && guiaSimple.fieldsInfo.forall(_._2.valueParser != null))
 
-			val lectorProducto = new LectorProducto[Simple]
-			assert(lectorProducto != null && lectorProducto.interpretar(new PunteroStr(simpleJson)) == simpleOriginal)
+			val lectorProducto = new ProductParser[Simple]
+			assert(lectorProducto != null && lectorProducto.parse(new CursorStr(simpleJson)) == simpleOriginal)
 
-			val iSimple = Interpretador.apply[Simple]
-			assert(iSimple.isInstanceOf[LectorProducto[Simple]])
+			val iSimple = Parser.apply[Simple]
+			assert(iSimple.isInstanceOf[ProductParser[Simple]])
 		}
 
 		def `Json interpretation should work for a simple product`(): Unit = {
-			val puntero = new PunteroStr(simpleJson)
-			val iSimple = Interpretador.apply[Simple]
-			val simpleInterpretado = iSimple.interpretar(puntero)
+			val puntero = new CursorStr(simpleJson)
+			val iSimple = Parser.apply[Simple]
+			val simpleInterpretado = iSimple.parse(puntero)
 			assert(simpleInterpretado == simpleOriginal)
 		}
 
 		def `Json interpretation should work for ADTs with nested products`(): Unit = {
-			val puntero = new PunteroStr(anidadoJson)
-			val iAnidado = Interpretador.apply[Anidado]
-			val anidadoInterpretado = iAnidado.interpretar(puntero)
+			val puntero = new CursorStr(anidadoJson)
+			val iAnidado = Parser.apply[Anidado]
+			val anidadoInterpretado = iAnidado.parse(puntero)
 			assert(anidadoInterpretado == anidadoOriginal)
 		}
 
 		def `Json interpretation should work for ADTs with both, products and coproducts`(): Unit = {
-			val puntero = new PunteroStr(presentationDataJson)
-			val iPresentationData = new LectorProducto[PresentationData]
-			val presentationDataInterpretado = iPresentationData.interpretar(puntero)
+			val puntero = new CursorStr(presentationDataJson)
+			val iPresentationData = new ProductParser[PresentationData]
+			val presentationDataInterpretado = iPresentationData.parse(puntero)
 			assert(presentationDataInterpretado == presentationDataOriginal)
 		}
 	}

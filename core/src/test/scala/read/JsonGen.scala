@@ -1,4 +1,4 @@
-package lector
+package read
 
 /**
   * Generator of JSONType objects with a given tree depth
