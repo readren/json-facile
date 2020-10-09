@@ -111,8 +111,8 @@ object ProductParserHelper {
 			c.Expr[ProductParserHelper[T]](helper)
 
 		} else {
+			c.warning(c.enclosingPosition, s"$tSymbol is not a class and only classes are supported")
 			c.Expr[ProductParserHelper[T]](q"")
-//			c.error(c.enclosingPosition, s"$tSymbol is not a class and only classes are supported")
 		}
 	}
 

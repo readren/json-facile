@@ -8,25 +8,25 @@ class ParserTest extends RefSpec {
 
 	object `Sea el contenido "Hola"` {
 
-		def `aceptaElem('H') debe dar 'H' y avanzar`(): Unit = {
+		def `acceptChar('H') should hit, give 'H' and advance`(): Unit = {
 			val p = new CursorStr("Hola");
 			assertResult('H')(acceptChar('H').parse(p))
 			assert(p.ok && !p.failed && !p.atEnd)
 			assert(p.pos == 1)
 		}
-		def `aceptaElem('P') debe dar nulo[Char] sin avanzar`(): Unit = {
+		def `acceptChar('P') should miss and stay`(): Unit = {
 			val p = new CursorStr("Hola");
 			acceptChar('J').parse(p);
 			assert(!p.ok && !p.failed)
 			assert(p.pos == 0)
 		}
 
-		def `aceptarStr("Hola") debe dar "Hola" y avanzar hasta el final`(): Unit = {
+		def `acceptStr("Hola") should hit, give "Hola", and avance until end`(): Unit = {
 			val p = new CursorStr("Hola");
 			assertResult("Hola")(acceptStr("Hola").parse(p))
 			assert(p.ok && !p.failed && p.atEnd)
 		}
-		def `aceptarElem('Hello') debe fracasar sin avanzar`(): Unit = {
+		def `acceptStr('Hello') should miss and stay`(): Unit = {
 			val p = new CursorStr("Hola");
 			acceptStr("Hello").parse(p)
 			assert(!p.ok && !p.failed)
@@ -35,36 +35,36 @@ class ParserTest extends RefSpec {
 	}
 	object `Sea el contenido "El primero y el segundo"` {
 
-		private val letra = acceptElemIf(Character.isAlphabetic)
-		private val digito = acceptElemIf(Character.isDigit)
-		private val espacio = acceptElemIf(Character.isSpaceChar)
+		private val alpha = acceptElemIf(Character.isAlphabetic)
+		private val digit = acceptElemIf(Character.isDigit)
+		private val space = acceptElemIf(Character.isSpaceChar)
 
-		def `la concatenacion funciona bien`(): Unit = {
+		def `pursue should work`(): Unit = {
 			val p = new CursorStr("El primero y el segundo");
 			val i = ("El" ~ ' '.rep) ~> "primero" ~ (" y el " ~> (acceptElemIf(Character.isAlphabetic).rep1 ^^ (_.map(_.toChar).mkString)))
 			assertResult(new ~("primero", "segundo"))(i.parse(p))
 			assert(p.ok && !p.failed && p.atEnd)
 		}
 
-		def `el | debe funcionar`(): Unit = {
+		def `orElse should work`(): Unit = {
 			val p = new CursorStr("El primero y el segundo");
 			val i = "primero" | "segundo"
-			val t = (letra.rep ~ espacio) ~> i ~ ((espacio ~ "y el" ~ espacio) ~> i)
+			val t = (alpha.rep ~ space) ~> i ~ ((space ~ "y el" ~ space) ~> i)
 			assertResult(new ~("primero", "segundo"))(t.parse(p))
 			assert(p.ok && p.atEnd && !p.failed && !p.missed)
 		}
 
-		def `el orFail debe funcionar`(): Unit = {
+		def `orFail should work`(): Unit = {
 			val p = new CursorStr("bla/1ble/2bli/3blo/otra");
-			val escape = '/' ~> digito.orFail
-			val t = (escape | letra).rep ^^ {_.map(_.toChar).mkString}
+			val escape = '/' ~> digit.orFail
+			val t = (escape | alpha).rep ^^ {_.map(_.toChar).mkString}
 			t.parse(p)
 			assert(!p.ok && p.failed && p.pos == 19)
 		}
-		def `el recoverWith debe funcionar`(): Unit = {
+		def `recover shouldWork`(): Unit = {
 			val p = new CursorStr("bla/1ble/bli/3blo");
-			val escape = '/' ~> digito.orFail;
-			val t = (letra | escape).rep1.recover(List('-'.toInt)).rep ^^ { x => x.flatten.map(_.toChar).mkString }
+			val escape = '/' ~> digit.orFail;
+			val t = (alpha | escape).rep1.recover(List('-'.toInt)).rep ^^ { x => x.flatten.map(_.toChar).mkString }
 			assertResult("-bli3blo")(t.parse(p));
 			assert(p.ok && p.atEnd && !p.failed);
 		}

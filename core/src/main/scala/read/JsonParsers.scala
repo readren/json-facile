@@ -95,10 +95,10 @@ object JsonParsers {
 trait JsonParsers extends JsonParsers.LectoresJsonLowPriority {
 	import JsonParsers._
 
-	implicit val jrString: Parser[String] = JsonParsers.string;
+	implicit val jpString: Parser[String] = JsonParsers.string;
 
 	/** Interpretador de Int en Json */
-	implicit val jrInt: Parser[Int] = { cursor =>
+	implicit val jpInt: Parser[Int] = { cursor =>
 		if (cursor.ok) {
 			cursor.attempt { () =>
 				var accum: Int = 0;
@@ -143,7 +143,7 @@ trait JsonParsers extends JsonParsers.LectoresJsonLowPriority {
 	}
 
 	/** Interpretador de Long en Json */
-	implicit val jrLong: Parser[Long] = { cursor =>
+	implicit val jpLong: Parser[Long] = { cursor =>
 		if (cursor.ok) {
 			cursor.attempt { () =>
 				var accum: Long = 0;

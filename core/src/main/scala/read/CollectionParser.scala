@@ -22,5 +22,5 @@ class CollectionParser[C <: AnyRef, E](helper: CollectionReaderHelper[C, E]) ext
 	private def collectionParser: Parser[C] =
 		skipSpaces ~> '[' ~> (skipSpaces ~> helper.elemValueParser).repSepGen(coma, helper.collectionBuilder) <~ ']'
 
-	override def parse(puntero: Parser.Cursor): C = collectionParser.parse(puntero)
+	override def parse(cursor: Parser.Cursor): C = collectionParser.parse(cursor)
 }

@@ -8,8 +8,8 @@ import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsVa
 //noinspection TypeAnnotation
 object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
 
-	case class Simple(texto: String, numero: Long)
-	case class Anidado(nombre: String, interno: Simple)
+	case class Simple(text: String, number: Long)
+	case class Anidado(name: String, simple: Simple)
 
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
@@ -78,61 +78,60 @@ object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
 }
 
 
-//noinspection TypeAnnotation
+
 class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
 	import ProductParserHelper.materializeHelper
 
-	val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
+	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
 	object `Given some sample data type's instances...` {
 
-		val simpleOriginal = Simple("hola", 5L)
-		val simpleJson = simpleOriginal.toJson.prettyPrint
-		val anidadoOriginal = Anidado("chau", Simple("hola", 5L))
-		val anidadoJson = anidadoOriginal.toJson.prettyPrint
-
-		val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
-		val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
-		val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
-		val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
-		val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
-		val presentationDataOriginal = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
-		val presentationDataJson = presentationDataOriginal.toJson.prettyPrint
+		private val simpleOriginal = Simple("hola", 5L)
+		private val simpleJson = simpleOriginal.toJson.prettyPrint
+		private val anidadoOriginal = Anidado("chau", Simple("hola", 5L))
+		private val anidadoJson = anidadoOriginal.toJson.prettyPrint
+		private val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
+		private val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
+		private val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
+		private val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
+		private val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
+		private val presentationDataOriginal = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
+		private val presentationDataJson = presentationDataOriginal.toJson.prettyPrint
 
 		def `Implicit resolution of the interpreters should work`(): Unit = {
 			//	import universe._
 //			val rs = reify(implicitly[lector.GuiaLectorProducto[Simple]])
 
-			val guiaSimple = implicitly[ProductParserHelper[Simple]];
-			assert(guiaSimple != null && guiaSimple.fieldsInfo.nonEmpty && guiaSimple.fieldsInfo.forall(_._2.valueParser != null))
+			val simpleHelper = implicitly[ProductParserHelper[Simple]];
+			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_._2.valueParser != null))
 
-			val lectorProducto = new ProductParser[Simple]
-			assert(lectorProducto != null && lectorProducto.parse(new CursorStr(simpleJson)) == simpleOriginal)
+			val productParser = new ProductParser[Simple]
+			assert(productParser != null && productParser.parse(new CursorStr(simpleJson)) == simpleOriginal)
 
-			val iSimple = Parser.apply[Simple]
-			assert(iSimple.isInstanceOf[ProductParser[Simple]])
+			val simpleParser = Parser.apply[Simple]
+			assert(simpleParser.isInstanceOf[ProductParser[Simple]])
 		}
 
 		def `Json interpretation should work for a simple product`(): Unit = {
-			val puntero = new CursorStr(simpleJson)
-			val iSimple = Parser.apply[Simple]
-			val simpleInterpretado = iSimple.parse(puntero)
-			assert(simpleInterpretado == simpleOriginal)
+			val cursor = new CursorStr(simpleJson)
+			val simpleParser = Parser.apply[Simple]
+			val simpleParsed = simpleParser.parse(cursor)
+			assert(simpleParsed == simpleOriginal)
 		}
 
 		def `Json interpretation should work for ADTs with nested products`(): Unit = {
-			val puntero = new CursorStr(anidadoJson)
-			val iAnidado = Parser.apply[Anidado]
-			val anidadoInterpretado = iAnidado.parse(puntero)
-			assert(anidadoInterpretado == anidadoOriginal)
+			val cursor = new CursorStr(anidadoJson)
+			val anidadoParser = Parser.apply[Anidado]
+			val anidadoParsed = anidadoParser.parse(cursor)
+			assert(anidadoParsed == anidadoOriginal)
 		}
 
 		def `Json interpretation should work for ADTs with both, products and coproducts`(): Unit = {
-			val puntero = new CursorStr(presentationDataJson)
-			val iPresentationData = new ProductParser[PresentationData]
-			val presentationDataInterpretado = iPresentationData.parse(puntero)
-			assert(presentationDataInterpretado == presentationDataOriginal)
+			val cursor = new CursorStr(presentationDataJson)
+			val presentationDataParser = new ProductParser[PresentationData]
+			val presentationDataParsed = presentationDataParser.parse(cursor)
+			assert(presentationDataParsed == presentationDataOriginal)
 		}
 	}
 

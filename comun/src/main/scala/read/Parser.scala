@@ -117,9 +117,9 @@ object Parser {
 		}
 	}
 
-	def collect[A](pf: PartialFunction[Elem, A])(implicit na: Ignore[A]): Parser[A] = { (puntero: Cursor) =>
-		if (puntero.have) {
-			pf.applyOrElse(puntero.pointedElem, (_: Elem) => {puntero.miss(); na.ignored;})
+	def collect[A](pf: PartialFunction[Elem, A])(implicit na: Ignore[A]): Parser[A] = { (cursor: Cursor) =>
+		if (cursor.have) {
+			pf.applyOrElse(cursor.pointedElem, (_: Elem) => {cursor.miss(); na.ignored;})
 		} else {
 			na.ignored
 		}
@@ -134,7 +134,7 @@ object Parser {
 trait Parser[@specialized(Int) A] { self =>
 	import Parser._
 
-	def parse(puntero: Cursor): A
+	def parse(cursor: Cursor): A
 
 	def map[B](f: A => B)(implicit nb: Ignore[B]): Parser[B] = { (cursor: Cursor) =>
 		val a = self.parse(cursor);
@@ -155,7 +155,7 @@ trait Parser[@specialized(Int) A] { self =>
 	}
 	def >>[B](f: A => Parser[B])(implicit nb: Ignore[B]): Parser[B] = flatMap(f);
 
-	def pursue[B, C](iB: Parser[B])(f: (A, B) => C)(implicit na: Ignore[A], nb: Ignore[B], nc: Ignore[C]): Parser[C] = { cursor =>
+	def pursue[B, C](iB: Parser[B])(f: (A, B) => C)(implicit nc: Ignore[C]): Parser[C] = { cursor =>
 		cursor.attempt { () =>
 			val a = this.parse(cursor)
 			if (cursor.ok) {
@@ -170,12 +170,12 @@ trait Parser[@specialized(Int) A] { self =>
 			}
 		}
 	}
-	@inline def ~[B](iB: Parser[B])(implicit na: Ignore[A], nb: Ignore[B]): Parser[~[A, B]] = pursue(iB)(new ~(_, _))
-	@inline def ~>[B](ib: Parser[B])(implicit na: Ignore[A], nb: Ignore[B]): Parser[B] = pursue(ib)((_, b) => b)
-	@inline def <~[B](ib: Parser[B])(implicit na: Ignore[A], nb: Ignore[B]): Parser[A] = pursue(ib)((a, _) => a)
+	@inline def ~[B](iB: Parser[B]): Parser[~[A, B]] = pursue(iB)(new ~(_, _))
+	@inline def ~>[B](ib: Parser[B])(implicit nb: Ignore[B]): Parser[B] = pursue(ib)((_, b) => b)
+	@inline def <~[B](ib: Parser[B])(implicit na: Ignore[A]): Parser[A] = pursue(ib)((a, _) => a)
 
 
-	def orElse[B >: A](iB: Parser[B])(implicit nb: Ignore[B]): Parser[B] = { (cursor: Cursor) =>
+	def orElse[B >: A](iB: Parser[B]): Parser[B] = { (cursor: Cursor) =>
 		val a = cursor.attempt { () => self.parse(cursor) };
 		if (cursor.ok || cursor.failed) {
 			a
@@ -184,20 +184,20 @@ trait Parser[@specialized(Int) A] { self =>
 			iB.parse(cursor)
 		}
 	}
-	@inline def |[B >: A](iB: Parser[B])(implicit nb: Ignore[B]): Parser[B] = orElse(iB)
+	@inline def |[B >: A](iB: Parser[B]): Parser[B] = orElse(iB)
 
 	def opt: Parser[Option[A]] = self.map(Some(_)) | hit(None)
 
-	private def repGenFunc[C](builder: mutable.Builder[A, C])(puntero: Cursor)(implicit nc: Ignore[C]): C = {
-		var a = self.parse(puntero);
-		while (puntero.ok) {
+	private def repGenFunc[C](builder: mutable.Builder[A, C])(cursor: Cursor)(implicit nc: Ignore[C]): C = {
+		var a = self.parse(cursor);
+		while (cursor.ok) {
 			builder.addOne(a);
-			a = self.parse(puntero)
+			a = self.parse(cursor)
 		}
-		if (puntero.failed) {
+		if (cursor.failed) {
 			nc.ignored
 		} else {
-			puntero.repair();
+			cursor.repair();
 			builder.result()
 		}
 	}
@@ -218,7 +218,7 @@ trait Parser[@specialized(Int) A] { self =>
 	}
 	def rep1: Parser[List[A]] = rep1Gen(() => List.newBuilder)
 
-	def repSepGen[B, C](iB: Parser[B], builder: mutable.Builder[A, C])(implicit na: Ignore[A], nb: Ignore[B], nc: Ignore[C]): Parser[C] = {
+	def repSepGen[B, C](iB: Parser[B], builder: mutable.Builder[A, C])(implicit na: Ignore[A], nc: Ignore[C]): Parser[C] = {
 		val iB_self = iB ~> self;
 		val iC: Parser[C] = { cursor =>
 			val a = self.parse(cursor);
@@ -235,9 +235,9 @@ trait Parser[@specialized(Int) A] { self =>
 		iC
 	}
 
-	def repSep[B](iB: Parser[B])(implicit na: Ignore[A], nb: Ignore[B]): Parser[List[A]] = repSepGen(iB, List.newBuilder)
+	def repSep[B](iB: Parser[B])(implicit na: Ignore[A]): Parser[List[A]] = repSepGen(iB, List.newBuilder)
 
-	def rep1SepGen[B, C](iB: Parser[B], builderCtor: () => mutable.Builder[A, C])(implicit na: Ignore[A], nb: Ignore[B], nc: Ignore[C]): Parser[C] = {
+	def rep1SepGen[B, C](iB: Parser[B], builderCtor: () => mutable.Builder[A, C])(implicit na: Ignore[A], nc: Ignore[C]): Parser[C] = {
 		val iB_self = iB ~> self
 		val iC: Parser[C] = { cursor =>
 			val a = self.parse(cursor);
@@ -251,7 +251,7 @@ trait Parser[@specialized(Int) A] { self =>
 		}
 		iC
 	}
-	def rep1Sep[B](iB: Parser[B])(implicit na: Ignore[A], nb: Ignore[B]): Parser[List[A]] = rep1SepGen(iB, () => List.newBuilder)
+	def rep1Sep[B](iB: Parser[B])(implicit na: Ignore[A]): Parser[List[A]] = rep1SepGen(iB, () => List.newBuilder)
 
 	def repNGen[C](n: Int, builderCtor: () => mutable.Builder[A, C])(implicit nc: Ignore[C]): Parser[C] = { cursor =>
 		if (n > 0) {
@@ -285,21 +285,19 @@ trait Parser[@specialized(Int) A] { self =>
 	def repN(n: Int): Parser[List[A]] = repNGen(n, () => List.newBuilder)
 
 	/** Lanza falla si este [[Parser]] fracasa. */
-	def orFail(implicit na: Ignore[A]): Parser[A] = { (cursor: Cursor) =>
+	def orFail: Parser[A] = { (cursor: Cursor) =>
 		val a = self.parse(cursor);
-		if (cursor.ok) {
-			a
-		} else {
+		if (!cursor.ok) {
 			cursor.fail()
-			na.ignored;
 		}
+		a
 	}
 
 	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and hits returning the received value. */
-	def recover[B >: A](b: B): Parser[B] = { puntero =>
-		val a = self.parse(puntero);
-		if (puntero.failed) {
-			puntero.repair()
+	def recover[B >: A](b: B): Parser[B] = { cursor =>
+		val a = self.parse(cursor);
+		if (cursor.failed) {
+			cursor.repair()
 			b
 		} else {
 			a
@@ -307,16 +305,11 @@ trait Parser[@specialized(Int) A] { self =>
 	}
 
 	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser. */
-	def recoverWith[B >: A](iB: Parser[B])(implicit nb: Ignore[B]): Parser[B] = { cursor =>
+	def recoverWith[B >: A](iB: Parser[B]): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {
 			cursor.repair();
-			val b = iB.parse(cursor)
-			if (cursor.ok) {
-				b
-			} else {
-				nb.ignored
-			}
+			iB.parse(cursor)
 		} else {
 			a
 		}
