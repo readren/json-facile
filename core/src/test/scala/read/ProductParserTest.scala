@@ -6,10 +6,10 @@ import org.scalatest.refspec.RefSpec
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
 
 //noinspection TypeAnnotation
-object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
+object ProductParserTest extends DefaultJsonProtocol {
 
 	case class Simple(text: String, number: Long)
-	case class Anidado(name: String, simple: Simple)
+	case class Nest(name: String, simple: Simple)
 
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
@@ -38,7 +38,7 @@ object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
 
 	// ---- //
 	private implicit val simpleFormat = jsonFormat2(Simple)
-	private implicit val anidadoFormat = jsonFormat2(Anidado)
+	private implicit val anidadoFormat = jsonFormat2(Nest)
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
@@ -79,9 +79,10 @@ object ProductParserTest extends DefaultJsonProtocol with JsonParsers {
 
 
 
-class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
+class ProductParserTest extends RefSpec with Matchers with PrimitiveParsers { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
 	import ProductParserHelper.materializeHelper
+	import ProductParser.jpProduct
 
 	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
@@ -89,8 +90,8 @@ class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDriven
 
 		private val simpleOriginal = Simple("hola", 5L)
 		private val simpleJson = simpleOriginal.toJson.prettyPrint
-		private val anidadoOriginal = Anidado("chau", Simple("hola", 5L))
-		private val anidadoJson = anidadoOriginal.toJson.prettyPrint
+		private val nestOriginal = Nest("chau", Simple("hola", 5L))
+		private val nestJson = nestOriginal.toJson.prettyPrint
 		private val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
 		private val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
 		private val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
@@ -103,10 +104,10 @@ class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDriven
 			//	import universe._
 //			val rs = reify(implicitly[lector.GuiaLectorProducto[Simple]])
 
-			val simpleHelper = implicitly[ProductParserHelper[Simple]];
+			val simpleHelper = ProductParserHelper.materializeHelper[Simple];
 			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_._2.valueParser != null))
 
-			val productParser = new ProductParser[Simple]
+			val productParser = new ProductParser[Simple](simpleHelper)
 			assert(productParser != null && productParser.parse(new CursorStr(simpleJson)) == simpleOriginal)
 
 			val simpleParser = Parser.apply[Simple]
@@ -121,15 +122,15 @@ class ProductParserTest extends RefSpec with Matchers { // with ScalaCheckDriven
 		}
 
 		def `Json interpretation should work for ADTs with nested products`(): Unit = {
-			val cursor = new CursorStr(anidadoJson)
-			val anidadoParser = Parser.apply[Anidado]
-			val anidadoParsed = anidadoParser.parse(cursor)
-			assert(anidadoParsed == anidadoOriginal)
+			val cursor = new CursorStr(nestJson)
+			val nestParser = Parser.apply[Nest]
+			val nestParsed = nestParser.parse(cursor)
+			assert(nestParsed == nestOriginal)
 		}
 
 		def `Json interpretation should work for ADTs with both, products and coproducts`(): Unit = {
 			val cursor = new CursorStr(presentationDataJson)
-			val presentationDataParser = new ProductParser[PresentationData]
+			val presentationDataParser = Parser.apply[PresentationData]
 			val presentationDataParsed = presentationDataParser.parse(cursor)
 			assert(presentationDataParsed == presentationDataOriginal)
 		}

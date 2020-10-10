@@ -18,8 +18,9 @@ object Parser {
 	implicit val ignoredCodePoint: Ignore[Elem] = new Ignore[Elem] {
 		override def ignored: Elem = ELEM_IGNORADO // Elegí este pero pudo haber sido cualquier Int negativo. Debe ser mayor a 0x10FFFF para que sea un code point inválido, y menor a cero para que sea una posición inválida.
 	}
-	implicit def ignoredRef[T <: AnyRef]: Ignore[T] = IgnoreRef$.asInstanceOf[Ignore[T]]
-	object IgnoreRef$ extends Ignore[AnyRef] {
+
+	implicit def ignoredRef[T <: AnyRef]: Ignore[T] = IgnoreRef.asInstanceOf[Ignore[T]]
+	object IgnoreRef extends Ignore[AnyRef] {
 		override def ignored: AnyRef = null.asInstanceOf[AnyRef]
 	}
 
@@ -126,7 +127,7 @@ object Parser {
 	}
 
 	/** Type class summoner */
-	def apply[T](implicit i: Parser[T]): Parser[T] = i;
+	def apply[T](implicit parserT: Parser[T]): Parser[T] = parserT;
 }
 
 /** A parser combinator that minimizes the creation of new object in order to improve speed efficiency, at the cost information about the cause of frustration or failure. Only the position of the incident is reported.

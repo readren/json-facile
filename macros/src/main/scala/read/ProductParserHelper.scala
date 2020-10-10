@@ -5,7 +5,7 @@ import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 
 
-trait ProductParserHelper[T <: AnyRef] {
+trait ProductParserHelper[T <: Product] {
 	val className: String;
 	val fieldsInfo: ListMap[String, ProductParserHelper.FieldInfo[_]];
 	def createProduct(args: Seq[Any]): T
@@ -16,7 +16,7 @@ object ProductParserHelper {
 	case class FieldInfo[C](valueParser: Parser[C], oDefaultValue: Option[C], debug: Any) // TODO delete the debug field
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	implicit def materializeHelper[T <: AnyRef]: ProductParserHelper[T] = macro materializeHelperImpl[T]
+	implicit def materializeHelper[T <: Product]: ProductParserHelper[T] = macro materializeHelperImpl[T]
 
 	/** Ejemplo del código que genera este macro si fuera invocado así: {{{
 	 *	case class Person[W](name: String, age: Int, work: W);
@@ -47,18 +47,15 @@ object ProductParserHelper {
 	 *	}
 	 * }}}
 	 */
-	def materializeHelperImpl[T <: AnyRef : c.WeakTypeTag](c: blackbox.Context): c.Expr[ProductParserHelper[T]] = {
+	def materializeHelperImpl[T <: Product : c.WeakTypeTag](c: blackbox.Context): c.Expr[ProductParserHelper[T]] = {
 		import c.universe._
 		val tWtt: WeakTypeTag[T] = c.weakTypeTag[T];
 		val tType: Type = tWtt.tpe;
 		val tSymbol: Symbol = tType.typeSymbol;
 		if (tSymbol.isClass) {
 			val className: String = show(tType)
-			c.echo(c.enclosingPosition, s"Expanding ProductReaderHelper[$className]")
-
 			val ctorSymbol = tType.decl(termNames.CONSTRUCTOR).asTerm.alternatives.map(_.asMethod).find(_.isPrimaryConstructor).get
 			val paramsList = ctorSymbol.typeSignatureIn(tType).paramLists;
-			c.echo(c.enclosingPosition, s"CtorSymbol=$ctorSymbol, paramsList=$paramsList")
 
 			val fieldsInfo = for {
 				params <- paramsList
@@ -77,7 +74,6 @@ object ProductParserHelper {
 	   				builder.addOne((${paramTerm.name.toString}, read.ProductParserHelper.FieldInfo(${paramTerm.name}, None, debug)));
 				"""
 			}
-			c.echo(c.enclosingPosition, s"fieldsInfo=$fieldsInfo")
 
 			val argsTermName = TermName("args")
 			var argIndex = 0;
@@ -89,8 +85,6 @@ object ProductParserHelper {
 					argTree
 				}
 			}
-			c.echo(c.enclosingPosition, s"ctorArguments=$ctorArguments")
-
 			val helper =
 				q"""new ProductParserHelper[$tType] {
 						override val className: String = $className;
@@ -106,7 +100,7 @@ object ProductParserHelper {
 		 				}
 	   				}
 					"""
-			c.echo(c.enclosingPosition, s"guia=$helper")
+			c.echo(c.enclosingPosition, s"helper=$helper")
 
 			c.Expr[ProductParserHelper[T]](helper)
 
