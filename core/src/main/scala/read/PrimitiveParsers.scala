@@ -1,8 +1,22 @@
 package read
 
+import java.util
+
+
 object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
+
+	private implicit def ignoreEnum[E <: Enumeration]: Parser.Ignore[Enumeration#Value] = new Parser.Ignore[Enumeration#Value] {
+		override def ignored: Enumeration#Value = null.asInstanceOf[Enumeration#Value]
+	}
+	object ignoreDouble extends Parser.Ignore[Double] {
+		override def ignored: Double = Double.NaN;
+	}
+	object ignoreFloat extends Parser.Ignore[Float] {
+		override def ignored: Float = Float.NaN;
+	}
+
 }
 
 trait PrimitiveParsers {
@@ -99,6 +113,44 @@ trait PrimitiveParsers {
 		} else {
 			0L
 		}
+	}
+
+	implicit val jpBigDecimal: Parser[BigDecimal] = { cursor =>
+		val number = cursor.consume(() => SyntaxParsers.skipJsNumber.parse(cursor))
+		if (cursor.ok) {
+			BigDecimal(number);
+		} else {
+			null.asInstanceOf[BigDecimal]
+		}
+	}
+
+	implicit val jpDouble: Parser[Double] = jpBigDecimal.map(_.doubleValue )(ignoreDouble)
+	implicit val jpFloat: Parser[Float] = jpBigDecimal.map(_.floatValue)(ignoreFloat)
+
+	import scala.reflect.runtime.{universe => ru}
+
+	/** TODO implementar con macro */
+	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
+		val eType = typeTag.tpe;
+		val moduleSymbol = eType.termSymbol.asModule
+		val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
+		val moduleMirror = classLoaderMirror.reflectModule(moduleSymbol)
+		val enum = moduleMirror.instance.asInstanceOf[E]
+		val values = enum.values
+
+		(SyntaxParsers.string >> { name =>
+			values.find(_.toString == name) match {
+				case Some(value) => Parser.hit(value)
+				case None => Parser.miss[E#Value]
+			}
+		}: Parser[E#Value]
+			) | (jpInt >> { id =>
+			values.find(_.id == id) match {
+				case Some(value) => Parser.hit(value)
+				case None => Parser.miss[E#Value]
+			}
+		}
+			)
 	}
 }
 

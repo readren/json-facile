@@ -51,11 +51,18 @@ object Parser {
 		/** Removes both, the missed and failed flags. */
 		def repair(): Unit
 
-		/** The implementation should execute the received block and, if after that this [[Cursor]] is missed but not failed, should recover the position it had before the block had benn executed.
+		/** The implementation should execute the received block and, if after that this [[Cursor]] is missed but not failed, should recover the position it had before the block had been executed.
 		 *
 		 * @param block procedure which may and usually do modify this cursor.
 		 * @return the result given by the block */
 		def attempt[@specialized X](block: () => X): X
+
+		/** The implementation should execute the received block and, if after that this [[Cursor]]:
+		 * - is [[ok]], should return a [[String]] containing the code points consumed by the block;
+		 * - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
+		 * - is failed, should return `null`.
+		 * @return if this [[Cursor]] is ok after the block execution, the result of applying `f`. `null' otherwise. */
+		def consume[@specialized X](block: () => Unit): String
 	}
 
 	final case class ~[@specialized +A, @specialized +B](_1: A, _2: B) {
@@ -72,6 +79,12 @@ object Parser {
 	def miss[A](implicit na: Ignore[A]): Parser[A] = { cursor =>
 		cursor.miss();
 		na.ignored
+	}
+
+	/** Creates a [[Parser]] that ever fails. */
+	def fail[A](implicit na: Ignore[A]): Parser[A] = { cursor =>
+		cursor.fail();
+		ignored[A]
 	}
 
 	/** Creates a [[Parser]] that gives the current [[Cursor]]s position. */

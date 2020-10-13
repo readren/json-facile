@@ -3,6 +3,7 @@ package read
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
+import read.CoproductParserHelper.Coproduct
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
 
 //noinspection TypeAnnotation
@@ -10,19 +11,20 @@ object ProductParserTest extends DefaultJsonProtocol {
 
 	case class Simple(text: String, number: Long)
 	case class Nest(name: String, simple: Simple)
+	case class Tree(height: Int, nests: List[Nest])
 
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
-		val Meter, Milimeter = Value;
+		val Meter, Millimeter = Value;
 	}
 
 	case class Distance(value: Double, unit: DistanceUnit.Value)
 
-	sealed trait Shape
+	sealed trait Shape extends Coproduct
 	case class Box(axis: List[Distance]) extends Shape
 	case class Sphere(radius: Distance) extends Shape
 
-	trait Thing {
+	trait Thing extends Coproduct {
 		def enclosingShape: Shape
 		def description: String
 	}
@@ -39,6 +41,7 @@ object ProductParserTest extends DefaultJsonProtocol {
 	// ---- //
 	private implicit val simpleFormat = jsonFormat2(Simple)
 	private implicit val anidadoFormat = jsonFormat2(Nest)
+	private implicit val treeFormat = jsonFormat2(Tree)
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
@@ -83,8 +86,11 @@ class ProductParserTest extends RefSpec with Matchers with PrimitiveParsers { //
 	import ProductParserTest._
 	import ProductParserHelper.materializeHelper
 	import ProductParser.jpProduct
+	import IterableParser._
+	import CoproductParserHelper.materializeHelper
+	import CoproductParser.jpCoproduct
 
-	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
+//	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
 	object `Given some sample data type's instances...` {
 
@@ -92,9 +98,12 @@ class ProductParserTest extends RefSpec with Matchers with PrimitiveParsers { //
 		private val simpleJson = simpleOriginal.toJson.prettyPrint
 		private val nestOriginal = Nest("chau", Simple("hola", 5L))
 		private val nestJson = nestOriginal.toJson.prettyPrint
-		private val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Milimeter))));
-		private val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Milimeter))));
-		private val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Milimeter)));
+		private val treeOriginal = Tree(7, List(nestOriginal))
+		private val treeJson = treeOriginal.toJson.prettyPrint;
+
+		private val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Millimeter))));
+		private val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Millimeter))));
+		private val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Millimeter)));
 		private val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
 		private val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
 		private val presentationDataOriginal = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
@@ -126,6 +135,24 @@ class ProductParserTest extends RefSpec with Matchers with PrimitiveParsers { //
 			val nestParser = Parser.apply[Nest]
 			val nestParsed = nestParser.parse(cursor)
 			assert(nestParsed == nestOriginal)
+		}
+
+		def `Json interpretation should work for ADTs with nested 2 products`(): Unit = {
+			val cursor = new CursorStr(treeJson)
+			val treeParser = Parser.apply[Tree]
+			val treeParsed = treeParser.parse(cursor)
+			assert(treeParsed == treeOriginal)
+		}
+
+		def `Blehh`(): Unit = {
+			val cursor = new CursorStr(tableA._2.toJson.prettyPrint)
+			val distanceParser = Parser.apply[Distance]
+			val shapeHelper = CoproductParserHelper.materializeHelper[Shape]
+			val shapeParser = Parser.apply[Shape]
+			val tableHelper = ProductParserHelper.materializeHelper[Table]
+			val tableParser = Parser.apply[Table]
+			val tableAParsed = tableParser.parse(cursor)
+			assert(tableAParsed == tableA._2)
 		}
 
 		def `Json interpretation should work for ADTs with both, products and coproducts`(): Unit = {

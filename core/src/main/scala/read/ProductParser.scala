@@ -16,7 +16,10 @@ object ProductParser {
 		override def name: String = null.asInstanceOf[String]
 	}
 
-	private implicit def ignoredProduct[T <: Product]: Parser.Ignore[T] = null.asInstanceOf[Parser.Ignore[T]]
+	private implicit def ignoredProduct[T <: Product]: Parser.Ignore[T] = IgnoreProduct.asInstanceOf[Parser.Ignore[T]]
+	private object IgnoreProduct extends Parser.Ignore[Null] {
+		override def ignored: Null = null;
+	}
 
 	implicit def jpProduct[T <: Product](implicit helper: ProductParserHelper[T]): Parser[T] = new ProductParser[T](helper)
 }
@@ -28,11 +31,11 @@ class ProductParser[T <: Product](helper: ProductParserHelper[T]) extends Parser
 	assert(helper != null)
 
 	private val fieldParser: Parser[Field[_]] = {
-		string <~ skipSpaces <~ colon <~ skipSpaces >> { nombre =>
-			helper.fieldsInfo.get(nombre) match {
+		string <~ skipSpaces <~ colon <~ skipSpaces >> { fieldName =>
+			helper.fieldsInfo.get(fieldName) match {
 
-				case Some(FieldInfo(fieldValueParser, _, _)) =>
-					fieldValueParser ^^ { DefinedField(nombre, _) }
+				case Some(FieldInfo(fieldValueParser, _)) =>
+					fieldValueParser ^^ { DefinedField(fieldName, _) }
 
 				case None =>
 					skipJsValue ^^^ UndefinedField
@@ -40,13 +43,13 @@ class ProductParser[T <: Product](helper: ProductParserHelper[T]) extends Parser
 		}
 	}
 
-	private val objectParser: Parser[T] = '{' ~> skipSpaces ~> (fieldParser <~ skipSpaces).rep1SepGen(coma ~> skipSpaces, () => List.newBuilder) <~ '}' ^^ { campos =>
+	private val objectParser: Parser[T] = '{' ~> skipSpaces ~> (fieldParser <~ skipSpaces).rep1SepGen(coma ~> skipSpaces, () => List.newBuilder) <~ '}' ^^ { fields =>
 		val argsBuilder: mutable.Builder[Any, List[Any]] = List.newBuilder; // TODO change the sequence implementation to one that don't box the values, or implement one myself.
 		for {(fieldName, fieldInfo) <- helper.fieldsInfo} {
-			campos.find(fieldName == _.name) match {
+			fields.find(fieldName == _.name) match {
 
-				case Some(campo) =>
-					argsBuilder.addOne(campo.asInstanceOf[DefinedField[_]].value)
+				case Some(field) =>
+					argsBuilder.addOne(field.asInstanceOf[DefinedField[_]].value)
 
 				case None if fieldInfo.oDefaultValue.isDefined =>
 					argsBuilder.addOne(fieldInfo.oDefaultValue.get)
