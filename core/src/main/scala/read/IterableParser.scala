@@ -1,31 +1,28 @@
 package read
 
-import scala.collection.IterableFactory
-import scala.collection.mutable
+import scala.collection.immutable.LinearSeq
+import scala.collection.{IterableFactory, mutable}
 
-import read.Parser.Ignore
-import Parser._
-import SyntaxParsers.{coma, skipSpaces}
-import read.CoproductParserHelper.Coproduct
+import read.Parser._
+import read.SyntaxParsers.{coma, skipSpaces}
 
 object IterableParser {
 
 	type LowerBound[E] = Iterable[E];
 
-	implicit val listFactory: IterableFactory[List] = List
-	implicit val setFactory: IterableFactory[Set] = Set
+	implicit val iterableFactory: IterableFactory[Iterable] = Iterable
 	implicit val seqFactory: IterableFactory[Seq] = Seq
+	implicit val indexedSeqFactory: IterableFactory[IndexedSeq] = IndexedSeq
+	implicit val listFactory: IterableFactory[List] = List
+	implicit val vectorFactory: IterableFactory[Vector] = Vector
+	implicit val setFactory: IterableFactory[Set] = Set
+	implicit val linearSeqFactory: IterableFactory[LinearSeq] = LinearSeq
 
-//	implicit def iterableBuilder[E, CC[E] <: LowerBound[E]](implicit factory: IterableFactory[CC]): mutable.Builder[E, CC[E]] = factory.newBuilder[E]
-
-//	implicit def jpIterable[C <: LowerBound[E], E](
-//		implicit
-//		parserE: Parser[E],
-//		builder: mutable.Builder[E, C],
-//		ignoreE: Ignore[E],
-//		ignoreC: Ignore[C]
-//	): Parser[C] =
-//		'[' ~> skipSpaces ~> (parserE <~ skipSpaces).repSepGen(coma <~ skipSpaces, builder) <~ skipSpaces <~ ']'
+	implicit val arrayBufferFactory: IterableFactory[mutable.ArrayBuffer] = mutable.ArrayBuffer
+	implicit val listBufferFactory: IterableFactory[mutable.ListBuffer] = mutable.ListBuffer
+	implicit val queueFactory: IterableFactory[mutable.Queue] = mutable.Queue
+	implicit val arrayDequeFactory: IterableFactory[mutable.ArrayDeque] = mutable.ArrayDeque
+	implicit val stackFactory: IterableFactory[mutable.Stack] = mutable.Stack
 
 	implicit def iterableParser[IC[E] <: LowerBound[E], E](
 		implicit
@@ -33,8 +30,4 @@ object IterableParser {
 		factory: IterableFactory[IC]
 	): Parser[IC[E]] =
 		'[' ~> skipSpaces ~> (parserE <~ skipSpaces).repSepGen(coma <~ skipSpaces, factory.newBuilder[E]) <~ skipSpaces <~ ']'
-
-
-//	 def jpList[E](implicit parserE: Parser[E], ignoreE: Ignore[E]): Parser[List[E]] = iterableParser[List, E]
-
 }
