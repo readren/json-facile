@@ -51,7 +51,7 @@ class CursorStr(content: String) extends Cursor {
 	}
 
 
-	override def attempt[@specialized X](block: () => X): X = {
+	override def attempt[@specialized(Int) X](block: () => X): X = {
 		val startingPos = cursorPos;
 		val x = block();
 		// si está la marca de fracaso puesta y no la de falla, recuperar posición.
@@ -61,7 +61,7 @@ class CursorStr(content: String) extends Cursor {
 		x
 	}
 
-	override def consume[@specialized X](block: () => Unit): String = {
+	override def consume(block: () => Unit): String = {
 		val startingPos = cursorPos;
 		block();
 		if(isFailing) {

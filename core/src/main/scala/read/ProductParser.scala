@@ -8,10 +8,10 @@ import read.ProductParserHelper.FieldInfo
 
 
 object ProductParser {
-	private sealed trait Field[V] {
+	private sealed trait Field[+V] {
 		def name: String
 	}
-	private case class DefinedField[@specialized V](name: String, value: V) extends Field[V];
+	private case class DefinedField[@specialized +V](name: String, value: V) extends Field[V];
 	private object UndefinedField extends Field[Nothing] {
 		override def name: String = null.asInstanceOf[String]
 	}
@@ -21,16 +21,16 @@ object ProductParser {
 		override def ignored: Null = null;
 	}
 
-	implicit def jpProduct[T <: Product](implicit helper: ProductParserHelper[T]): Parser[T] = new ProductParser[T](helper)
+	implicit def jpProduct[P <: Product](implicit helper: ProductParserHelper[P]): Parser[P] = new ProductParser[P](helper)
 }
 
-class ProductParser[T <: Product](helper: ProductParserHelper[T]) extends Parser[T] {
+class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser[P] {
 	import ProductParser._
 	import SyntaxParsers._
 
 	assert(helper != null)
 
-	private val fieldParser: Parser[Field[_]] = {
+	private val fieldParser: Parser[Field[Any]] = {
 		string <~ skipSpaces <~ colon <~ skipSpaces >> { fieldName =>
 			helper.fieldsInfo.get(fieldName) match {
 
@@ -43,13 +43,13 @@ class ProductParser[T <: Product](helper: ProductParserHelper[T]) extends Parser
 		}
 	}
 
-	private val objectParser: Parser[T] = '{' ~> skipSpaces ~> (fieldParser <~ skipSpaces).rep1SepGen(coma ~> skipSpaces, () => List.newBuilder) <~ '}' ^^ { fields =>
+	private val objectParser: Parser[P] = '{' ~> skipSpaces ~> (fieldParser <~ skipSpaces).rep1SepGen(coma ~> skipSpaces, () => List.newBuilder) <~ '}' ^^ { fields =>
 		val argsBuilder: mutable.Builder[Any, List[Any]] = List.newBuilder; // TODO change the sequence implementation to one that don't box the values, or implement one myself.
 		for {(fieldName, fieldInfo) <- helper.fieldsInfo} {
 			fields.find(fieldName == _.name) match {
 
 				case Some(field) =>
-					argsBuilder.addOne(field.asInstanceOf[DefinedField[_]].value)
+					argsBuilder.addOne(field.asInstanceOf[DefinedField[Any]].value)
 
 				case None if fieldInfo.oDefaultValue.isDefined =>
 					argsBuilder.addOne(fieldInfo.oDefaultValue.get)
@@ -60,6 +60,6 @@ class ProductParser[T <: Product](helper: ProductParserHelper[T]) extends Parser
 		helper.createProduct(argsBuilder.result());
 	}
 
-	override def parse(cursor: Cursor): T = objectParser.parse(cursor)
+	override def parse(cursor: Cursor): P = objectParser.parse(cursor)
 }
 

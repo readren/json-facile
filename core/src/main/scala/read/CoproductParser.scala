@@ -6,20 +6,22 @@ import read.CoproductParserHelper.{Coproduct, FieldInfo, ProductInfo, ProductNam
 import read.SyntaxParsers.{string, _}
 
 object CoproductParser {
-	private sealed trait Field[V] {
+	private sealed trait Field[+V] {
 		def name: String
+		def value: V;
 	}
-	private case class DefinedField[@specialized V](name: String, value: V) extends Field[V];
+	private case class DefinedField[+V](name: String, value: V) extends Field[V];
 	private object UndefinedField extends Field[Nothing] {
 		override def name: String = null.asInstanceOf[String]
+		override def value: Nothing = throw new NoSuchElementException
 	}
 
-	private implicit def ignoredCoproduct[C <: Coproduct]: Parser.Ignore[C] = IgnoreCoproduct.asInstanceOf[Parser.Ignore[C]]
-	private object IgnoreCoproduct extends Parser.Ignore[Null] {
-		override def ignored: Null = null;
-	}
+//	private implicit def ignoredCoproduct[C <: Coproduct]: Parser.Ignore[C] = IgnoreCoproduct.asInstanceOf[Parser.Ignore[C]]
+//	private object IgnoreCoproduct extends Parser.Ignore[Null] {
+//		override def ignored: Null = null;
+//	}
 
-	private val fieldPrefix: Parser[String] = string <~ skipSpaces <~ colon <~ skipSpaces
+	private val fieldNameParser: Parser[String] = string <~ skipSpaces <~ colon <~ skipSpaces
 
 	implicit def jpCoproduct[T <: Coproduct](implicit helper: CoproductParserHelper[T]): Parser[T] = new CoproductParser[T](helper)
 }
@@ -31,11 +33,11 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 
 	assert(helper != null)
 
-	private class Gestor(val viableProducts: mutable.Map[ProductName, ProductInfo[_ <: C]])
+	private class Gestor(val viableProducts: mutable.Map[ProductName, ProductInfo[C]])
 
-	private def fieldParser(gestor: Gestor): Parser[Field[_]] = fieldPrefix >> { fieldName =>
+	private def fieldParser(gestor: Gestor): Parser[Field[Any]] = fieldNameParser >> { fieldName =>
 		if (fieldName == helper.discriminator) {
-			string ^^ { productName =>
+			string.map { productName =>
 				gestor.viableProducts.filterInPlace { case (pn, _) => pn == productName }
 				UndefinedField
 			}
@@ -45,10 +47,10 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 				case Some(FieldInfo(fieldValueParser)) =>
 					gestor.viableProducts.filterInPlace { case (_, productInfo) => productInfo.fieldsNames.contains(fieldName) }
 
-					fieldValueParser ^^ {DefinedField(fieldName, _)}
+					fieldValueParser.map(DefinedField(fieldName, _));
 
 				case None =>
-					skipJsValue ^^^ UndefinedField
+					skipJsValue.^^^(UndefinedField);
 			}
 		}
 	}
@@ -68,7 +70,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 						fields.find(fieldName == _.name) match {
 
 							case Some(field) =>
-								argsBuilder.addOne(field.asInstanceOf[DefinedField[_]].value)
+								argsBuilder.addOne(field.value)
 
 							case None if oDefaultValue.isDefined =>
 								argsBuilder.addOne(oDefaultValue.get);

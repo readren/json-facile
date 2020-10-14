@@ -5,18 +5,19 @@ import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 
 
-trait ProductParserHelper[T <: Product] {
+trait ProductParserHelper[P <: Product] {
 	val className: String;
 	val fieldsInfo: ListMap[String, ProductParserHelper.FieldInfo[_]];
-	def createProduct(args: Seq[Any]): T
+	def createProduct(args: Seq[Any]): P
 }
 
 object ProductParserHelper {
 
-	case class FieldInfo[C](valueParser: Parser[C], oDefaultValue: Option[C])
+	/** TODO: make F covariant when the compiler's implicit search bug is solved  */
+	case class FieldInfo[F](valueParser: Parser[F], oDefaultValue: Option[F])
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	implicit def materializeHelper[T <: Product]: ProductParserHelper[T] = macro materializeHelperImpl[T]
+	implicit def materializeHelper[P <: Product]: ProductParserHelper[P] = macro materializeHelperImpl[P]
 
 	/** Ejemplo del código que genera este macro si fuera invocado así: {{{
 	 *	case class Person[W](name: String, age: Int, work: W);
@@ -27,9 +28,9 @@ object ProductParserHelper {
 	 *	new GuiaLectorProducto[Person[Double]] {
 	 *		override val className: String = className;
 	 *
-	 *		override val infoCampos: ListMap[String, InfoCampo[_]] = {
+	 *		override val infoCampos: ListMap[String, InfoCampo[Any]] = {
 	 *
-	 *			val builder = ListMap.newBuilder[String, InfoCampo[_ <: Any]];
+	 *			val builder = ListMap.newBuilder[String, InfoCampo[Any]];
 	 *
 	 *			val name = Interpretador.apply[String];
 	 *			builder.addOne(("name", InfoCampo(name, None)));
@@ -47,61 +48,50 @@ object ProductParserHelper {
 	 *	}
 	 * }}}
 	 */
-	def materializeHelperImpl[T <: Product : c.WeakTypeTag](c: blackbox.Context): c.Expr[ProductParserHelper[T]] = {
+	def materializeHelperImpl[P <: Product : c.WeakTypeTag](c: blackbox.Context): c.Expr[ProductParserHelper[P]] = {
 		import c.universe._
-		val tWtt: WeakTypeTag[T] = c.weakTypeTag[T];
-		val tType: Type = tWtt.tpe;
-		val tSymbol: Symbol = tType.typeSymbol;
-		if (tSymbol.isClass) {
-			val className: String = show(tType);
-			val classSymbol = tSymbol.asClass;
-			val paramsList = classSymbol.primaryConstructor.typeSignatureIn(tType).paramLists;
+		val pWtt: WeakTypeTag[P] = c.weakTypeTag[P];
+		val productType: Type = pWtt.tpe;
+		val productSymbol: Symbol = productType.typeSymbol;
+		if (productSymbol.isClass) {
+			val productTypeName: String = show(productType);
+			val classSymbol = productSymbol.asClass;
+			val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).paramLists;
 
-			val fieldsInfo = for {
-				params <- paramsList
-				param <- params
-			} yield {
-				val paramTerm = param.asTerm;
-
-				q"""
-					val ${paramTerm.name} = Parser.apply[${paramTerm.typeSignature}];
-	   				builder.addOne((${paramTerm.name.toString}, read.ProductParserHelper.FieldInfo(${paramTerm.name}, None)));
-				"""
-			}
-
-			val argsTermName = TermName("args")
+			val addFieldInfoSnippetsBuilder = List.newBuilder[Tree];
 			var argIndex = 0;
-			val ctorArguments = for (params <- paramsList) yield {
-				for (param <- params) yield {
-					val paramTerm = param.asTerm;
-					val argTree = q"$argsTermName($argIndex).asInstanceOf[${paramTerm.typeSignature}]";
-					argIndex += 1;
-					argTree
+			val ctorArgumentSnippets =
+				for (params <- paramsList) yield {
+					for (param <- params) yield {
+						addFieldInfoSnippetsBuilder.addOne(q"""builder.addOne((${param.name.toString}, read.ProductParserHelper.FieldInfo(Parser.apply[${param.typeSignature}], None)));""")
+						val argTree = q"args($argIndex).asInstanceOf[${param.typeSignature}]";
+						argIndex += 1;
+						argTree
+					}
 				}
-			}
 			val helper =
 				q"""
 import read.ProductParserHelper.FieldInfo;
 
 val builder = scala.collection.immutable.ListMap.newBuilder[String, FieldInfo[_]];
-..${fieldsInfo}
+..${addFieldInfoSnippetsBuilder.result()}
 
-new ProductParserHelper[$tType] {
-	override val className: String = $className;
+new ProductParserHelper[$productType] {
+	override val className: String = $productTypeName;
 
 	override val fieldsInfo: scala.collection.immutable.ListMap[String, FieldInfo[_]] =
 		builder.result();
 
-	override def createProduct($argsTermName: Seq[Any]):$tType =
-		new ${tType.typeSymbol}[..${tType.dealias.typeArgs}](...${ctorArguments});
+	override def createProduct(args: Seq[Any]):$productType =
+		new ${productType.typeSymbol}[..${productType.dealias.typeArgs}](...${ctorArgumentSnippets});
 }""";
 			c.echo(c.enclosingPosition, s"productHelper=$helper")
 
-			c.Expr[ProductParserHelper[T]](helper)
+			c.Expr[ProductParserHelper[P]](helper)
 
 		} else {
-			c.warning(c.enclosingPosition, s"$tSymbol is not a class and only classes are supported")
-			c.Expr[ProductParserHelper[T]](q"")
+			c.warning(c.enclosingPosition, s"$productSymbol is not a class and only classes are supported")
+			c.Expr[ProductParserHelper[P]](q"")
 		}
 	}
 

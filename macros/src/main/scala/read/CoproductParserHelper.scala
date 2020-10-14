@@ -15,10 +15,11 @@ object CoproductParserHelper {
 	type ProductName = String;
 	type FieldName = String;
 
-	type Coproduct = Equals;
+	trait Coproduct;
 
+	/** TODO: make F covariant when the compiler's implicit search bug is solved  */
 	case class FieldInfo[F](parser: Parser[F])
-	case class ProductInfo[P](fieldsNames: ListMap[FieldName, Option[_]], constructor: Seq[Any] => P);
+	case class ProductInfo[+P](fieldsNames: ListMap[FieldName, Option[Any]], constructor: Seq[Any] => P);
 
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
@@ -48,7 +49,7 @@ object CoproductParserHelper {
 							for (param <- params) yield {
 								forEachFieldSnippet.addOne(
 									q"""
-			 							fieldsInfoBuilder.addOne(${param.name.toString} -> FieldInfo(Parser[$param]))
+			 							fieldsInfoBuilder.addOne(${param.name.toString} -> FieldInfo(Parser[${param.typeSignature}]))
 										productFieldNamesBuilder.addOne(${param.name.toString} -> None);
 									   """);
 								val argTree = q"args($argIndex).asInstanceOf[${param.typeSignature}]";
