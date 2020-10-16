@@ -141,7 +141,7 @@ object Parser {
 	}
 
 	/** Type class summoner */
-	def apply[T](implicit parserT: Parser[T]): Parser[T] = parserT;
+	def apply[T](implicit parserT: => Parser[T]): Parser[T] = parserT;
 }
 
 /** A parser combinator that minimizes the creation of new object in order to improve speed efficiency, at the cost information about the cause of frustration or failure. Only the position of the incident is reported.

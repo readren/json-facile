@@ -7,15 +7,6 @@ object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
-//	private implicit def ignoreEnum[E <: Enumeration]: Parser.Ignore[Enumeration#Value] = new Parser.Ignore[Enumeration#Value] {
-//		override def ignored: Enumeration#Value = null.asInstanceOf[Enumeration#Value]
-//	}
-//	object ignoreDouble extends Parser.Ignore[Double] {
-//		override def ignored: Double = Double.NaN;
-//	}
-//	object ignoreFloat extends Parser.Ignore[Float] {
-//		override def ignored: Float = Float.NaN;
-//	}
 
 }
 
@@ -125,14 +116,14 @@ trait PrimitiveParsers {
 	}
 
 	implicit val jpDouble: Parser[Double] =
-		Parser.acceptStr("null").^^^(Double.NaN) | jpBigDecimal.map(_.doubleValue )
+		Parser.acceptStr("null").^^^(Double.NaN) | jpBigDecimal.map(_.doubleValue)
 
 	implicit val jpFloat: Parser[Float] =
 		Parser.acceptStr("null").^^^(Float.NaN) | jpBigDecimal.map(_.floatValue)
 
 	import scala.reflect.runtime.{universe => ru}
 
-	/** TODO implementar con macro */
+	/** TODO usar un cache */
 	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
 		val eType = typeTag.tpe;
 		val moduleSymbol = eType.termSymbol.asModule

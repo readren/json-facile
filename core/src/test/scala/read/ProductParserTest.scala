@@ -4,14 +4,14 @@ package read
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import read.CoproductParserHelper.Coproduct
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, JsonWriter, RootJsonFormat}
 
 //noinspection TypeAnnotation
-object ProductParserTest extends DefaultJsonProtocol with PrimitiveParsers {
+object ProductParserTest extends PrimitiveParsers with DefaultJsonProtocol {
 
 	case class Simple(text: String, number: Long)
 	case class Nest(name: String, simple: Simple)
-	case class Tree(height: Int, nests: List[Nest])
+	case class Tree(height: Int, nests: List[Nest], mapa: Map[String, Simple])
 
 	object DistanceUnit extends Enumeration {
 		type DistanceUnit = Value
@@ -38,10 +38,11 @@ object ProductParserTest extends DefaultJsonProtocol with PrimitiveParsers {
 	type Inventory = Map[ThingId, Int]
 	case class PresentationData(catalog: Catalog, inventory: Inventory, things: Map[ThingId, Thing])
 
-	// ---- //
+	// ------------------------------- //
+
 	implicit val simpleFormat = jsonFormat2(Simple)
 	implicit val anidadoFormat = jsonFormat2(Nest)
-	implicit val treeFormat = jsonFormat2(Tree)
+	implicit val treeFormat = jsonFormat3(Tree)
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
@@ -84,7 +85,7 @@ object ProductParserTest extends DefaultJsonProtocol with PrimitiveParsers {
 	val simpleJson = simpleOriginal.toJson.prettyPrint
 	val nestOriginal = Nest("chau", Simple("hola", 5L))
 	val nestJson = nestOriginal.toJson.prettyPrint
-	val treeOriginal = Tree(7, List(nestOriginal))
+	val treeOriginal = Tree(7, List(nestOriginal), Map("clave" -> simpleOriginal))
 	val treeJson = treeOriginal.toJson.prettyPrint;
 
 	val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Millimeter))));
@@ -101,11 +102,13 @@ object ProductParserTest extends DefaultJsonProtocol with PrimitiveParsers {
 //noinspection TypeAnnotation
 class ProductParserTest extends RefSpec with Matchers  { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
-//	import ProductParserHelper.materializeHelper
 	import ProductParser.jpProduct
-	import IterableParser._
-//	import CoproductParserHelper.materializeHelper
 	import CoproductParser.jpCoproduct
+	import IterableParser.iterableParser
+	import MapParser.unsortedMapParser
+	import MapParser.sortedMapParser
+	import NonVariantHolderOfAMapFactory._
+	import NonVariantHolderOfASortedMapFactory._
 
 //	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
@@ -147,14 +150,20 @@ class ProductParserTest extends RefSpec with Matchers  { // with ScalaCheckDrive
 		}
 
 		def `Json interpretation should work fo simple ADTs with a coproduct`(): Unit = {
-			val cursor = new CursorStr(tableA._2.toJson.prettyPrint)
-			val distanceParser = Parser.apply[Distance]
-			val shapeHelper = CoproductParserHelper.materializeHelper[Shape]
-			val shapeParser = Parser.apply[Shape]
-			val tableHelper = ProductParserHelper.materializeHelper[Table]
+			var cursor = new CursorStr(tableA._2.toJson.prettyPrint)
 			val tableParser = Parser.apply[Table]
 			val tableAParsed = tableParser.parse(cursor)
 			assert(tableAParsed == tableA._2)
+
+			cursor = new CursorStr(ballA._2.toJson.prettyPrint)
+			val ballParser = Parser.apply[Ball]
+			val ballParsed = ballParser.parse(cursor)
+			assert(ballParsed == ballA._2)
+
+			cursor = new CursorStr(shelfA._2.toJson.prettyPrint)
+			val shelfParser = Parser.apply[Shelf]
+			val shelfAParsed = shelfParser.parse(cursor)
+			assert(shelfAParsed == shelfA._2)
 		}
 
 		def `Json interpretation should work for complex ADTs`(): Unit = {

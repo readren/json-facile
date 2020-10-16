@@ -2,7 +2,7 @@ package read
 
 import scala.collection.mutable
 
-import read.CoproductParserHelper.{Coproduct, FieldInfo, ProductInfo, ProductName}
+import read.CoproductParserHelper.{Coproduct, ProductInfo, ProductName}
 import read.SyntaxParsers.{string, _}
 
 object CoproductParser {
@@ -44,7 +44,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 		} else {
 			helper.fieldsInfo.get(fieldName) match {
 
-				case Some(FieldInfo(fieldValueParser)) =>
+				case Some(fieldValueParser) =>
 					gestor.viableProducts.filterInPlace { case (_, productInfo) => productInfo.fieldsNames.contains(fieldName) }
 
 					fieldValueParser.map(DefinedField(fieldName, _));
