@@ -1,13 +1,14 @@
 package read
 
 
+import org.scalatest.{Outcome, Retries, Succeeded}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import read.CoproductParserHelper.Coproduct
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, JsonWriter, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
 
 //noinspection TypeAnnotation
-object ProductParserTest extends PrimitiveParsers with DefaultJsonProtocol {
+object ProductParserTest extends DefaultJsonProtocol {
 
 	case class Simple(text: String, number: Long)
 	case class Nest(name: String, simple: Simple)
@@ -24,7 +25,7 @@ object ProductParserTest extends PrimitiveParsers with DefaultJsonProtocol {
 	case class Box(axis: List[Distance]) extends Shape
 	case class Sphere(radius: Distance) extends Shape
 
-	trait Thing extends Coproduct {
+	sealed trait Thing extends Coproduct {
 		def enclosingShape: Shape
 		def description: String
 	}
@@ -100,8 +101,9 @@ object ProductParserTest extends PrimitiveParsers with DefaultJsonProtocol {
 
 
 //noinspection TypeAnnotation
-class ProductParserTest extends RefSpec with Matchers  { // with ScalaCheckDrivenPropertyChecks with JsonGen {
+class ProductParserTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
+	import PrimitiveParsers._
 	import ProductParser.jpProduct
 	import CoproductParser.jpCoproduct
 	import IterableParser.iterableParser
@@ -132,46 +134,60 @@ class ProductParserTest extends RefSpec with Matchers  { // with ScalaCheckDrive
 			val cursor = new CursorStr(simpleJson)
 			val simpleParser = Parser.apply[Simple]
 			val simpleParsed = simpleParser.parse(cursor)
-			assert(simpleParsed == simpleOriginal)
+			assertResult(simpleOriginal)(simpleParsed)
 		}
 
 		def `Json interpretation should work for nested products`(): Unit = {
 			val cursor = new CursorStr(nestJson)
 			val nestParser = Parser.apply[Nest]
 			val nestParsed = nestParser.parse(cursor)
-			assert(nestParsed == nestOriginal)
+			assertResult(nestOriginal)(nestParsed)
 		}
 
 		def `Json interpretation should work for products with iterables`(): Unit = {
 			val cursor = new CursorStr(treeJson)
 			val treeParser = Parser.apply[Tree]
 			val treeParsed = treeParser.parse(cursor)
-			assert(treeParsed == treeOriginal)
+			assertResult(treeOriginal)(treeParsed)
 		}
 
-		def `Json interpretation should work fo simple ADTs with a coproduct`(): Unit = {
+		def `Json interpretation should work for simple ADTs with a coproduct`(): Unit = {
 			var cursor = new CursorStr(tableA._2.toJson.prettyPrint)
 			val tableParser = Parser.apply[Table]
 			val tableAParsed = tableParser.parse(cursor)
-			assert(tableAParsed == tableA._2)
+			assertResult(tableA._2)(tableAParsed)
 
 			cursor = new CursorStr(ballA._2.toJson.prettyPrint)
 			val ballParser = Parser.apply[Ball]
 			val ballParsed = ballParser.parse(cursor)
-			assert(ballParsed == ballA._2)
+			assertResult(ballA._2)(ballParsed)
 
 			cursor = new CursorStr(shelfA._2.toJson.prettyPrint)
 			val shelfParser = Parser.apply[Shelf]
 			val shelfAParsed = shelfParser.parse(cursor)
-			assert(shelfAParsed == shelfA._2)
+			assertResult(shelfA._2)(shelfAParsed)
 		}
 
 		def `Json interpretation should work for complex ADTs`(): Unit = {
 			val cursor = new CursorStr(presentationDataJson)
 			val presentationDataParser = Parser.apply[PresentationData]
 			val presentationDataParsed = presentationDataParser.parse(cursor)
-			assert(presentationDataParsed == presentationDataOriginal)
+			assertResult(presentationDataOriginal)(presentationDataParsed)
 		}
 	}
 
+
+	override def withFixture(test: NoArgTest) = {
+		withFixture(test, 9)
+	}
+
+	def withFixture(test: NoArgTest, count: Int): Outcome = {
+		val outcome = super.withFixture(test)
+		outcome match {
+			case Succeeded if count > 0 =>
+				withFixture(test, count - 1)
+
+			case other => other
+		}
+	}
 }

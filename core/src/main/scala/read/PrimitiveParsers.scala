@@ -7,13 +7,7 @@ object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
-
-}
-
-trait PrimitiveParsers {
-	import PrimitiveParsers._
-
-	implicit val jpString: Parser[String] = SyntaxParsers.string;
+	implicit val jpString: Parser[String] = SyntaxParsers.string.orFail("A string was expected.");
 
 	/** Interpretador de Int en Json */
 	implicit val jpInt: Parser[Int] = { cursor =>
@@ -29,7 +23,7 @@ trait PrimitiveParsers {
 				};
 				var digit = pointedElem - '0';
 				if (digit < 0 || 9 < digit) {
-					cursor.miss();
+					cursor.fail("A digit was expected");
 				} else {
 					do {
 						accum = accum * 10 + digit;
@@ -41,13 +35,13 @@ trait PrimitiveParsers {
 
 					if (0 <= digit && digit <= 9) {
 						if (accum > MAX_INT_DIV_10 || (accum == MAX_INT_DIV_10 && (digit == 9 || !isNegative && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
-							cursor.miss();
+							cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Int`.");
 						} else {
 							accum = accum * 10 + digit
 							cursor.advance();
 							pointedElem = cursor.pointedElem;
 							if ('0' <= pointedElem && pointedElem <= '9') {
-								cursor.miss();
+								cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Int`.");
 							}
 						}
 					}
@@ -75,7 +69,7 @@ trait PrimitiveParsers {
 				};
 				var digit = pointedElem - '0';
 				if (digit < 0 || 9 < digit) {
-					cursor.miss();
+					cursor.fail("A digit was expected");
 				} else {
 					do {
 						accum = accum * 10L + digit;
@@ -87,13 +81,13 @@ trait PrimitiveParsers {
 
 					if (0 <= digit && digit <= 9) {
 						if (accum > MAX_LONG_DIV_10 || (accum == MAX_LONG_DIV_10 && (digit == 9 || !isNegative && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
-							cursor.miss();
+							cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Long`.");
 						} else {
 							accum = accum * 10 + digit
 							cursor.advance();
 							pointedElem = cursor.pointedElem;
 							if ('0' <= pointedElem && pointedElem <= '9') {
-								cursor.miss();
+								cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Long`.");
 							}
 						}
 					}
@@ -108,10 +102,11 @@ trait PrimitiveParsers {
 
 	implicit val jpBigDecimal: Parser[BigDecimal] = { cursor =>
 		val number = cursor.consume(() => SyntaxParsers.skipJsNumber.parse(cursor))
-		if (cursor.ok) {
+		if (cursor.ok && number.length > 0) {
 			BigDecimal(number);
 		} else {
-			null.asInstanceOf[BigDecimal]
+			cursor.fail("A number was expected");
+			Parser.ignored[BigDecimal]
 		}
 	}
 
@@ -132,19 +127,19 @@ trait PrimitiveParsers {
 		val enum = moduleMirror.instance.asInstanceOf[E]
 		val values = enum.values
 
-		(SyntaxParsers.string >> { name =>
+		val asName: Parser[E#Value] = SyntaxParsers.string >> { name =>
 			values.find(_.toString == name) match {
 				case Some(value) => Parser.hit(value)
-				case None => Parser.miss[E#Value]
-			}
-		}: Parser[E#Value]
-			) | (jpInt >> { id =>
-			values.find(_.id == id) match {
-				case Some(value) => Parser.hit(value)
-				case None => Parser.miss[E#Value]
+				case None => Parser.fail(s"""The expected enum "${moduleSymbol.fullName}" does not contain a value with this name: $name.""")
 			}
 		}
-			)
+		val asId: Parser[E#Value] = jpInt >> { id =>
+			values.find(_.id == id) match {
+				case Some(value) => Parser.hit(value)
+				case None => Parser.fail(s"""The expected enum "${moduleSymbol.fullName}" does not contain a value with this id: $id.""")
+			}
+		}
+		(asName| asId).orFail("")
 	}
 }
 

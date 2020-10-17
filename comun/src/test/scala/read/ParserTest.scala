@@ -56,14 +56,14 @@ class ParserTest extends RefSpec {
 
 		def `orFail should work`(): Unit = {
 			val p = new CursorStr("bla/1ble/2bli/3blo/otra");
-			val escape = '/' ~> digit.orFail
+			val escape = '/' ~> digit.orFail("digit expected after '/` ")
 			val t = (escape | alpha).rep ^^ {_.map(_.toChar).mkString}
 			t.parse(p)
 			assert(!p.ok && p.failed && p.pos == 19)
 		}
 		def `recover shouldWork`(): Unit = {
 			val p = new CursorStr("bla/1ble/bli/3blo");
-			val escape = '/' ~> digit.orFail;
+			val escape = '/' ~> digit.orFail("digit expected after '/'");
 			val t = (alpha | escape).rep1.recover(List('-'.toInt)).rep ^^ { x => x.flatten.map(_.toChar).mkString }
 			assertResult("-bli3blo")(t.parse(p));
 			assert(p.ok && p.atEnd && !p.failed);

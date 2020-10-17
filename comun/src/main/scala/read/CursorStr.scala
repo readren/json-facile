@@ -6,12 +6,13 @@ import read.Parser.{Elem, Pos, Cursor}
 class CursorStr(content: String) extends Cursor {
 
 	private var cursorPos: Int = 0;
-	private var isFrustrated: Boolean = false;
-	private var isFailing: Boolean = false;
+	private var isMissed: Boolean = false;
+	private var isFailed: Boolean = false;
+	private var failureCause: AnyRef = null;
 
 	override def pos: Pos = cursorPos;
 
-	@inline override def ok: Boolean = !isFrustrated && !isFailing;
+	@inline override def ok: Boolean = !isMissed && !isFailed;
 
 	override def have: Boolean = {
 		assert(ok);
@@ -23,9 +24,9 @@ class CursorStr(content: String) extends Cursor {
 		cursorPos == content.length
 	}
 
-	override def missed: Boolean = isFrustrated;
+	override def missed: Boolean = isMissed && !isFailed;
 
-	override def failed: Boolean = isFailing;
+	override def failed: Boolean = isFailed;
 
 	override def pointedElem: Elem = {
 		assert(have);
@@ -41,13 +42,19 @@ class CursorStr(content: String) extends Cursor {
 		this.cursorPos = content.offsetByCodePoints(cursorPos, cantPasos);
 	}
 
-	override def miss(): Unit = this.isFrustrated = true;
+	override def miss(): Unit = this.isMissed = true;
 
-	override def fail(): Unit = this.isFailing = true;
+	override def fail(cause: AnyRef): Unit = {
+		this.failureCause = cause;
+		this.isFailed = true
+	};
+
+	override def clearMiss(): Unit =
+		this.isMissed = false;
 
 	override def repair(): Unit = {
-		this.isFrustrated = false
-		this.isFailing = false;
+		this.isMissed = false
+		this.isFailed = false;
 	}
 
 
@@ -55,7 +62,7 @@ class CursorStr(content: String) extends Cursor {
 		val startingPos = cursorPos;
 		val x = block();
 		// si está la marca de fracaso puesta y no la de falla, recuperar posición.
-		if (isFrustrated && !isFailing) {
+		if (isMissed && !isFailed) {
 			this.cursorPos = startingPos
 		}
 		x
@@ -64,10 +71,10 @@ class CursorStr(content: String) extends Cursor {
 	override def consume(block: () => Unit): String = {
 		val startingPos = cursorPos;
 		block();
-		if(isFailing) {
+		if(isFailed) {
 			null
 		} else {
-			if (isFrustrated) {
+			if (isMissed) {
 				this.cursorPos = startingPos;
 				null
 			} else {

@@ -66,7 +66,7 @@ object SyntaxParsers {
 		private var mem: Parser[Pos] = _
 		override def parse(cursor: Cursor): Pos = {
 			if (mem == null) {
-				this.mem = skipJsString | (skipJsArray | (skipJsObject | (skipJsNull | (skipJsBoolean | skipJsNumber))))
+				this.mem = skipJsString | (skipJsArray | (skipJsObject | (skipJsNull | (skipJsBoolean | skipJsNumber.orFail("Invalid json value format.")))))
 			}
 			this.mem.parse(cursor)
 		}

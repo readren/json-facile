@@ -4,19 +4,23 @@ import scala.collection.mutable
 
 object Parser {
 
+	/** The type of the input elements. [[Int]] was chosen because it is the type that the standard java library uses to represent Unicode code points.
+	 * It is not abstract to support other uses because abstract type parameters don't allow specialization and would provoque extra boxing. */
 	type Elem = Int
 	type Pos = Int
 
-	val ELEM_IGNORADO: Elem = 0x8000_0000 // Elegí este pero pudo haber sido cualquier Int negativo. Debe ser mayor a 0x10FFFF para que sea un code point inválido, y menor a cero para que sea una posición inválida.
+	/** The value returned by [[Parser]]s whose return type is [[Elem]] when the value should be ignored by the caller because the parsing missed or failed.
+	 * Any value would be fine. This particular one was chosen because it is very distinctive and also an invalid unicode code point. */
+	val IGNORED_ELEM: Elem = 0x8000_0000 // Elegí este pero pudo haber sido cualquier Int negativo. Debe ser mayor a 0x10FFFF para que sea un code point inválido, y menor a cero para que sea una posición inválida.
 
-	/** Type class que da una instancia cualquiera del tipo T. Usado para dar como resultado cuando la interpretación fracasa. */
+	/** Type class used by [[Parser]]s to create a return value when the parsing missed of failed. The created value is irrelevant because the caller should ignore it. Only the type should match to comfort the compiler. */
 	trait Ignore[@specialized +T] {
 		def ignored: T
 	}
 	def ignored[T](implicit ignora: Ignore[T]): T = ignora.ignored;
 
 	implicit val ignoredCodePoint: Ignore[Elem] = new Ignore[Elem] {
-		override def ignored: Elem = ELEM_IGNORADO // Elegí este pero pudo haber sido cualquier Int negativo. Debe ser mayor a 0x10FFFF para que sea un code point inválido, y menor a cero para que sea una posición inválida.
+		override def ignored: Elem = IGNORED_ELEM
 	}
 
 	implicit def ignoredRef[T <: AnyRef]: Ignore[T] = IgnoreRef.asInstanceOf[Ignore[T]]
@@ -25,7 +29,8 @@ object Parser {
 	}
 
 
-	/** The parsers receive a cursor which they mutate to communicate the parsing progress to the next parser. This trait models the requirements that that cursor should obey. */
+	/** The [[Parser]]s [[Parser.parse]] method receives an instance of cursor from which they extract the input elements and which they mutate to communicate the parsing progress to the next parser.
+	 * This trait models the requirements that said cursor should obey. */
 	trait Cursor {
 		/** Current cursor position */
 		def pos: Pos;
@@ -35,7 +40,7 @@ object Parser {
 		def have: Boolean
 		/** Is true when this [[Cursor]] is at the end of the content (the position after the last element). */
 		def atEnd: Boolean;
-		/** Is true when this [[Cursor]] missed flag is set. */
+		/** Is true when this [[Cursor]] missed flag is set and the failure flag is not. */
 		def missed: Boolean;
 		/** The element being pointed by this [[Cursor]]. */
 		def pointedElem: Elem
@@ -45,10 +50,12 @@ object Parser {
 		/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
 		def miss(): Unit
 		/** Sets the failed flag. Failures propagates trough all normal parsers until a [[Parser.recover]] or [[Parser.recoverWith]] is reached. */
-		def fail(): Unit
+		def fail(cause: AnyRef): Unit
 		/** Is true when this [[Cursor]] failed flag is set */
 		def failed: Boolean;
-		/** Removes both, the missed and failed flags. */
+		/** Clears the missed flag. Note that the [[missed]] method will continue giving false if the [[failed]] flag is set. */
+		def clearMiss(): Unit
+		/** Clears both, the missed and failed flags. */
 		def repair(): Unit
 
 		/** The implementation should execute the received block and, if after that this [[Cursor]] is missed but not failed, should recover the position it had before the block had been executed.
@@ -66,14 +73,15 @@ object Parser {
 		def consume(block: () => Unit): String
 	}
 
+	/** TODO consider removing ths class and use a tuple instead. That would avoid the creation of an object in the cases where the instance is later converted to a tuple. */
 	final case class ~[@specialized(Int) +A, @specialized(Int) +B](_1: A, _2: B) {
 		override def toString = s"(${_1}~${_2})"
 	}
 
-	/** Creates a [[Parser]] that ever hits (clears the missed flag) and gives the received value as result. The exception is when the failed flag is set, in which case missed flag is not cleared.
+	/** Creates a [[Parser]] that ever hits (clears the missed flag) and gives the received value as result. The exception is when the failed flag is set, in which case missed flag is not irrelevant.
 	 */
 	def hit[@specialized(Int) A](a: A): Parser[A] = { cursor =>
-		if (!cursor.failed) cursor.repair();
+		cursor.clearMiss();
 		a
 	}
 	/** Creates a [[Parser]] that ever misses. */
@@ -83,8 +91,8 @@ object Parser {
 	}
 
 	/** Creates a [[Parser]] that ever fails. */
-	def fail[@specialized A]: Parser[A] = { cursor =>
-		cursor.fail();
+	def fail[@specialized(Int) A](cause: AnyRef): Parser[A] = { cursor =>
+		cursor.fail(cause);
 		ignored[A]
 	}
 
@@ -98,7 +106,7 @@ object Parser {
 			elem
 		} else {
 			cursor.miss()
-			ELEM_IGNORADO
+			IGNORED_ELEM
 		}
 	}
 	/** Creates a [[Parser]] that hits if the pointed element equals the received [[Char]]. In that case advances the [[Cursor]] one position. */
@@ -124,11 +132,11 @@ object Parser {
 				ea
 			} else {
 				cursor.miss();
-				ELEM_IGNORADO
+				IGNORED_ELEM
 			}
 		} else {
 			cursor.miss()
-			ELEM_IGNORADO
+			IGNORED_ELEM
 		}
 	}
 
@@ -194,11 +202,11 @@ trait Parser[@specialized(Int) A] { self =>
 
 	def orElse[B >: A](iB: Parser[B]): Parser[B] = { (cursor: Cursor) =>
 		val a = cursor.attempt { () => self.parse(cursor) };
-		if (cursor.ok || cursor.failed) {
-			a
-		} else {
-			cursor.repair();
+		if (cursor.missed) {
+			cursor.clearMiss();
 			iB.parse(cursor)
+		} else {
+			a
 		}
 	}
 	@inline def |[B >: A](iB: Parser[B]): Parser[B] = orElse(iB)
@@ -214,7 +222,7 @@ trait Parser[@specialized(Int) A] { self =>
 		if (cursor.failed) {
 			ignored[C]
 		} else {
-			cursor.repair();
+			cursor.clearMiss();
 			builder.result()
 		}
 	}
@@ -235,28 +243,30 @@ trait Parser[@specialized(Int) A] { self =>
 	}
 	def rep1: Parser[List[A]] = rep1Gen(() => List.newBuilder)
 
-	def repSepGen[@specialized(Int) B, C](iB: Parser[B], builder: mutable.Builder[A, C]): Parser[C] = {
+	def repSepGen[@specialized(Int) B, C](iB: Parser[B], builderCtor: () => mutable.Builder[A, C]): Parser[C] = {
 		val iB_self = iB ~> self;
-		val iC: Parser[C] = { cursor =>
+		{ cursor =>
 			val a = self.parse(cursor);
-			if (cursor.ok) {
-				builder.addOne(a);
-				iB_self.repGenFunc(builder)(cursor)
-			} else if (cursor.failed) {
+			if(cursor.failed) {
 				ignored[C]
 			} else {
-				cursor.repair();
-				builder.result();
+				val builder = builderCtor();
+				if(cursor.ok) {
+					builder.addOne(a);
+					iB_self.repGenFunc(builder)(cursor)
+				} else{
+					cursor.clearMiss();
+					builder.result()
+				}
 			}
 		}
-		iC
 	}
 
-	def repSep[@specialized(Int) B](iB: Parser[B]): Parser[List[A]] = repSepGen(iB, List.newBuilder)
+	def repSep[@specialized(Int) B](iB: Parser[B]): Parser[List[A]] = repSepGen(iB, () => List.newBuilder)
 
 	def rep1SepGen[@specialized(Int) B, C](iB: Parser[B], builderCtor: () => mutable.Builder[A, C]): Parser[C] = {
-		val iB_self = iB ~> self
-		val iC: Parser[C] = { cursor =>
+		val iB_self = iB ~> self;
+		{ cursor =>
 			val a = self.parse(cursor);
 			if (cursor.ok) {
 				val builder = builderCtor();
@@ -266,7 +276,6 @@ trait Parser[@specialized(Int) A] { self =>
 				ignored[C]
 			}
 		}
-		iC
 	}
 	def rep1Sep[@specialized(Int) B](iB: Parser[B]): Parser[List[A]] = rep1SepGen(iB, () => List.newBuilder)
 
@@ -302,15 +311,16 @@ trait Parser[@specialized(Int) A] { self =>
 	def repN(n: Int): Parser[List[A]] = repNGen(n, () => List.newBuilder)
 
 	/** Lanza falla si este [[Parser]] fracasa. */
-	def orFail: Parser[A] = { (cursor: Cursor) =>
+	def orFail(cause: AnyRef): Parser[A] = { (cursor: Cursor) =>
 		val a = self.parse(cursor);
-		if (!cursor.ok) {
-			cursor.fail()
+		if (!cursor.ok && !cursor.failed) {
+			cursor.fail(cause)
 		}
 		a
 	}
 
-	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and hits returning the received value. */
+	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and hits returning the received value.
+	 * TODO: take a [[PartialFunction]][Any, B] instead */
 	def recover[B >: A](b: B): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {
@@ -321,7 +331,8 @@ trait Parser[@specialized(Int) A] { self =>
 		}
 	}
 
-	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser. */
+	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser.
+	 * TODO: take a [[PartialFunction]][Any, [[Parser]][B]] instead.*/
 	def recoverWith[B >: A](iB: Parser[B]): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {
