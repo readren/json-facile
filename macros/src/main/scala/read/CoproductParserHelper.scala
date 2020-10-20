@@ -19,8 +19,8 @@ object CoproductParserHelper {
 
 	type Coproduct = Any;
 
-	case class CFieldInfo[+V](name: FieldName, oDefaultValue: Option[V])
-	case class ProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Seq[CFieldInfo[Any]], constructor: Seq[Any] => P);
+	final case class CphFieldInfo[+V](name: FieldName, oDefaultValue: Option[V])
+	final case class ProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Seq[CphFieldInfo[Any]], constructor: Seq[Any] => P);
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[C <: Coproduct]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
@@ -31,7 +31,7 @@ object CoproductParserHelper {
 		import ctx.universe._
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
-		if (coproductSymbol.isClass && coproductSymbol.asClass.isSealed) {
+		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
 //			cache.getOrElseUpdate(coproductType, {
 				val classSymbol = coproductSymbol.asClass;
 				val forEachProductSnippet: Seq[ctx.universe.Tree] =
@@ -55,7 +55,7 @@ object CoproductParserHelper {
 									forEachFieldSnippet.addOne(
 										q"""
 			 							fieldsInfoBuilder.addOne(${param.name.toString} -> Parser[${paramType}])
-										productFieldsSeqBuilder.addOne(CFieldInfo(${param.name.toString}, None));
+										productFieldsSeqBuilder.addOne(CphFieldInfo(${param.name.toString}, None));
 									   """);
 									q"args($argIndex).asInstanceOf[${paramType}]";
 								}
@@ -71,12 +71,12 @@ object CoproductParserHelper {
 
 				val helper =
 					q"""
-import read.CoproductParserHelper.{ProductInfo, CFieldInfo, FieldName}
+import read.CoproductParserHelper.{ProductInfo, CphFieldInfo, FieldName}
 import scala.collection.immutable;
 
 val productsInfoBuilder = immutable.ArraySeq.newBuilder[ProductInfo[_ <: $coproductType]];
 val fieldsInfoBuilder = immutable.Map.newBuilder[FieldName, Parser[_]];
-val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CFieldInfo[Any]];
+val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CphFieldInfo[Any]];
 
 ..$forEachProductSnippet
 
@@ -90,7 +90,7 @@ new CoproductParserHelper[$coproductType] {
 //			}).asInstanceOf[ctx.Expr[CoproductParserHelper[C]]]
 
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$coproductSymbol is not a sealed trait and only sealed traits are supported")
+			ctx.warning(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
 			ctx.Expr[CoproductParserHelper[C]](q"")
 		}
 	}

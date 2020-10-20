@@ -4,7 +4,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import read.CoproductParserHelper.{CFieldInfo, Coproduct, ProductInfo}
+import read.CoproductParserHelper.{CphFieldInfo, Coproduct, ProductInfo}
 import read.SyntaxParsers.{string, _}
 
 object CoproductParser {

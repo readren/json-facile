@@ -1,10 +1,10 @@
 package read
 
-import scala.collection.{MapFactory, SortedMapFactory, mutable}
-import scala.collection.immutable.{HashMap, ListMap, SeqMap, SortedMap, TreeMap}
+import scala.collection.mutable
 
 import read.Parser._
-import read.SyntaxParsers.{coma, colon, skipSpaces, string}
+import read.SyntaxParsers.{colon, coma, skipSpaces, string}
+import util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMapFactory}
 
 object MapParser {
 
@@ -59,36 +59,4 @@ object MapParser {
 		(asArray | asObject).orFail(s"Invalid syntax for a map.")
 	}
 	//// Any map END
-}
-
-
-/** A non variant holder of an [[MapFactory]][UMC] instance. Used to suppress the covariant behaviour of the [[MapFactory]] trait.
- *
- * @tparam UMC the type constructor of the unsorted map collection for which the wrapped factory generates builders. */
-class NonVariantHolderOfAMapFactory[UMC[_, _]](val factory: MapFactory[UMC]);
-object NonVariantHolderOfAMapFactory {
-
-	//		type NvhMf[UMC[_, _]] = NonVariantHolderOfAMapFactory[UMC]
-	//		@inline private def nvhMf[UMC[_, _]](factory: MapFactory[UMC]) = new NonVariantHolderOfAMapFactory(factory)
-
-	implicit val mapFactory: NonVariantHolderOfAMapFactory[Map] = new NonVariantHolderOfAMapFactory(Map)
-	implicit val hashMapFactory: NonVariantHolderOfAMapFactory[HashMap] = new NonVariantHolderOfAMapFactory(HashMap)
-	implicit val seqMapFactory: NonVariantHolderOfAMapFactory[SeqMap] = new NonVariantHolderOfAMapFactory(SeqMap)
-	implicit val listMapFactory: NonVariantHolderOfAMapFactory[ListMap] = new NonVariantHolderOfAMapFactory(ListMap)
-
-	implicit val mutableMapFactory: NonVariantHolderOfAMapFactory[mutable.Map] = new NonVariantHolderOfAMapFactory(mutable.Map)
-	implicit val mutableHashMapFactory: NonVariantHolderOfAMapFactory[mutable.HashMap] = new NonVariantHolderOfAMapFactory(mutable.HashMap)
-}
-
-/** A non variant holder of an [[SortedMapFactory]][SMC] instance. Used to suppress the covariant behaviour of the [[SortedMapFactory]] trait.
- *
- * @tparam SMC the type constructor of the sorted map collection for which the wrapped factory generates builders. */
-class NonVariantHolderOfASortedMapFactory[SMC[_, _]](val factory: SortedMapFactory[SMC]);
-object NonVariantHolderOfASortedMapFactory {
-
-	implicit val sortedMapFactory: NonVariantHolderOfASortedMapFactory[SortedMap] = new NonVariantHolderOfASortedMapFactory(SortedMap)
-	implicit val treeMapFactory: NonVariantHolderOfASortedMapFactory[TreeMap] = new NonVariantHolderOfASortedMapFactory(TreeMap)
-
-	implicit val mutableSortedMapFactory: NonVariantHolderOfASortedMapFactory[mutable.SortedMap] = new NonVariantHolderOfASortedMapFactory(mutable.SortedMap)
-	implicit val mutableTreeMapFactory: NonVariantHolderOfASortedMapFactory[mutable.TreeMap] = new NonVariantHolderOfASortedMapFactory(mutable.TreeMap)
 }

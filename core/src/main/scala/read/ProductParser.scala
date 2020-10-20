@@ -4,7 +4,7 @@ import scala.collection.mutable
 
 import read.PrimitiveParsers._
 import read.Parser._
-import read.ProductParserHelper.PFieldInfo
+import read.ProductParserHelper.PphFieldInfo
 
 
 object ProductParser {
@@ -34,7 +34,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 		string <~ skipSpaces <~ colon <~ skipSpaces >> { fieldName =>
 			helper.fieldsInfo.get(fieldName) match {
 
-				case Some(PFieldInfo(fieldValueParser, _)) =>
+				case Some(PphFieldInfo(fieldValueParser, _)) =>
 					fieldValueParser ^^ { DefinedField(fieldName, _) }
 
 				case None =>

@@ -8,14 +8,14 @@ import scala.reflect.macros.blackbox
 
 trait ProductParserHelper[P <: Product] {
 	val className: String;
-	val fieldsInfo: ListMap[String, ProductParserHelper.PFieldInfo[_]];
+	val fieldsInfo: ListMap[String, ProductParserHelper.PphFieldInfo[_]];
 	def createProduct(args: Seq[Any]): P
 }
 
 object ProductParserHelper {
 
 	/** TODO: make F covariant if [[Parser]] is made covariant. */
-	case class PFieldInfo[F](valueParser: Parser[F], oDefaultValue: Option[F])
+	final case class PphFieldInfo[F](valueParser: Parser[F], oDefaultValue: Option[F])
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[P <: Product]: ProductParserHelper[P] = macro materializeHelperImpl[P]
@@ -27,7 +27,7 @@ object ProductParserHelper {
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
 		val productSymbol: Symbol = productType.typeSymbol;
-		if (productSymbol.isClass) {
+		if (productSymbol.isClass && !productSymbol.isAbstract) {
 //			cache.getOrElseUpdate(productType, {
 				val productTypeName: String = show(productType);
 				val classSymbol = productSymbol.asClass;
@@ -40,22 +40,22 @@ object ProductParserHelper {
 						for (param <- params) yield {
 							argIndex += 1;
 							addFieldInfoSnippetsBuilder.addOne(
-								q"""builder.addOne((${param.name.toString}, read.ProductParserHelper.PFieldInfo(Parser.apply[${param.typeSignature.dealias}], None)));"""
+								q"""builder.addOne((${param.name.toString}, read.ProductParserHelper.PphFieldInfo(Parser.apply[${param.typeSignature.dealias}], None)));"""
 							);
 							q"args($argIndex).asInstanceOf[${param.typeSignature}]";
 						}
 					}
 				val helper =
 					q"""
-import read.ProductParserHelper.PFieldInfo;
+import read.ProductParserHelper.PphFieldInfo;
 
-val builder = scala.collection.immutable.ListMap.newBuilder[String, PFieldInfo[_]];
+val builder = scala.collection.immutable.ListMap.newBuilder[String, PphFieldInfo[_]];
 ..${addFieldInfoSnippetsBuilder.result()}
 
 new ProductParserHelper[${productType}] {
 	override val className: String = $productTypeName;
 
-	override val fieldsInfo: scala.collection.immutable.ListMap[String, PFieldInfo[_]] =
+	override val fieldsInfo: scala.collection.immutable.ListMap[String, PphFieldInfo[_]] =
 		builder.result();
 
 	override def createProduct(args: Seq[Any]):${productType} =
@@ -64,7 +64,7 @@ new ProductParserHelper[${productType}] {
 				ctx.Expr[ProductParserHelper[P]](ctx.typecheck(helper));
 //			}).asInstanceOf[ctx.Expr[ProductParserHelper[P]]]
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$productSymbol is not a class and only classes are supported")
+			ctx.warning(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
 			ctx.Expr[ProductParserHelper[P]](q"")
 		}
 	}

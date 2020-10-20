@@ -1,4 +1,4 @@
-package read
+package util
 
 /**
  * Generator of JSONType objects with a given tree depth

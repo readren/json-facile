@@ -149,12 +149,13 @@ object Parser {
 	}
 
 	/** Type class summoner */
-	def apply[T](implicit parserT: => Parser[T]): Parser[T] = parserT;
+	def apply[T](implicit parserT: Parser[T]): Parser[T] = parserT;
 }
 
 /** A parser combinator that minimizes the creation of new object in order to improve speed efficiency, at the cost information about the cause of frustration or failure. Only the position of the incident is reported.
  * Both the methods of this trait and the [[Parser]]s given by them are thread safe (or should be).
- * TODO: make A covariant when the compiler's implicit search bug is solved.
+ * The type parameter is non variant because, if it were, the covariance would cause trouble when using this trait as a type class contract, because Parser[B] is not necessarily a replacement of Parser[A] even if {{{B <: A}}}. For example, if A where {{{Iterable[(String, Int)]}}} and B where {{{Map[String, Int]}}}, the json parser for maps {{{Parser[Map[String, Int]]}}} won't be a good replacement of the json parser for iterables {{{Parser[Iterable[String, Int}}} because the first produces a HashMap and the second a List of tuples, and despite the first have all the functionality of the second, the performance of some operations is worst. Also, the covariance in type clases causes ambiguity problems with non linear hierarchies.
+ * A better solution would be to make this trait covariant and wrap it with a non variant wrapper when used as type class contract, but that would be more boilerplate. And the cost of making this trait non variant is low (I believe).
  * */
 trait Parser[@specialized(Int) A] { self =>
 	import Parser._

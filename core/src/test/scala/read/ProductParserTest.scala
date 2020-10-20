@@ -109,8 +109,6 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 	import IterableParser.iterableParser
 	import MapParser.unsortedMapParser
 	import MapParser.sortedMapParser
-	import NonVariantHolderOfAMapFactory._
-	import NonVariantHolderOfASortedMapFactory._
 
 //	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
