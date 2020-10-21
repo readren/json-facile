@@ -42,9 +42,11 @@ package object write {
 
 	implicit val jaBigDecimal: Appender[BigDecimal] = { (r, bigDec) => r.append(bigDec.toString()) }
 
+	implicit def jaEnumeration[E <: scala.Enumeration]: Appender[E#Value] = (r, enum) => r.append(enum.toString)
+
 	@inline implicit def jaIterable[E, IC[e] <: Iterable[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] = IterableAppender.apply[E, IC](elemAppender)
 
-	@inline implicit def apply[K, V, MC[k, v] <: Map[k, v]](
+	@inline implicit def jaMap[K, V, MC[k, v] <: Map[k, v]](
 		implicit
 		ka: Appender[K],
 		va: Appender[V],

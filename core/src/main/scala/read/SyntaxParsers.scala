@@ -55,20 +55,44 @@ object SyntaxParsers {
 	private val skipInteger: Parser[Pos] = '-'.opt ~> (acceptChar('0') ~> pos) | (digit19 ~> skipDigits)
 	private val skipFraction: Parser[Pos] = '.' ~> digit ~> skipDigits
 	private val skipExponent: Parser[Pos] = ('e' | 'E') ~> ('+' | '-').opt ~> digit ~> skipDigits // me parece que en lugar de "digit" debería ser "digit19", pero me regí por la página https://www.json.org/json-en.html
+	val skipJsNumber: Parser[Pos] = skipInteger ~> skipFraction.opt ~> skipExponent.opt ~> pos
 
-	def skipJsNumber: Parser[Pos] = skipInteger ~> skipFraction.opt ~> skipExponent.opt ~> pos
-	private def skipJsNull: Parser[Pos] = "null" ~> pos
-	private def skipJsBoolean: Parser[Pos] = ("true" | "false") ~> pos
-	private def skipJsString: Parser[Pos] = string ~> pos
+	private val skipJsNull: Parser[Pos] = "null" ~> pos
+
+	private val skipJsBoolean: Parser[Pos] = ("true" | "false") ~> pos
+
+	private val skipJsString: Parser[Pos] = string ~> pos
+
 	private def skipJsArray: Parser[Pos] = '[' ~> skipSpaces ~> (skipJsValue ~> skipSpaces).repSep(coma ~> skipSpaces) ~> ']' ~> pos
+
 	private def skipJsObject: Parser[Pos] = '{' ~> skipSpaces ~> (string ~> skipSpaces ~> colon ~> skipSpaces ~> skipJsValue ~> skipSpaces).repSep(coma ~> skipSpaces) ~> '}' ~> pos
+
 	val skipJsValue: Parser[Pos] = new Parser[Pos] {
-		private var mem: Parser[Pos] = _
+		// I don't like lazy vals because they block the thread and that is not necessary here because in the worst case the value is initialized twice.
+		var skipObject: Parser[Pos] = _;
+		var skipArray: Parser[Pos] = _;
 		override def parse(cursor: Cursor): Pos = {
-			if (mem == null) {
-				this.mem = skipJsString | (skipJsArray | (skipJsObject | (skipJsNull | (skipJsBoolean | skipJsNumber.orFail("Invalid json value format.")))))
+			if (cursor.ok) {
+				val p = cursor.pointedElem match {
+					case '"' => skipJsString
+					case '{' =>
+						if(skipObject == null) {
+							skipObject = skipJsObject
+						}
+						skipObject
+					case '[' =>
+						if(skipArray == null) {
+							skipArray = skipJsArray
+						}
+						skipArray
+					case 't' | 'f' => skipJsBoolean
+					case 'n' => skipJsNull
+					case _ => skipJsNumber.orFail("Invalid json value format.")
+				}
+				p.parse(cursor)
+			} else {
+				cursor.pos
 			}
-			this.mem.parse(cursor)
 		}
 	}
 }

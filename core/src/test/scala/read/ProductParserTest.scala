@@ -1,49 +1,29 @@
 package read
 
 
-import org.scalatest.{Outcome, Retries, Succeeded}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
-import read.CoproductParserHelper.Coproduct
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
+import org.scalatest.{Outcome, Retries, Succeeded}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat, enrichAny}
+import util.SampleADT._
 
 //noinspection TypeAnnotation
 object ProductParserTest extends DefaultJsonProtocol {
+
+	//////////////////////////////
+	// Simple sample data types //
 
 	case class Simple(text: String, number: Long)
 	case class Nest(name: String, simple: Simple)
 	case class Tree(height: Int, nests: List[Nest], mapa: Map[String, Simple])
 
-	object DistanceUnit extends Enumeration {
-		type DistanceUnit = Value
-		val Meter, Millimeter = Value;
-	}
-
-	case class Distance(value: Double, unit: DistanceUnit.Value)
-
-	sealed trait Shape extends Coproduct
-	case class Box(axis: List[Distance]) extends Shape
-	case class Sphere(radius: Distance) extends Shape
-
-	sealed trait Thing extends Coproduct {
-		def enclosingShape: Shape
-		def description: String
-	}
-	case class Table(enclosingShape: Shape, legsAmount: Int, description: String) extends Thing
-	case class Shelf(enclosingShape: Shape, levelsAmount: Int, description: String) extends Thing
-	case class Ball(enclosingShape: Shape, description: String) extends Thing
-
-	type Price = BigDecimal
-	type ThingId = String
-	type Catalog = Map[ThingId, Price]
-	type Inventory = Map[ThingId, Int]
-	case class PresentationData(catalog: Catalog, inventory: Inventory, things: Map[ThingId, Thing])
-
-	// ------------------------------- //
+	///////////////////////
+	// Spray boilerplate //
 
 	implicit val simpleFormat = jsonFormat2(Simple)
 	implicit val anidadoFormat = jsonFormat2(Nest)
 	implicit val treeFormat = jsonFormat3(Tree)
+
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
 		override def write(obj: T#Value): JsValue = JsString(obj.toString)
@@ -80,7 +60,8 @@ object ProductParserTest extends DefaultJsonProtocol {
 	}
 	implicit val presentationDataFormat = jsonFormat3(PresentationData)
 
-	//////////////
+	////////////////////////
+	// Simple sample data //
 
 	val simpleOriginal = Simple("hola", 5L)
 	val simpleJson = simpleOriginal.toJson.prettyPrint
@@ -89,13 +70,8 @@ object ProductParserTest extends DefaultJsonProtocol {
 	val treeOriginal = Tree(7, List(nestOriginal), Map("clave" -> simpleOriginal))
 	val treeJson = treeOriginal.toJson.prettyPrint;
 
-	val tableA = "table_A" -> Table(legsAmount = 4, description = "dinner room", enclosingShape = Box(List(Distance(1.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(750, DistanceUnit.Millimeter))));
-	val shelfA = "shelf_A" -> Shelf(levelsAmount = 4, description = "for books", enclosingShape = Box(List(Distance(2.5, DistanceUnit.Meter), Distance(2, DistanceUnit.Meter), Distance(500, DistanceUnit.Millimeter))));
-	val ballA = "ball_A" -> Ball(description = "soccer", enclosingShape = Sphere(radius = Distance(20, DistanceUnit.Millimeter)));
-	val catalog = Map("table_A" -> BigDecimal(123.4), "shelf_A" -> BigDecimal(32.1))
-	val inventory = Map("table_A" -> 4, "shelf_A" -> 3, "ball_A" -> 8)
-	val presentationDataOriginal = PresentationData(catalog, inventory, Map(tableA, shelfA, ballA))
 	val presentationDataJson = presentationDataOriginal.toJson.prettyPrint
+
 
 }
 
@@ -107,8 +83,8 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 	import ProductParser.jpProduct
 	import CoproductParser.jpCoproduct
 	import IterableParser.iterableParser
-	import MapParser.unsortedMapParser
 	import MapParser.sortedMapParser
+	import MapParser.unsortedMapParser
 
 //	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 

@@ -9,7 +9,7 @@ import read.CoproductParserHelper._
 trait CoproductParserHelper[C <: Coproduct] {
 	def name: String;
 	def discriminator: FieldName;
-	def productsInfo: ArraySeq[ProductInfo[_ <: C]]
+	def productsInfo: ArraySeq[CphProductInfo[_ <: C]]
 	def fieldsInfo: Map[FieldName, Parser[_]];
 }
 
@@ -20,12 +20,12 @@ object CoproductParserHelper {
 	type Coproduct = Any;
 
 	final case class CphFieldInfo[+V](name: FieldName, oDefaultValue: Option[V])
-	final case class ProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Seq[CphFieldInfo[Any]], constructor: Seq[Any] => P);
+	final case class CphProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Seq[CphFieldInfo[Any]], constructor: Seq[Any] => P);
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[C <: Coproduct]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
 
-	private val cache: mutable.WeakHashMap[blackbox.Context#Type, blackbox.Context#Expr[CoproductParserHelper[_ <: Coproduct]]] = mutable.WeakHashMap.empty
+//	private val cache: mutable.WeakHashMap[blackbox.Context#Type, blackbox.Context#Expr[CoproductParserHelper[_ <: Coproduct]]] = mutable.WeakHashMap.empty
 
 	def materializeHelperImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[CoproductParserHelper[C]] = {
 		import ctx.universe._
@@ -39,7 +39,7 @@ object CoproductParserHelper {
 						productSymbol <- classSymbol.knownDirectSubclasses.toSeq
 						productClassSymbol = productSymbol.asClass
 						productType = productClassSymbol.toType.dealias
-						if productType <:< typeOf[Product]
+//						if productType <:< typeOf[Product]
 					} yield {
 						val productCtorParamsLists = productClassSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
@@ -64,17 +64,17 @@ object CoproductParserHelper {
 
 						q"""
 		 				..${forEachFieldSnippet.result()}
-						productsInfoBuilder.addOne(ProductInfo(${productSymbol.name.toString}, $requiredFieldsCounter, productFieldsSeqBuilder.result(), $ctorFunction));
+						productsInfoBuilder.addOne(CphProductInfo(${productSymbol.name.toString}, $requiredFieldsCounter, productFieldsSeqBuilder.result(), $ctorFunction));
 						productFieldsSeqBuilder.clear();
 					   """
 					}
 
 				val helper =
 					q"""
-import read.CoproductParserHelper.{ProductInfo, CphFieldInfo, FieldName}
+import _root_.read.CoproductParserHelper.{CphProductInfo, CphFieldInfo, FieldName}
 import scala.collection.immutable;
 
-val productsInfoBuilder = immutable.ArraySeq.newBuilder[ProductInfo[_ <: $coproductType]];
+val productsInfoBuilder = immutable.ArraySeq.newBuilder[CphProductInfo[_ <: $coproductType]];
 val fieldsInfoBuilder = immutable.Map.newBuilder[FieldName, Parser[_]];
 val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CphFieldInfo[Any]];
 

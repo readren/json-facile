@@ -4,7 +4,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import read.CoproductParserHelper.{CphFieldInfo, Coproduct, ProductInfo}
+import read.CoproductParserHelper.{CphFieldInfo, Coproduct, CphProductInfo}
 import read.SyntaxParsers.{string, _}
 
 object CoproductParser {
@@ -39,8 +39,8 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 
 	assert(helper != null); // Fails here when the macro expansion of CoproductParserHelper fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
 
-	/** Used by this parser to maintains the state of a product and known it's [[ProductInfo]]. */
-	private class Manager(val productInfo: ProductInfo[C]) {
+	/** Used by this parser to maintains the state of a product and known it's [[CphProductInfo]]. */
+	private class Manager(val productInfo: CphProductInfo[C]) {
 		var missingRequiredFieldsCounter: Int = productInfo.numberOfRequiredFields;
 		var isViable: Boolean = true;
 	}

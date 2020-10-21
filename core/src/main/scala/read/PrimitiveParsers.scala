@@ -118,28 +118,30 @@ object PrimitiveParsers {
 
 	import scala.reflect.runtime.{universe => ru}
 
-	/** TODO usar un cache */
 	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
-		val eType = typeTag.tpe;
-		val moduleSymbol = eType.termSymbol.asModule
-		val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
-		val moduleMirror = classLoaderMirror.reflectModule(moduleSymbol)
-		val enum = moduleMirror.instance.asInstanceOf[E]
-		val values = enum.values
+		val (enum, fullName) = {
+			// TODO consider using a cache. When is this code executed? Compile or run time?
+			val eType = typeTag.tpe;
+			val moduleSymbol = eType.termSymbol.asModule
+			val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
+			val moduleMirror = classLoaderMirror.reflectModule(moduleSymbol)
+			val enum = moduleMirror.instance.asInstanceOf[E]
+			(enum, moduleSymbol.fullName)
+		}
 
 		val asName: Parser[E#Value] = SyntaxParsers.string >> { name =>
-			values.find(_.toString == name) match {
+			enum.values.find(_.toString == name) match {
 				case Some(value) => Parser.hit(value)
-				case None => Parser.fail(s"""The expected enum "${moduleSymbol.fullName}" does not contain a value with this name: $name.""")
+				case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
 			}
 		}
 		val asId: Parser[E#Value] = jpInt >> { id =>
-			values.find(_.id == id) match {
+			enum.values.find(_.id == id) match {
 				case Some(value) => Parser.hit(value)
-				case None => Parser.fail(s"""The expected enum "${moduleSymbol.fullName}" does not contain a value with this id: $id.""")
+				case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
 			}
 		}
-		(asName| asId).orFail("")
+		(asName | asId).orFail(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
 	}
 }
 
