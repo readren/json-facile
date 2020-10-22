@@ -79,12 +79,7 @@ object ProductParserTest extends DefaultJsonProtocol {
 //noinspection TypeAnnotation
 class ProductParserTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
-	import PrimitiveParsers._
-	import ProductParser.jpProduct
-	import CoproductParser.jpCoproduct
-	import IterableParser.iterableParser
-	import MapParser.sortedMapParser
-	import MapParser.unsortedMapParser
+	import read._
 
 //	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 
@@ -105,47 +100,33 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 		}
 
 		def `Json interpretation should work for a simple product`(): Unit = {
-			val cursor = new CursorStr(simpleJson)
-			val simpleParser = Parser.apply[Simple]
-			val simpleParsed = simpleParser.parse(cursor)
+			val simpleParsed = simpleJson.fromJson[Simple]
 			assertResult(simpleOriginal)(simpleParsed)
 		}
 
 		def `Json interpretation should work for nested products`(): Unit = {
-			val cursor = new CursorStr(nestJson)
-			val nestParser = Parser.apply[Nest]
-			val nestParsed = nestParser.parse(cursor)
+			val nestParsed = nestJson.fromJson[Nest]
 			assertResult(nestOriginal)(nestParsed)
 		}
 
 		def `Json interpretation should work for products with iterables`(): Unit = {
-			val cursor = new CursorStr(treeJson)
-			val treeParser = Parser.apply[Tree]
-			val treeParsed = treeParser.parse(cursor)
+			val treeParsed = treeJson.fromJson[Tree]
 			assertResult(treeOriginal)(treeParsed)
 		}
 
 		def `Json interpretation should work for simple ADTs with a coproduct`(): Unit = {
-			var cursor = new CursorStr(tableA._2.toJson.prettyPrint)
-			val tableParser = Parser.apply[Table]
-			val tableAParsed = tableParser.parse(cursor)
+			val tableAParsed = tableA._2.toJson.prettyPrint.fromJson[Table]
 			assertResult(tableA._2)(tableAParsed)
 
-			cursor = new CursorStr(ballA._2.toJson.prettyPrint)
-			val ballParser = Parser.apply[Ball]
-			val ballParsed = ballParser.parse(cursor)
+			val ballParsed = ballA._2.toJson.prettyPrint.fromJson[Ball]
 			assertResult(ballA._2)(ballParsed)
 
-			cursor = new CursorStr(shelfA._2.toJson.prettyPrint)
-			val shelfParser = Parser.apply[Shelf]
-			val shelfAParsed = shelfParser.parse(cursor)
+			val shelfAParsed = shelfA._2.toJson.prettyPrint.fromJson[Shelf]
 			assertResult(shelfA._2)(shelfAParsed)
 		}
 
 		def `Json interpretation should work for complex ADTs`(): Unit = {
-			val cursor = new CursorStr(presentationDataJson)
-			val presentationDataParser = Parser.apply[PresentationData]
-			val presentationDataParsed = presentationDataParser.parse(cursor)
+			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(presentationDataOriginal)(presentationDataParsed)
 		}
 	}

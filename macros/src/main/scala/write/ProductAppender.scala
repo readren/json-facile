@@ -5,11 +5,11 @@ import scala.reflect.macros.blackbox
 
 object ProductAppender {
 
-	type LowerBound = Product
+	type UpperBound = Product
 
-	implicit def materialize[P <: LowerBound]: Appender[P] = macro materializeImpl[P];
+//	implicit def materialize[P <: UpperBound]: Appender[P] = macro materializeImpl[P];
 
-	def materializeImpl[P <: LowerBound : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[P]] = {
+	def materializeImpl[P <: UpperBound : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;

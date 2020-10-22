@@ -6,10 +6,15 @@ import write.CoproductAppender.UnexpectedProductTypeException
 import write.CoproductAppenderHelper.CahProductInfo
 
 object CoproductAppender {
+
+
+
 	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
 }
 
 class CoproductAppender[C <: Coproduct](helper: CoproductAppenderHelper[C]) extends Appender[C] {
+
+	assert(helper != null)
 
 	override def append(record: Record, product: C): Record = {
 

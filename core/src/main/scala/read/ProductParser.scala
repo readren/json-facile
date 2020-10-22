@@ -20,8 +20,6 @@ object ProductParser {
 	private object IgnoreProduct extends Parser.Ignore[Null] {
 		override def ignored: Null = null;
 	}
-
-	implicit def jpProduct[P <: Product](implicit helper: ProductParserHelper[P]): Parser[P] = new ProductParser[P](helper)
 }
 
 class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser[P] {

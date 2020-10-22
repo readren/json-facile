@@ -21,8 +21,9 @@ object SyntaxParsers {
 	}
 
 	val skipSpaces: Parser[Pos] = { cursor =>
-		while (Character.isWhitespace(cursor.pointedElem)) {
-			cursor.advance()
+		var have = cursor.have;
+		while (have && Character.isWhitespace(cursor.pointedElem)) {
+			have = cursor.advance()
 		}
 		cursor.pos
 	}
@@ -46,8 +47,9 @@ object SyntaxParsers {
 
 	private val digit: Parser[Elem] = acceptElemIf(Character.isDigit)
 	private val skipDigits: Parser[Pos] = { cursor =>
-		while (Character.isDigit(cursor.pointedElem)) {
-			cursor.advance();
+		var have = cursor.have;
+		while (have && Character.isDigit(cursor.pointedElem)) {
+			have = cursor.advance();
 		}
 		cursor.pos
 	}

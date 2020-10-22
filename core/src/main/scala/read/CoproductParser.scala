@@ -26,8 +26,6 @@ object CoproductParser {
 
 	private val fieldNameParser: Parser[String] = string <~ skipSpaces <~ colon <~ skipSpaces
 
-	implicit def jpCoproduct[T <: Coproduct](implicit helper: CoproductParserHelper[T]): Parser[T] = new CoproductParser[T](helper)
-
 	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.collect { case DefinedField(fieldName, _) => fieldName } mkString ", ";
 
 }

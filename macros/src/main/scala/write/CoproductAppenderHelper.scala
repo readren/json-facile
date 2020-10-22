@@ -3,7 +3,6 @@ package write
 import java.util.Comparator
 
 import scala.reflect.macros.blackbox
-
 import read.CoproductParserHelper.Coproduct
 import write.CoproductAppenderHelper.CahProductInfo
 
@@ -19,23 +18,30 @@ object CoproductAppenderHelper {
 	/** Compares two [[CahProductInfo]] based their names using the [[productNameComparator]] as ordering criteria.. */
 	val productInfoComparator: Comparator[CahProductInfo[_]] = { (a, b) => productNameComparator.compare(a.name, b.name) }
 
-	/** Compares two Strings based on the length and, if both have the same length, by alphabetic order of the reversed names. */
+	/** Compares two Strings based on the length and, if both have the same length, by alphabetic order of the reversed names.
+	 * Differences between dots and dollars are ignored if the dot is in the first name (an) and the dollar in the second name (bn).
+	 * The names are considered equal if the fragments after the last dot are equal. */
 	val productNameComparator: Comparator[String] = { (an, bn) =>
 		val anl = an.length;
 		var d = anl - bn.length;
 		if (d == 0) {
 			var i = anl - 1;
-			var c: Char = 0;
+			var bc: Char = 0;
 			do {
-				c = an.charAt(i);
-				d = c - bn.charAt(i);
+				val ac = an.charAt(i);
+				bc = bn.charAt(i);
+				d = ac - bc;
+				// Ignore difference between dots and dollars. This assumes that the first name (an) is obtained by the macro, and the second (bn) may be obtained at runtime from the Class object.
+				if(ac == '.' && bc == '$') {
+					d = 0
+				}
 				i -= 1;
-			} while (d == 0 && i >= 0 && c != '.')
+			} while (d == 0 && i >= 0 && bc != '.')
 		}
 		d
 	}
 
-	def materialize[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
+	implicit def apply[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
 	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
@@ -43,7 +49,7 @@ object CoproductAppenderHelper {
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
 		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
 			val classSymbol = coproductSymbol.asClass;
-			val forEachProductSnippet: Seq[ctx.universe.Tree] =
+			val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
 				for {
 					productSymbol <- classSymbol.knownDirectSubclasses.toSeq
 					productClassSymbol = productSymbol.asClass
@@ -53,7 +59,7 @@ object CoproductAppenderHelper {
 					val productCtorParamsLists = productClassSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
 					var isFirstField = true;
-					val appendFieldsSnippets =
+					val appendField_codeLines =
 						for {
 							params <- productCtorParamsLists
 							param <- params
@@ -75,9 +81,9 @@ $start
 
 					val productClassNameAtRuntime = productType.erasure.typeSymbol.fullName;
 					q"""
-val productAppender: Appender[$coproductType] = { (r, p) =>
+val productAppender: Appender[$productType] = { (r, p) =>
 	r.append('{');
-	..${appendFieldsSnippets}
+	..${appendField_codeLines}
   	r.append('}')
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
@@ -85,25 +91,28 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 
 			val helper =
 				q"""
-import _root_.read.CoproductAppenderHelper.CahProductInfo;
-import _root_.write.Appender;
-import scala.collection.immutable;
+import _root_.write.{Appender, CoproductAppenderHelper};
+import CoproductAppenderHelper.CahProductInfo;
 
-val productsInfoBuilder = immutable.Array.newBuilder[CahProductInfo[$coproductType]];
+val productsInfoBuilder = scala.Array.newBuilder[CahProductInfo[_ <: $coproductType]];
 
-..$forEachProductSnippet
+..$addProductInfo_codeLines
 
-new CoproductParserHelper[$coproductType] {
+val productsArray = productsInfoBuilder.result().asInstanceOf[Array[CahProductInfo[$coproductType]]];
+java.util.Arrays.sort(productsArray, CoproductAppenderHelper.productInfoComparator);
+
+new CoproductAppenderHelper[$coproductType] {
 	override val name = ${coproductSymbol.fullName}
-	override val productsInfo = productsInfoBuilder.result();
+	override val productsInfo = productsArray;
+
 }"""
+			ctx.info(ctx.enclosingPosition, s"helper=$helper", true)
 			ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 		} else {
 			ctx.warning(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
 			ctx.Expr[CoproductAppenderHelper[C]](q"")
 		}
 	}
-
 }
 
 

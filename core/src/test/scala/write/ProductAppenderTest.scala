@@ -23,7 +23,6 @@ object ProductAppenderTest {
 
 class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
 	import write._
-	import ProductAppender.materialize
 	import IterableAppender.apply
 	import MapAppender.apply
 
@@ -45,15 +44,12 @@ class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyC
 			assert(treeJson == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
 		}
 
-//		def `with abstract types`(): Unit = {
-//			import read.ProductParser._
-//
-//			val presentationDataJson = presentationDataOriginal.toJson
-//			val presentationDataParsed = presentationDataJson.fromJson
-//			assert(presentationDataParsed == presentationDataOriginal)
-//		}
+		def `with abstract types`(): Unit = {
+			import read.ProductParser._
 
+			val presentationDataJson = presentationDataOriginal.toJson
+			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
+			assert(presentationDataParsed == presentationDataOriginal)
+		}
 	}
-
-
 }

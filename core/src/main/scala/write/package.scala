@@ -1,3 +1,4 @@
+import read.CoproductParserHelper.Coproduct
 import write.MapAppender.{MapFormatDecider, defaultMapFormatDecider}
 
 package object write {
@@ -52,6 +53,13 @@ package object write {
 		va: Appender[V],
 		mfd: MapFormatDecider[K, V, MC[K, V]] = defaultMapFormatDecider
 	): Appender[MC[K, V]] = MapAppender.apply[K, V, MC](ka, va, mfd)
+
+	////////////////////////////////////////////////////////////////////////////
+	//// Json appenders for products and coproducts (sealed abstract types) ////
+
+	implicit def jaProduct[P <: ProductAppender.UpperBound]: Appender[P] = macro ProductAppender.materializeImpl[P]
+
+	implicit def jaCoproduct[C <: Coproduct](implicit helper: CoproductAppenderHelper[C]): Appender[C] = new CoproductAppender(helper);
 
 	//////////////////////////////
 	//// Json string enconders ////

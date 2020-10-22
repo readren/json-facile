@@ -6,11 +6,11 @@ import util.NonVariantHolderOfAnIterableFactory
 
 object IterableParser {
 
-	type LowerBound[E] = Iterable[E];
+	type IterableUpperBound[E] = Iterable[E];
 
 	/** @tparam IC iterator type constructor
 	 * @tparam E element's type */
-	implicit def iterableParser[IC[X] <: LowerBound[X], E](
+	def apply[IC[e] <: IterableUpperBound[e], E](
 		implicit
 		parserE: Parser[E],
 		factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.

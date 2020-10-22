@@ -8,19 +8,18 @@ class CursorStr(content: String) extends Cursor {
 	private var cursorPos: Int = 0;
 	private var isMissed: Boolean = false;
 	private var isFailed: Boolean = false;
-	private var failureCause: AnyRef = null;
+	private var lastFailure: AnyRef = null;
 
 	override def pos: Pos = cursorPos;
 
 	@inline override def ok: Boolean = !isMissed && !isFailed;
 
-	override def have: Boolean = {
-		assert(ok);
-		0 <= cursorPos && cursorPos < content.length
+	@inline override def have: Boolean = {
+		assert(ok)
+		cursorPos < content.length
 	}
 
 	override def atEnd: Boolean = {
-		assert(ok)
 		cursorPos == content.length
 	}
 
@@ -29,25 +28,30 @@ class CursorStr(content: String) extends Cursor {
 	override def failed: Boolean = isFailed;
 
 	override def pointedElem: Elem = {
-		assert(have);
 		content.codePointAt(cursorPos)
 	};
 
-	override def comes(esperado: String): Boolean = {
-		ok && content.regionMatches(cursorPos, esperado, 0, esperado.length);
+	override def comes(expected: String): Boolean = {
+		assert(ok)
+		content.regionMatches(cursorPos, expected, 0, expected.length);
 	};
 
-	override def advance(cantPasos: Int): Unit = {
-		assert(have);
+	override def advance(cantPasos: Int): Boolean = {
+		assert(ok)
 		this.cursorPos = content.offsetByCodePoints(cursorPos, cantPasos);
+		have
 	}
 
 	override def miss(): Unit = this.isMissed = true;
 
 	override def fail(cause: AnyRef): Unit = {
-		this.failureCause = cause;
+		this.lastFailure = cause;
 		this.isFailed = true
 	};
+
+	override def failureCause: AnyRef =
+		if(this.isFailed) this.lastFailure
+		else null;
 
 	override def clearMiss(): Unit =
 		this.isMissed = false;

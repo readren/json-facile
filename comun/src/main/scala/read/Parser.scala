@@ -36,21 +36,25 @@ object Parser {
 		def pos: Pos;
 		/** This cursor missed and failed flags are not set. */
 		def ok: Boolean;
-		/** This [[Cursor]] is pointing to a valid position. */
+		/** This [[Cursor]] is pointing to an element of the content. */
 		def have: Boolean
 		/** Is true when this [[Cursor]] is at the end of the content (the position after the last element). */
 		def atEnd: Boolean;
 		/** Is true when this [[Cursor]] missed flag is set and the failure flag is not. */
 		def missed: Boolean;
-		/** The element being pointed by this [[Cursor]]. */
+		/** The element being pointed by this [[Cursor]]. Assumes this cursor is pointing to an element of the content.*/
 		def pointedElem: Elem
-		def comes(esperado: String): Boolean
-		/** Increments the position. */
-		def advance(cantPasos: Int = 1): Unit
+		/** Returns true if [[have]] gives true and the content subsequence starting at the [[pointedElem]] matches the received string. */
+		def comes(expected: String): Boolean
+		/** Increments the position.
+		 * @return true if after the advance this cursor is pointing to an element of the content (same as [[have]]). */
+		def advance(cantPasos: Int = 1): Boolean
 		/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
 		def miss(): Unit
 		/** Sets the failed flag. Failures propagates trough all normal parsers until a [[Parser.recover]] or [[Parser.recoverWith]] is reached. */
 		def fail(cause: AnyRef): Unit
+		/** The cause of the last failure or null if the failing flag is not set. */
+		def failureCause: AnyRef
 		/** Is true when this [[Cursor]] failed flag is set */
 		def failed: Boolean;
 		/** Clears the missed flag. Note that the [[missed]] method will continue giving false if the [[failed]] flag is set. */
@@ -69,7 +73,7 @@ object Parser {
 		 * - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
 		 * - is failed, should return `null`.
 		 *
-		 * @return if this [[Cursor]] is ok after the block execution, the result of applying `f`. `null` otherwise. */
+		 * @return a string containing the code points consumed by the block if the cursor is ok after the block execution. `null` otherwise. */
 		def consume(block: () => Unit): String
 	}
 
