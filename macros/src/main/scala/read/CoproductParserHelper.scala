@@ -71,11 +71,13 @@ object CoproductParserHelper {
 
 				val helper =
 					q"""
-import _root_.read.CoproductParserHelper.{CphProductInfo, CphFieldInfo, FieldName}
 import scala.collection.immutable;
+import _root_.read.CoproductParserHelper;
+import CoproductParserHelper.{CphProductInfo, CphFieldInfo};
+import _root_.read.api._
 
 val productsInfoBuilder = immutable.ArraySeq.newBuilder[CphProductInfo[_ <: $coproductType]];
-val fieldsInfoBuilder = immutable.Map.newBuilder[FieldName, Parser[_]];
+val fieldsInfoBuilder = immutable.Map.newBuilder[String, Parser[_]];
 val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CphFieldInfo[Any]];
 
 ..$forEachProductSnippet

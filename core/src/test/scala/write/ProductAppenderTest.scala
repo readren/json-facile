@@ -3,10 +3,7 @@ package write
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import read.FromJsonConvertable
 import util.JsonGen
-import util.SampleADT._
-import write.ProductAppenderTest._
 
 object ProductAppenderTest {
 
@@ -22,10 +19,10 @@ object ProductAppenderTest {
 }
 
 class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
-	import write._
-	import IterableAppender.apply
-	import MapAppender.apply
-
+	import ProductAppenderTest._
+	import util.SampleADT._
+	import write.api._
+	import read.api._
 
 	object `The appender should work ...` {
 
@@ -39,17 +36,16 @@ class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyC
 			assert(nestJson == """{"name":"chau","simple":{"text":"hola","number":7}}""")
 		}
 
-		def `with iterators and maps`(): Unit = {
-			val treeJson = treeOriginal.toJson
-			assert(treeJson == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
-		}
+//		def `with iterators and maps`(): Unit = {
+//			val treeJson = treeOriginal.toJson
+//			assert(treeJson == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
+//		}
 
-		def `with abstract types`(): Unit = {
-			import read.ProductParser._
-
-			val presentationDataJson = presentationDataOriginal.toJson
-			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
-			assert(presentationDataParsed == presentationDataOriginal)
-		}
+//		def `with abstract types`(): Unit = {
+//
+//			val presentationDataJson = presentationDataOriginal.toJson
+//			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
+//			assert(presentationDataParsed == presentationDataOriginal)
+//		}
 	}
 }

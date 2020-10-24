@@ -2,7 +2,7 @@ package write
 
 object Appender {
 	/** Appender summoner */
-	implicit def apply[A](implicit appender: Appender[A]): Appender[A] = appender;
+	def apply[A](implicit appender: Appender[A]): Appender[A] = appender;
 }
 
 

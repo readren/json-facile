@@ -79,7 +79,7 @@ object ProductParserTest extends DefaultJsonProtocol {
 //noinspection TypeAnnotation
 class ProductParserTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
-	import read._
+	import read.api._
 
 //	private val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
 

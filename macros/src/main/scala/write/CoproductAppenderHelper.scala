@@ -81,9 +81,11 @@ $start
 
 					val productClassNameAtRuntime = productType.erasure.typeSymbol.fullName;
 					q"""
-val productAppender: Appender[$productType] = { (r, p) =>
-	r.append('{');
+val productAppender: _root_.write.Appender[$productType] = { (r, p) =>
+	r.append('{')
+
 	..${appendField_codeLines}
+
   	r.append('}')
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
@@ -91,7 +93,8 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 
 			val helper =
 				q"""
-import _root_.write.{Appender, CoproductAppenderHelper};
+import _root_.write.api._
+import _root_.write.CoproductAppenderHelper;
 import CoproductAppenderHelper.CahProductInfo;
 
 val productsInfoBuilder = scala.Array.newBuilder[CahProductInfo[_ <: $coproductType]];
