@@ -52,11 +52,9 @@ object CoproductAppenderHelper {
 			val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
 				for {
 					productSymbol <- classSymbol.knownDirectSubclasses.toSeq
-					productClassSymbol = productSymbol.asClass
-					productType = productClassSymbol.toType.dealias
-					//	if productType <:< typeOf[Product]
 				} yield {
-					val productCtorParamsLists = productClassSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+					val productType = util.ReflectTools.applySubclassTypeConstructor(ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
+					val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
 					var isFirstField = true;
 					val appendField_codeLines =

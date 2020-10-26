@@ -40,14 +40,15 @@ object ProductParserHelper {
 						for (param <- params) yield {
 							argIndex += 1;
 							addFieldInfoSnippetsBuilder.addOne(
-								q"""builder.addOne((${param.name.toString}, read.ProductParserHelper.PphFieldInfo(Parser.apply[${param.typeSignature.dealias}], None)));"""
+								q"""builder.addOne((${param.name.toString}, PphFieldInfo(Parser.apply[${param.typeSignature.dealias}], None)));"""
 							);
 							q"args($argIndex).asInstanceOf[${param.typeSignature}]";
 						}
 					}
 				val helper =
 					q"""
-import read.ProductParserHelper.PphFieldInfo;
+import _root_.read.{Parser, ProductParserHelper};
+import ProductParserHelper.PphFieldInfo;
 
 val builder = scala.collection.immutable.ListMap.newBuilder[String, PphFieldInfo[_]];
 ..${addFieldInfoSnippetsBuilder.result()}

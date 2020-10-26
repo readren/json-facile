@@ -20,17 +20,20 @@ package object api {
 	//////////////////////////////////////////
 	//// Supported standard library types ////
 
+	// TODO add a implicit parameter which decides how would the enums be identified, by name or by id.
+	implicit def jaEnumeration[E <: scala.Enumeration]: Appender[E#Value] =
+		(r, enum) => jaCharSequence.append(r, enum.toString)
 
-	implicit def jaEnumeration[E <: scala.Enumeration]: Appender[E#Value] = (r, enum) => r.append(enum.toString)
-
-	@inline implicit def jaIterable[E, IC[e] <: Iterable[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] = IterableAppender.apply[E, IC](elemAppender)
+	@inline implicit def jaIterable[E, IC[e] <: Iterable[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
+		IterableAppender.apply[E, IC](elemAppender)
 
 	@inline implicit def jaMap[K, V, MC[k, v] <: Map[k, v]](
 		implicit
 		ka: Appender[K],
 		va: Appender[V],
 		mfd: MapFormatDecider[K, V, MC[K, V]] = defaultMapFormatDecider
-	): Appender[MC[K, V]] = MapAppender.apply[K, V, MC](ka, va, mfd)
+	): Appender[MC[K, V]] =
+		MapAppender.apply[K, V, MC](ka, va, mfd)
 
 
 }

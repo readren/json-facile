@@ -35,13 +35,9 @@ object CoproductParserHelper {
 //			cache.getOrElseUpdate(coproductType, {
 				val classSymbol = coproductSymbol.asClass;
 				val forEachProductSnippet: Seq[ctx.universe.Tree] =
-					for {
-						productSymbol <- classSymbol.knownDirectSubclasses.toSeq
-						productClassSymbol = productSymbol.asClass
-						productType = productClassSymbol.toType.dealias
-//						if productType <:< typeOf[Product]
-					} yield {
-						val productCtorParamsLists = productClassSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+					for (productSymbol <- classSymbol.knownDirectSubclasses.toSeq) yield {
+						val productType = util.ReflectTools.applySubclassTypeConstructor(ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
+						val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).paramLists
 
 						val forEachFieldSnippet = Seq.newBuilder[ctx.Tree];
 						var requiredFieldsCounter: Int = 0;
@@ -72,7 +68,7 @@ object CoproductParserHelper {
 				val helper =
 					q"""
 import scala.collection.immutable;
-import _root_.read.CoproductParserHelper;
+import _root_.read.{Parser, CoproductParserHelper};
 import CoproductParserHelper.{CphProductInfo, CphFieldInfo};
 import _root_.read.api._
 
