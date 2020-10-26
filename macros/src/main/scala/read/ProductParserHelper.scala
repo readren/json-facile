@@ -53,20 +53,19 @@ import ProductParserHelper.PphFieldInfo;
 val builder = scala.collection.immutable.ListMap.newBuilder[String, PphFieldInfo[_]];
 ..${addFieldInfoSnippetsBuilder.result()}
 
-new ProductParserHelper[${productType}] {
+new ProductParserHelper[$productType] {
 	override val className: String = $productTypeName;
 
 	override val fieldsInfo: scala.collection.immutable.ListMap[String, PphFieldInfo[_]] =
 		builder.result();
 
-	override def createProduct(args: Seq[Any]):${productType} =
-		new ${productType}[..${productType.typeArgs}](...${ctorArgumentSnippets});
+	override def createProduct(args: Seq[Any]):$productType =
+		new $productType[..${productType.typeArgs}](...$ctorArgumentSnippets);
 }""";
 				ctx.Expr[ProductParserHelper[P]](ctx.typecheck(helper));
 //			}).asInstanceOf[ctx.Expr[ProductParserHelper[P]]]
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
-			ctx.Expr[ProductParserHelper[P]](q"")
+			ctx.abort(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
 		}
 	}
 

@@ -11,18 +11,36 @@ package object api {
 	////////////////
 	//// Suggar ////
 
-	/** Adds the [[toJson]] method to all objects */
+	/** Adds the [[fromJson]] method to String */
 	implicit class FromJsonConvertable(val string: String) extends AnyVal {
 		def fromJson[T](implicit pt: Parser[T]): T =
 			pt.parse(new CursorStr(string))
 	}
 
 	//////////////////////////////////////////
-	//// Supported standard library types ////
+	//// Json parsers for primitive types ////
+
+	implicit val jpCharSequence: Parser[CharSequence] = PrimitiveParsers.jpString.asInstanceOf[Parser[CharSequence]]
+
+	implicit val jpString: Parser[String] = PrimitiveParsers.jpString
+
+	/** Interpretador de Int en Json */
+	implicit val jpInt: Parser[Int] = PrimitiveParsers.jpInt;
+
+	/** Interpretador de Long en Json */
+	implicit val jpLong: Parser[Long] = PrimitiveParsers.jpLong;
+
+	implicit val jpBigDecimal: Parser[BigDecimal] = PrimitiveParsers.jpBigDecimal;
+
+	implicit val jpDouble: Parser[Double] = PrimitiveParsers.jpDouble;
+
+	implicit val jpFloat: Parser[Float] = PrimitiveParsers.jpFloat;
+
+	/////////////////////////////////////////
+	//// Json parsers for standard types ////
 
 	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: scala.reflect.runtime.universe.TypeTag[E]): Parser[E#Value] =
 		PrimitiveParsers.jpEnumeration[E](typeTag)
-
 
 	implicit def jpIterable[IC[e] <: IterableUpperBound[e], E](
 		implicit

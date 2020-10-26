@@ -2,7 +2,8 @@ package write
 
 import java.util.Comparator
 
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.whitebox
+
 import read.CoproductParserHelper.Coproduct
 import write.CoproductAppenderHelper.CahProductInfo
 
@@ -43,7 +44,7 @@ object CoproductAppenderHelper {
 
 	implicit def apply[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
-	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
+	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
@@ -82,7 +83,7 @@ $start
 val productAppender: _root_.write.Appender[$productType] = { (r, p) =>
 	r.append('{')
 
-	..${appendField_codeLines}
+	..$appendField_codeLines
 
   	r.append('}')
 }
@@ -107,11 +108,9 @@ new CoproductAppenderHelper[$coproductType] {
 	override val productsInfo = productsArray;
 
 }"""
-			ctx.info(ctx.enclosingPosition, s"helper=$helper", true)
 			ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
-			ctx.Expr[CoproductAppenderHelper[C]](q"")
+			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
 		}
 	}
 }

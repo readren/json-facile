@@ -2,7 +2,6 @@ package read
 
 import scala.collection.mutable
 
-import read.PrimitiveParsers._
 import read.Parser._
 import read.ProductParserHelper.PphFieldInfo
 
@@ -26,17 +25,17 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 	import ProductParser._
 	import SyntaxParsers._
 
-	assert(helper != null);  // Fails here when the macro expansion of ProductParserHelper fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
+	assert(helper != null); // Fails here when the macro expansion of ProductParserHelper fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
 
 	private val fieldParser: Parser[Field[Any]] = {
 		string <~ skipSpaces <~ colon <~ skipSpaces >> { fieldName =>
 			helper.fieldsInfo.get(fieldName) match {
 
 				case Some(PphFieldInfo(fieldValueParser, _)) =>
-					fieldValueParser ^^ { DefinedField(fieldName, _) }
+					fieldValueParser.map(DefinedField(fieldName, _))
 
 				case None =>
-					skipJsValue ^^^ UndefinedField
+					skipJsValue.^^^(UndefinedField)
 			}
 		}
 	}
@@ -60,7 +59,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 
 	override def parse(cursor: Cursor): P = {
 		val p = objectParser.parse(cursor);
-		if(cursor.missed) {
+		if (cursor.missed) {
 			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.className}")
 		}
 		p

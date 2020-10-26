@@ -17,6 +17,6 @@ object BinarySearch {
 			else
 				return midVal; // key found
 		}
-		return null.asInstanceOf[T]; // key not found.
+		null.asInstanceOf[T]; // key not found.
 	}
 }

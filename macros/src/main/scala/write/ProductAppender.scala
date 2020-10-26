@@ -1,6 +1,6 @@
 package write
 
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.whitebox
 
 
 object ProductAppender {
@@ -9,7 +9,7 @@ object ProductAppender {
 
 //	implicit def materialize[P <: UpperBound]: Appender[P] = macro materializeImpl[P];
 
-	def materializeImpl[P <: UpperBound : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[P]] = {
+	def materializeImpl[P <: UpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
@@ -41,19 +41,17 @@ $start
 
 			val helper = q"""
 import _root_.write._;
-new Appender[${productType}] {
+new Appender[$productType] {
 	override def append(r: Record, p: $productType): Record = {
 		r.append('{');
-		..${appendFieldSnippets}
+		..$appendFieldSnippets
   		r.append('}');
 	}
 }""";
 
-			ctx.info(ctx.enclosingPosition, "ProductAppender=" + show(helper), false);
 			ctx.Expr[Appender[P]](ctx.typecheck(helper));
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$productSymbol is not a class and only classes are supported")
-			ctx.Expr[Appender[P]](q"")
+			ctx.abort(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
 		}
 	}
 }

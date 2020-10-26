@@ -24,7 +24,7 @@ object MapAppender {
 		if (mfd.useObject) {
 			record.append('{')
 
-			if (ka == jaCharSequence) {
+			if (ka == api.jaCharSequence) {
 				map.foreach { e =>
 					if (isFirst) {
 						isFirst = false;
@@ -46,7 +46,7 @@ object MapAppender {
 					keyRecord.sb.setLength(0);
 					keyRecord.appendSummoned[K](e._1)(ka);
 
-					jaCharSequence.append(record, keyRecord.sb);
+					api.jaCharSequence.append(record, keyRecord.sb);
 					record.append(':')
 						.appendSummoned[V](e._2)(va)
 				}

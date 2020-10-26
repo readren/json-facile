@@ -1,7 +1,5 @@
 package read
 
-import java.util
-
 
 object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;

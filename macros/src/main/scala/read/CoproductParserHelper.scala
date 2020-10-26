@@ -1,8 +1,8 @@
 package read
 
-import scala.collection.immutable.{ArraySeq, ListMap}
+import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.whitebox
 
 import read.CoproductParserHelper._
 
@@ -25,9 +25,9 @@ object CoproductParserHelper {
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[C <: Coproduct]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
 
-//	private val cache: mutable.WeakHashMap[blackbox.Context#Type, blackbox.Context#Expr[CoproductParserHelper[_ <: Coproduct]]] = mutable.WeakHashMap.empty
+//	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Expr[CoproductParserHelper[_ <: Coproduct]]] = mutable.WeakHashMap.empty
 
-	def materializeHelperImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[CoproductParserHelper[C]] = {
+	def materializeHelperImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductParserHelper[C]] = {
 		import ctx.universe._
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
@@ -50,10 +50,10 @@ object CoproductParserHelper {
 									requiredFieldsCounter += 1; // TODO this will change when default field values are fetched.
 									forEachFieldSnippet.addOne(
 										q"""
-			 							fieldsInfoBuilder.addOne(${param.name.toString} -> Parser[${paramType}])
+			 							fieldsInfoBuilder.addOne(${param.name.toString} -> Parser[$paramType])
 										productFieldsSeqBuilder.addOne(CphFieldInfo(${param.name.toString}, None));
 									   """);
-									q"args($argIndex).asInstanceOf[${paramType}]";
+									q"args($argIndex).asInstanceOf[$paramType]";
 								}
 							}
 						val ctorFunction = q"(args: Seq[Any]) => new $productSymbol[..${productType.typeArgs}](...$ctorArgumentsTrees);"
@@ -88,8 +88,7 @@ new CoproductParserHelper[$coproductType] {
 //			}).asInstanceOf[ctx.Expr[CoproductParserHelper[C]]]
 
 		} else {
-			ctx.warning(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
-			ctx.Expr[CoproductParserHelper[C]](q"")
+			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
 		}
 	}
 

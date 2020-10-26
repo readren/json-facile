@@ -8,7 +8,7 @@ class CursorStr(content: String) extends Cursor {
 	private var cursorPos: Int = 0;
 	private var isMissed: Boolean = false;
 	private var isFailed: Boolean = false;
-	private var lastFailure: AnyRef = null;
+	private var lastFailure: AnyRef = _;
 
 	override def pos: Pos = cursorPos;
 

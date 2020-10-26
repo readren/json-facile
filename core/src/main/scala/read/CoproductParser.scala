@@ -4,7 +4,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import read.CoproductParserHelper.{CphFieldInfo, Coproduct, CphProductInfo}
+import read.CoproductParserHelper.{Coproduct, CphProductInfo}
 import read.SyntaxParsers.{string, _}
 
 object CoproductParser {
@@ -18,11 +18,6 @@ object CoproductParser {
 		override def name: String = null.asInstanceOf[String]
 		override def value: Nothing = throw new NoSuchElementException
 	}
-
-	//	private implicit def ignoredCoproduct[C <: Coproduct]: Parser.Ignore[C] = IgnoreCoproduct.asInstanceOf[Parser.Ignore[C]]
-	//	private object IgnoreCoproduct extends Parser.Ignore[Null] {
-	//		override def ignored: Null = null;
-	//	}
 
 	private val fieldNameParser: Parser[String] = string <~ skipSpaces <~ colon <~ skipSpaces
 
