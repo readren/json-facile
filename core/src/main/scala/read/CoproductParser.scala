@@ -94,9 +94,9 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 				}
 			}
 			if (chosenManager == null) {
-				fail[C](s"There is no product extending ${helper.name} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}. Note that only the fields that are defined in at least one of said products are considered.")
+				fail[C](s"There is no product extending ${helper.fullName} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}. Note that only the fields that are defined in at least one of said products are considered.")
 			} else if (isAmbiguous) {
-				fail[C](s"""Ambiguous products: more than one product of the coproduct "${helper.name}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
+				fail[C](s"""Ambiguous products: more than one product of the coproduct "${helper.fullName}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 			} else {
 				// build the product constructor's arguments list
 				val chosenProductFields = chosenManager.productInfo.fields;
@@ -122,7 +122,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 		val managers = helper.productsInfo.map(new Manager(_));
 		val c = productParser(managers).parse(cursor)
 		if (cursor.missed) {
-			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.name}");
+			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.fullName}");
 		}
 		c
 	}

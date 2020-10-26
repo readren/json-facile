@@ -6,8 +6,22 @@ import read.CoproductParserHelper.Coproduct
  * The compiler finds the implicits defined here when it searches for instances of the [[Parser]] trait because it belongs to this package object. */
 package object read {
 
-	implicit def jpProduct[P <: Product](implicit helper: ProductParserHelper[P]): Parser[P] = new ProductParser[P](helper)
+	private val jpProductsCache = mutable.WeakHashMap.empty[String, ProductParser[_ <: Product]]
 
-	implicit def jpCoproduct[C <: Coproduct](implicit helper: CoproductParserHelper[C]): Parser[C] = new CoproductParser[C](helper)
+	implicit def jpProduct[P <: Product](implicit helper: ProductParserHelper[P]): ProductParser[P] = {
+		jpProductsCache.getOrElseUpdate(
+			helper.fullName,
+			new ProductParser[P](helper)
+		).asInstanceOf[ProductParser[P]]
+	}
+
+	private val jpCoproductsCache = mutable.WeakHashMap.empty[String, CoproductParser[_ <: Coproduct]]
+
+	implicit def jpCoproduct[C <: Coproduct](implicit helper: CoproductParserHelper[C]): CoproductParser[C] = {
+		jpCoproductsCache.getOrElseUpdate(
+			helper.fullName,
+			new CoproductParser[C](helper)
+		).asInstanceOf[CoproductParser[C]]
+	}
 
 }

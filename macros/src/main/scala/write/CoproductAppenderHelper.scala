@@ -2,13 +2,14 @@ package write
 
 import java.util.Comparator
 
+import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
 import read.CoproductParserHelper.Coproduct
 import write.CoproductAppenderHelper.CahProductInfo
 
 trait CoproductAppenderHelper[C <: Coproduct] {
-	def name: String;
+	def fullName: String;
 	def productsInfo: Array[CahProductInfo[C]]
 }
 
@@ -44,11 +45,14 @@ object CoproductAppenderHelper {
 
 	implicit def apply[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
+	private val cache: mutable.WeakHashMap[String, whitebox.Context#Tree] = mutable.WeakHashMap.empty
+
 	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
 		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
+			val helper = cache.getOrElseUpdate(coproductSymbol.fullName, {
 			val classSymbol = coproductSymbol.asClass;
 			val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
 				for {
@@ -75,7 +79,7 @@ object CoproductAppenderHelper {
 $start
 	.append(${param.name.toString})
 	.append("\":")
-	.appendSummoned[${param.typeSignature.dealias}](${Select(Ident(TermName("p")), param.name)})""";
+	.appendSummoned[${param.typeSignature.dealias}](${Select(Ident(TermName("p")): Ident, param.name)})"""; // IntellijIde reports false error here
 						}
 
 					val productClassNameAtRuntime = productType.erasure.typeSymbol.fullName;
@@ -90,8 +94,7 @@ val productAppender: _root_.write.Appender[$productType] = { (r, p) =>
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
 				}
 
-			val helper =
-				q"""
+			q"""
 import _root_.write.api._
 import _root_.write.CoproductAppenderHelper;
 import CoproductAppenderHelper.CahProductInfo;
@@ -104,10 +107,11 @@ val productsArray = productsInfoBuilder.result().asInstanceOf[Array[CahProductIn
 java.util.Arrays.sort(productsArray, CoproductAppenderHelper.productInfoComparator);
 
 new CoproductAppenderHelper[$coproductType] {
-	override val name = ${coproductSymbol.fullName}
+	override val fullName = ${coproductSymbol.fullName}
 	override val productsInfo = productsArray;
-
 }"""
+			}).asInstanceOf[ctx.Tree];
+
 			ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 		} else {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")

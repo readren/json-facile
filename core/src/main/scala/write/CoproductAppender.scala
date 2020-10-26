@@ -7,8 +7,6 @@ import write.CoproductAppenderHelper.CahProductInfo
 
 object CoproductAppender {
 
-
-
 	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
 }
 
@@ -25,7 +23,7 @@ class CoproductAppender[C <: Coproduct](helper: CoproductAppenderHelper[C]) exte
 		if(productInfo != null) {
 			productInfo.appender.append(record, product)
 		} else {
-			throw new UnexpectedProductTypeException(helper.name, productName)
+			throw new UnexpectedProductTypeException(helper.fullName, productName)
 		}
 	}
 }

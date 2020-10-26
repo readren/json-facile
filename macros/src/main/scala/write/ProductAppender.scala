@@ -1,5 +1,6 @@
 package write
 
+import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
 
@@ -7,39 +8,41 @@ object ProductAppender {
 
 	type UpperBound = Product
 
-//	implicit def materialize[P <: UpperBound]: Appender[P] = macro materializeImpl[P];
+	private val cache: mutable.WeakHashMap[String, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
 	def materializeImpl[P <: UpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
 		val productSymbol: Symbol = productType.typeSymbol;
-		if (productSymbol.isClass && !productSymbol.isAbstract ) {
-			val classSymbol = productSymbol.asClass;
-			val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+		if (productSymbol.isClass && !productSymbol.isAbstract) {
+			val helper = cache.getOrElseUpdate(
+			productSymbol.fullName, {
+				val classSymbol = productSymbol.asClass;
+				val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
-			var isFirstField = true;
-			val appendFieldSnippets =
-				for {
-					params <- paramsList
-					param <- params
-				} yield {
-					val start = {
-						if(isFirstField) {
-							isFirstField = false;
-							q"""r.append('"')"""
-						} else {
-							q"""r.append(",\"")"""
+				var isFirstField = true;
+				val appendFieldSnippets =
+					for {
+						params <- paramsList
+						param <- params
+					} yield {
+						val start = {
+							if (isFirstField) {
+								isFirstField = false;
+								q"""r.append('"')"""
+							} else {
+								q"""r.append(",\"")"""
+							}
 						}
-					}
-					q"""
+						q"""
 $start
 	.append(${param.name.toString})
 	.append("\":")
 	.appendSummoned[${param.typeSignature.dealias}](${Select(Ident(TermName("p")), param.name)})""";
-				}
+					}
 
-			val helper = q"""
+				q"""
 import _root_.write._;
 new Appender[$productType] {
 	override def append(r: Record, p: $productType): Record = {
@@ -47,7 +50,8 @@ new Appender[$productType] {
 		..$appendFieldSnippets
   		r.append('}');
 	}
-}""";
+}"""
+			}).asInstanceOf[ctx.Tree];
 
 			ctx.Expr[Appender[P]](ctx.typecheck(helper));
 		} else {

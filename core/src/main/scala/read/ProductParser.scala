@@ -51,7 +51,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 				case None if fieldInfo.oDefaultValue.isDefined =>
 					argsBuilder.addOne(fieldInfo.oDefaultValue.get)
 
-				case _ => throw new MissingFieldException(helper.className, fieldName)
+				case _ => throw new MissingFieldException(helper.fullName, fieldName)
 			}
 		}
 		helper.createProduct(argsBuilder.result());
@@ -60,7 +60,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 	override def parse(cursor: Cursor): P = {
 		val p = objectParser.parse(cursor);
 		if (cursor.missed) {
-			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.className}")
+			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.fullName}")
 		}
 		p
 	}

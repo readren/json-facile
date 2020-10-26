@@ -1,3 +1,5 @@
+import scala.collection.mutable
+
 import read.CoproductParserHelper.Coproduct
 
 /** The implicit defined in this package object should NOT be imported in order to have less precedence than the implicit defined in the [[write.api]] package object, which should be imported.
@@ -10,6 +12,11 @@ package object write {
 
 	implicit def jaProduct[P <: ProductAppender.UpperBound]: Appender[P] = macro ProductAppender.materializeImpl[P]
 
-	implicit def jaCoproduct[C <: Coproduct](implicit helper: CoproductAppenderHelper[C]): Appender[C] = new CoproductAppender(helper);
+
+	private val jaCoproductCache = mutable.WeakHashMap.empty[String, CoproductAppender[_<:Coproduct]]
+
+	implicit def jaCoproduct[C <: Coproduct](implicit helper: CoproductAppenderHelper[C]): CoproductAppender[C] = {
+		jaCoproductCache.getOrElseUpdate(helper.fullName, new CoproductAppender(helper)).asInstanceOf[CoproductAppender[C]]
+	};
 
 }

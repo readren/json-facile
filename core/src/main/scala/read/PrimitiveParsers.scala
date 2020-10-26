@@ -1,5 +1,6 @@
 package read
 
+import scala.collection.mutable;
 
 object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
@@ -132,32 +133,34 @@ object PrimitiveParsers {
 	val jpFloat: Parser[Float] =
 		Parser.acceptStr("null").^^^(Float.NaN) | jpBigDecimal.map(_.floatValue)
 
+
+	private val jpEnumerationCache = mutable.WeakHashMap.empty[String, Parser[_ <: Enumeration#Value]]
 	import scala.reflect.runtime.{universe => ru}
 
 	def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
-		val (enum, fullName) = {
-			// TODO consider using a cache. When is this code executed? Compile or run time?
-			val eType = typeTag.tpe;
-			val moduleSymbol = eType.termSymbol.asModule
-			val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
-			val moduleMirror = classLoaderMirror.reflectModule(moduleSymbol)
-			val enum = moduleMirror.instance.asInstanceOf[E]
-			(enum, moduleSymbol.fullName)
-		}
+		val fullName = typeTag.tpe.termSymbol.fullName
+		jpEnumerationCache.getOrElseUpdate(fullName, {
+			val enum = {
+				val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
+				val moduleMirror = classLoaderMirror.reflectModule(typeTag.tpe.termSymbol.asModule)
+				moduleMirror.instance.asInstanceOf[E]
+			}
 
-		val asName: Parser[E#Value] = SyntaxParsers.string >> { name =>
-			enum.values.find(_.toString == name) match {
-				case Some(value) => Parser.hit(value)
-				case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
+			val asName: Parser[E#Value] = SyntaxParsers.string >> { name =>
+				enum.values.find(_.toString == name) match {
+					case Some(value) => Parser.hit(value)
+					case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
+				}
 			}
-		}
-		val asId: Parser[E#Value] = jpInt >> { id =>
-			enum.values.find(_.id == id) match {
-				case Some(value) => Parser.hit(value)
-				case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
+			val asId: Parser[E#Value] = jpInt >> { id =>
+				enum.values.find(_.id == id) match {
+					case Some(value) => Parser.hit(value)
+					case None => Parser.fail(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
+				}
 			}
-		}
-		(asName | asId).orFail(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
+			(asName | asId).orFail(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
+
+		}).asInstanceOf[Parser[E#Value]]
 	}
 }
 
