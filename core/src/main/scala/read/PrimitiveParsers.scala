@@ -1,12 +1,30 @@
 package read
 
 import scala.collection.mutable;
+import read.Parser._
 
 object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
 	val jpString: Parser[String] = SyntaxParsers.string.orFail("A string was expected.");
+
+	val jpBoolean: Parser[Boolean] = { cursor =>
+		if (cursor.comes("true")) {
+			cursor.advance(4);
+			true
+		}
+		else if (cursor.comes("false")) {
+			cursor.advance(5)
+			false
+		}
+		else {
+			cursor.fail("A boolean was expected")
+			false
+		}
+	}
+
+	val jpNull: Parser[Null] = acceptStr("null") ^^^ null
 
 	/** Interpretador de Int en Json */
 	val jpInt: Parser[Int] = { cursor =>
@@ -117,6 +135,16 @@ object PrimitiveParsers {
 		}
 	}
 
+	val jpBigInt: Parser[BigInt] = { cursor =>
+		val integer = cursor.consume(() => SyntaxParsers.skipInteger.parse(cursor))
+		if (cursor.ok && integer.length > 0) {
+			BigInt(integer);
+		} else {
+			cursor.fail("An integer number was expected");
+			Parser.ignored[BigInt]
+		}
+	}
+
 	val jpBigDecimal: Parser[BigDecimal] = { cursor =>
 		val number = cursor.consume(() => SyntaxParsers.skipJsNumber.parse(cursor))
 		if (cursor.ok && number.length > 0) {
@@ -139,7 +167,8 @@ object PrimitiveParsers {
 
 	def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
 		val fullName = typeTag.tpe.termSymbol.fullName
-		jpEnumerationCache.getOrElseUpdate(fullName, {
+		jpEnumerationCache.getOrElseUpdate(
+		fullName, {
 			val enum = {
 				val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
 				val moduleMirror = classLoaderMirror.reflectModule(typeTag.tpe.termSymbol.asModule)
@@ -162,6 +191,16 @@ object PrimitiveParsers {
 
 		}).asInstanceOf[Parser[E#Value]]
 	}
+
+	def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = { cursor =>
+		if (cursor.comes("null")) {
+			None
+		} else {
+			Some(pE.parse(cursor))
+		}
+	}
+	def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = pE ^^ {Some(_)}
+	val jpNone: Parser[None.type] = "null" ^^^ None
 }
 
 

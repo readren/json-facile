@@ -40,8 +40,16 @@ object ProductParserHelper {
 				for (params <- paramsList) yield {
 					for (param <- params) yield {
 						argIndex += 1;
+						val paramType = param.typeSignature.dealias
+						val oDefaultValue =
+							if(paramType.typeSymbol.fullName == "scala.Option") {
+								q"Some(None)"
+							} else {
+								q"None"
+							}
+
 						addFieldInfoSnippetsBuilder.addOne(
-							q"""builder.addOne((${param.name.toString}, PphFieldInfo(Parser.apply[${param.typeSignature.dealias}], None)));"""
+							q"""builder.addOne((${param.name.toString}, PphFieldInfo(Parser.apply[$paramType], $oDefaultValue)));"""
 						);
 						q"args($argIndex).asInstanceOf[${param.typeSignature}]";
 					}
@@ -60,7 +68,7 @@ new ProductParserHelper[$productType] {
 		builder.result();
 
 	override def createProduct(args: Seq[Any]):$productType =
-		new $productType[..${productType.typeArgs}](...$ctorArgumentSnippets);
+		new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
 }"""
 			}).asInstanceOf[ctx.Tree];
 

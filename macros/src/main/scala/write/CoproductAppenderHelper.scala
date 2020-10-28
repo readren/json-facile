@@ -5,6 +5,7 @@ import java.util.Comparator
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
+import read.CoproductParserHelper
 import read.CoproductParserHelper.Coproduct
 import write.CoproductAppenderHelper.CahProductInfo
 
@@ -34,7 +35,7 @@ object CoproductAppenderHelper {
 				bc = bn.charAt(i);
 				d = ac - bc;
 				// Ignore difference between dots and dollars. This assumes that the first name (an) is obtained by the macro, and the second (bn) may be obtained at runtime from the Class object.
-				if(ac == '.' && bc == '$') {
+				if (ac == '.' && bc == '$') {
 					d = 0
 				}
 				i -= 1;
@@ -52,21 +53,36 @@ object CoproductAppenderHelper {
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
 		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
-			val helper = cache.getOrElseUpdate(coproductSymbol.fullName, {
-			val classSymbol = coproductSymbol.asClass;
-			val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
+			val helper = cache.getOrElseUpdate(
+			coproductSymbol.fullName, {
+				val classSymbol = coproductSymbol.asClass;
+
+				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
+				val (discriminatorFieldName, discriminatorIsRequired) = joint.discriminatorField.parse(ctx.universe)(classSymbol)
+
+				case class ProductInfo(simpleName: String, tpe: ctx.Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
+					var isAmbiguous = false;
+				}
+
+				val productsInfoBuilder = IndexedSeq.newBuilder[ProductInfo]
 				for {
-					productSymbol <- classSymbol.knownDirectSubclasses.toSeq
-				} yield {
-					val productType = util.ReflectTools.applySubclassTypeConstructor(ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
+					productSymbol <- classSymbol.knownDirectSubclasses.toIndexedSeq
+				} {
+					val productType = util.ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
 					val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
+					val requiredFieldNamesBuilder = Set.newBuilder[String];
 					var isFirstField = true;
 					val appendField_codeLines =
 						for {
 							params <- productCtorParamsLists
 							param <- params
 						} yield {
+							val paramNameStr = param.name.decodedName.toString;
+							val paramTypeSignature = param.typeSignature.dealias;
+							if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
+								requiredFieldNamesBuilder.addOne(paramNameStr)
+							}
 							val start = {
 								if (isFirstField) {
 									isFirstField = false;
@@ -77,24 +93,68 @@ object CoproductAppenderHelper {
 							}
 							q"""
 $start
-	.append(${param.name.toString})
+	.append($paramNameStr)
 	.append("\":")
-	.appendSummoned[${param.typeSignature.dealias}](${Select(Ident(TermName("p")): Ident, param.name)})"""; // IntellijIde reports false error here
+	.appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
 						}
 
-					val productClassNameAtRuntime = productType.erasure.typeSymbol.fullName;
-					q"""
-val productAppender: _root_.write.Appender[$productType] = { (r, p) =>
+					productsInfoBuilder.addOne(ProductInfo(
+						productSymbol.name.toString,
+						productType,
+						requiredFieldNamesBuilder.result(),
+						appendField_codeLines
+					))
+				}
+				val productsInfo = productsInfoBuilder.result();
+
+				// Set the `isAmbiguous` flag to every product whose required field names match those of another product.
+				if (!discriminatorIsRequired) {
+					var i = productsInfo.size - 1;
+					var pi = productsInfo(i);
+					while (i > 0) {
+						var j = i - 1;
+						while (j >= 0) {
+							val pj = productsInfo(j);
+							if (pi.requiredFieldNames == pj.requiredFieldNames) {
+								pi.isAmbiguous = true;
+								pj.isAmbiguous = true;
+							}
+							j -= 1;
+						}
+						do {
+							i -= 1
+							pi = productsInfo(i);
+						} while (productsInfo(i).isAmbiguous)
+					}
+				}
+
+				// for every product, generate the code lines creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
+				val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
+					for {
+						productInfo <- productsInfo
+					} yield {
+						val appendDiscriminator_codeLine =
+							if (discriminatorIsRequired || productInfo.isAmbiguous) {
+								val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productsInfo.isEmpty) "" else ","}"""
+								q"r.append($discriminatorField)"
+							} else {
+								q""
+							}
+						val productClassNameAtRuntime = productInfo.tpe.erasure.typeSymbol.fullName;
+						q"""
+val productAppender: _root_.write.Appender[${productInfo.tpe}] = { (r, p) =>
 	r.append('{')
 
-	..$appendField_codeLines
+ 	$appendDiscriminator_codeLine
+
+	..${productInfo.appendField_codeLines}
 
   	r.append('}')
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
-				}
+					}
 
-			q"""
+				q"""
 import _root_.write.api._
 import _root_.write.CoproductAppenderHelper;
 import CoproductAppenderHelper.CahProductInfo;

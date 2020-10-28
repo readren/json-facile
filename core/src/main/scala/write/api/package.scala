@@ -20,7 +20,7 @@ package object api {
 	////////////////////////////////////////////
 	//// Json appenders for primitive types ////
 
-	implicit val jaNull: Appender[Null] = { (r: Record, _: Null) => r.append("null") }
+	implicit val jaNull: Appender[Null] = { (r: Record, _) => r.append("null") }
 
 	implicit val jaBoolean: Appender[Boolean] = { (r, bool) => r.append(if (bool) "true" else "false") }
 
@@ -66,6 +66,8 @@ package object api {
 			case Some(a) => appenderA.append(r, a)
 			case None => jaNull.append(r, null)
 		}
+	implicit def jaSome[A](implicit appenderA: Appender[A]): Appender[Some[A]] = (r, sa) => appenderA.append(r, sa.get)
+	implicit val jaNone: Appender[None.type] = jaNull.asInstanceOf[Appender[None.type]];
 
 	///////////////////////////////////////////////////////////////
 	//// Json appenders for standard collections library types ////

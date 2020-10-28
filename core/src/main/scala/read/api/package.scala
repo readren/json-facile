@@ -20,27 +20,36 @@ package object api {
 	//////////////////////////////////////////
 	//// Json parsers for primitive types ////
 
-	implicit val jpCharSequence: Parser[CharSequence] = PrimitiveParsers.jpString.asInstanceOf[Parser[CharSequence]]
-
-	implicit val jpString: Parser[String] = PrimitiveParsers.jpString
-
 	/** Interpretador de Int en Json */
 	implicit val jpInt: Parser[Int] = PrimitiveParsers.jpInt;
 
 	/** Interpretador de Long en Json */
 	implicit val jpLong: Parser[Long] = PrimitiveParsers.jpLong;
 
-	implicit val jpBigDecimal: Parser[BigDecimal] = PrimitiveParsers.jpBigDecimal;
-
 	implicit val jpDouble: Parser[Double] = PrimitiveParsers.jpDouble;
 
 	implicit val jpFloat: Parser[Float] = PrimitiveParsers.jpFloat;
 
-	/////////////////////////////////////////
-	//// Json parsers for standard types ////
+	//////////////////////////////////////
+	//// Json parsers for basic types ////
+
+	implicit val jpCharSequence: Parser[CharSequence] = PrimitiveParsers.jpString.asInstanceOf[Parser[CharSequence]]
+
+	implicit val jpString: Parser[String] = PrimitiveParsers.jpString
+
+	implicit val jpBigInt: Parser[BigInt] = PrimitiveParsers.jpBigInt;
+
+	implicit val jpBigDecimal: Parser[BigDecimal] = PrimitiveParsers.jpBigDecimal;
 
 	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: scala.reflect.runtime.universe.TypeTag[E]): Parser[E#Value] =
 		PrimitiveParsers.jpEnumeration[E](typeTag)
+
+	implicit def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = PrimitiveParsers.jpOption(pE);
+	implicit def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = PrimitiveParsers.jpSome(pE)
+	implicit val jpNone: Parser[None.type] = PrimitiveParsers.jpNone
+
+	////////////////////////////////////////////////////////////
+	//// Json parser for standard collections library types ////
 
 	implicit def jpIterable[IC[e] <: IterableUpperBound[e], E](
 		implicit

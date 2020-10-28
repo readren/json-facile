@@ -8,7 +8,7 @@ object ReflectTools {
 	 * @param baseType a type resulting of the instantiation of a type constructor. For example: {{{typeOf[Option[Int]]}}}
 	 * @param directSubclassTypeConstructor the type constructor we want to instantiate such that it is assignable to `baseType`. For example: {{{typeOf[Some[_]].typeConstructor}}}
 	 * @return the type constructed by applying the type constructor `directSubclassTypeConstructor` to the type arguments of `baseType` as seen from said type constructor. For example: {{{typeOf[Some[Int]]}}}*/
-	def applySubclassTypeConstructor(universe: sra.Types with sra.Symbols)(baseType: universe.Type, directSubclassTypeConstructor: universe.Type): universe.Type = {
+	def applySubclassTypeConstructor[U <: sra.Universe](universe: U)(baseType: universe.Type, directSubclassTypeConstructor: universe.Type): universe.Type = {
 		val directSubclassTypeParams = directSubclassTypeConstructor.typeParams
 		if( directSubclassTypeParams.isEmpty) {
 			directSubclassTypeConstructor

@@ -16,7 +16,6 @@ trait CoproductParserHelper[C <: Coproduct] {
 object CoproductParserHelper {
 	type ProductName = String;
 	type FieldName = String;
-
 	type Coproduct = Any;
 
 	final case class CphFieldInfo[+V](name: FieldName, oDefaultValue: Option[V])
@@ -35,6 +34,9 @@ object CoproductParserHelper {
 			val helper = cache.getOrElseUpdate(
 			coproductSymbol.fullName, {
 			val classSymbol = coproductSymbol.asClass;
+			// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
+			val discriminatorFieldName: String = joint.discriminatorField.parse(ctx.universe)(classSymbol)._1;
+
 			val forEachProductSnippet: Seq[ctx.universe.Tree] =
 				for (productSymbol <- classSymbol.knownDirectSubclasses.toSeq) yield {
 					val productType = util.ReflectTools.applySubclassTypeConstructor(ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
@@ -48,22 +50,26 @@ object CoproductParserHelper {
 							for (param <- params) yield {
 								val paramType = param.typeSignature.dealias
 								argIndex += 1;
-								requiredFieldsCounter += 1; // TODO this will change when default field values are fetched.
+								val oDefaultValue =
+									if(paramType.typeSymbol.fullName == "scala.Option") {
+										q"Some(None)"
+									} else {
+										requiredFieldsCounter += 1;
+										q"None"
+									}
 								forEachFieldSnippet.addOne(
 									q"""
-											fieldsInfoBuilder.addOne(${param.name.toString} -> Parser[$paramType])
-											productFieldsSeqBuilder.addOne(CphFieldInfo(${param.name.toString}, None));
-										   """);
+fieldsInfoBuilder.addOne((${param.name.toString}, Parser[$paramType]));
+productFieldsSeqBuilder.addOne(CphFieldInfo(${param.name.toString}, $oDefaultValue));""");
 								q"args($argIndex).asInstanceOf[$paramType]";
 							}
 						}
 					val ctorFunction = q"(args: Seq[Any]) => new $productSymbol[..${productType.typeArgs}](...$ctorArgumentsTrees);"
 
 					q"""
-							..${forEachFieldSnippet.result()}
-							productsInfoBuilder.addOne(CphProductInfo(${productSymbol.name.toString}, $requiredFieldsCounter, productFieldsSeqBuilder.result(), $ctorFunction));
-							productFieldsSeqBuilder.clear();
-						   """
+..${forEachFieldSnippet.result()}
+productsInfoBuilder.addOne(CphProductInfo(${productSymbol.name.toString}, $requiredFieldsCounter, productFieldsSeqBuilder.result(), $ctorFunction));
+productFieldsSeqBuilder.clear();"""
 				}
 
 				q"""
@@ -80,7 +86,7 @@ val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CphFieldInfo[Any]];
 
 new CoproductParserHelper[$coproductType] {
 	override val fullName = ${coproductSymbol.fullName}
-	override val discriminator = "PTN";
+	override val discriminator = $discriminatorFieldName;
 	override val productsInfo = productsInfoBuilder.result();
 	override val fieldsInfo = fieldsInfoBuilder.result();
 }"""

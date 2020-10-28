@@ -54,7 +54,7 @@ object SyntaxParsers {
 		cursor.pos
 	}
 	private val digit19: Parser[Elem] = acceptElemIf(e => '1' <= e && e <= '9')
-	private val skipInteger: Parser[Pos] = '-'.opt ~> (acceptChar('0') ~> pos) | (digit19 ~> skipDigits)
+	val skipInteger: Parser[Pos] = '-'.opt ~> (acceptChar('0') ~> pos) | (digit19 ~> skipDigits)
 	private val skipFraction: Parser[Pos] = '.' ~> digit ~> skipDigits
 	private val skipExponent: Parser[Pos] = ('e' | 'E') ~> ('+' | '-').opt ~> digit ~> skipDigits // me parece que en lugar de "digit" debería ser "digit19", pero me regí por la página https://www.json.org/json-en.html
 	val skipJsNumber: Parser[Pos] = skipInteger ~> skipFraction.opt ~> skipExponent.opt ~> pos
