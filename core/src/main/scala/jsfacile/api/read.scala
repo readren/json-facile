@@ -20,9 +20,9 @@ package object read {
 				if (cursor.atEnd)
 					Right(result)
 				else
-					Left("The json input was not entirely consumed")
+					Left(s"""The json input was not entirely consumed. The remaining fragment is: "${string.substring(cursor.pos)}".""")
 			} else if (cursor.failed) {
-				Left(cursor.failureCause)
+				Left(s"""The parsing failed at position ${cursor.pos} with the message: ${cursor.failureCause}""")
 			} else {
 				Left("The json representation is not compatible with the expected type")
 			}

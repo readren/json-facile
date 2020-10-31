@@ -6,7 +6,7 @@ sealed abstract class Pila {
 
 final case class ::[@specialized +T, +P <: Pila](tope: T, pila: P) extends Pila
 
-final case object Base extends Pila
+case object Base extends Pila
 
 //// ---- ////
 

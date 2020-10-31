@@ -95,7 +95,7 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 		def `Implicit resolution of the interpreters should work`(): Unit = {
 
 			val simpleHelper = ProductParserHelper.materializeHelper[Simple];
-			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_._2.valueParser != null))
+			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_.valueParser != null))
 
 			val productParser = new ProductParser[Simple](simpleHelper)
 			assert(productParser != null && productParser.parse(new CursorStr(simpleJson)) == simpleOriginal)

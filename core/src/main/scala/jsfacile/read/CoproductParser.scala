@@ -1,7 +1,6 @@
 package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import jsfacile.joint.Coproduct
@@ -10,21 +9,9 @@ import jsfacile.macros.CoproductParserHelper.CphProductInfo
 import jsfacile.read.SyntaxParsers._
 
 object CoproductParser {
-	private sealed trait Field[+V] {
-		def name: String
-		def value: V;
-		@inline def isDefined: Boolean = name != null;
-	}
-	private case class DefinedField[+V](name: String, value: V) extends Field[V];
-	private object UndefinedField extends Field[Nothing] {
-		override def name: String = null.asInstanceOf[String]
-		override def value: Nothing = throw new NoSuchElementException
-	}
+	private case class Field[+V](name: String, value: V);
 
-	private val fieldNameParser: Parser[String] = string <~ skipSpaces <~ colon <~ skipSpaces
-
-	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.collect { case DefinedField(fieldName, _) => fieldName } mkString ", ";
-
+	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.map { _.name } mkString ", ";
 }
 
 
@@ -40,94 +27,105 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 		var isViable: Boolean = true;
 	}
 
-	/** An [[ArrayBuffer]] builder that discards [[UndefinedField]]s */
-	private class DefinedFieldsArrayBuilder extends mutable.GrowableBuilder[Field[Any], ArrayBuffer[Field[Any]]](new ArrayBuffer(helper.fieldsInfo.size)) {
-		override def addOne(field: Field[Any]): this.type = {
-			if (field.isDefined) {
-				elems += field
-			}
-			this
-		}
-	}
+	override def parse(cursor: Cursor): C = {
 
-	private def fieldParser(managers: ArraySeq[Manager]): Parser[Field[Any]] = fieldNameParser >> { fieldName =>
-		if (fieldName == helper.discriminator) {
-			PrimitiveParsers.jpString.map { productName =>
-				// as side effect, actualize the product's managers
-				managers.foreach { m =>
-					if (m.productInfo.name != productName)
-						m.isViable = false;
+
+		if (cursor.have) {
+			if (cursor.pointedElem == '{') {
+				cursor.advance();
+
+				val managers = helper.productsInfo.map(new Manager(_));
+				val foundFields = new ArrayBuffer[Field[Any]](math.min(ArrayBuffer.DefaultInitialSize, helper.fieldsInfo.size));
+
+				var have = cursor.consumeWhitespaces();
+				while (have && cursor.pointedElem != '}') {
+					have = false;
+					val fieldName = string.parse(cursor);
+					if (cursor.consumeWhitespaces() &&
+						cursor.consumeChar(':') &&
+						cursor.consumeWhitespaces()
+					) {
+						if (fieldName == helper.discriminator) {
+							val productName = PrimitiveParsers.jpString.parse(cursor);
+							if(cursor.consumeWhitespaces()) {
+								managers.foreach { m =>
+									if (m.productInfo.name != productName)
+										m.isViable = false;
+								}
+							}
+
+						} else {
+							helper.fieldsInfo.get(fieldName) match { // TODO use binary search instead, to avoid the Option instance creation
+								case Some(fieldValueParser) =>
+									// as side effect, actualize the product's managers
+									managers.foreach { manager =>
+										val index = manager.productInfo.fields.indexWhere(_.name == fieldName);
+										if(index < 0) {
+											manager.isViable = false;
+										} else if (manager.productInfo.fields(index).oDefaultValue.isEmpty) {
+											manager.missingRequiredFieldsCounter -= 1
+										}
+									}
+									// parse the field value
+									val fieldValue = fieldValueParser.parse(cursor);
+									if(cursor.consumeWhitespaces()) {
+										foundFields.addOne(Field(fieldName, fieldValue))
+									}
+
+								case None =>
+									skipJsValue.parse(cursor)
+									cursor.consumeWhitespaces()
+							}
+						}
+						have = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+					}
 				}
-				UndefinedField
-			}
-		} else {
-			helper.fieldsInfo.get(fieldName) match { // TODO optimise
-				case Some(fieldValueParser) =>
-					// as side effect, actualize the product's managers
+				if (have) {
+					cursor.advance();
+
+					var chosenManager: Manager = null;
+					var isAmbiguous: Boolean = false;
 					managers.foreach { manager =>
-						val index = manager.productInfo.fields.indexWhere(_.name == fieldName);
-						if(index < 0) {
-							manager.isViable = false;
-						} else if (manager.productInfo.fields(index).oDefaultValue.isEmpty) {
-							manager.missingRequiredFieldsCounter -= 1
+						if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
+							if (chosenManager != null) {
+								isAmbiguous = true;
+							} else {
+								chosenManager = manager;
+							}
 						}
 					}
-					// parse the fiel value
-					fieldValueParser.map(DefinedField(fieldName, _));
-
-				case None =>
-					skipJsValue.^^^(UndefinedField);
-			}
-		}
-	}
-
-	private def productParser(managers: ArraySeq[Manager]): Parser[C] = {
-		'{' ~> skipSpaces ~> (fieldParser(managers) <~ skipSpaces).rep1SepGen[Pos, ArrayBuffer[Field[Any]]](coma ~> skipSpaces, () => new DefinedFieldsArrayBuilder) <~ '}' >> { parsedFields =>
-
-			var chosenManager: Manager = null;
-			var isAmbiguous: Boolean = false;
-			managers.foreach { manager =>
-				if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
-					if (chosenManager != null) {
-						isAmbiguous = true;
+					if (chosenManager == null) {
+						cursor.fail(s"There is no product extending ${helper.fullName} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}. Note that only the fields that are defined in at least one of said products are considered.")
+					} else if (isAmbiguous) {
+						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "${helper.fullName}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 					} else {
-						chosenManager = manager;
+						// build the product constructor's arguments list
+						val chosenProductFields = chosenManager.productInfo.fields;
+						val ctorArgs: Array[Any] = new Array(chosenProductFields.size);
+						var argIndex: Int = 0;
+						while (argIndex < chosenProductFields.size) {
+							val fieldInfo = chosenProductFields(argIndex);
+							val matchingParsedFieldIndex = foundFields.indexWhere(_.name == fieldInfo.name);
+							ctorArgs(argIndex) = if (matchingParsedFieldIndex >= 0) {
+								foundFields(matchingParsedFieldIndex).value;
+							} else {
+								fieldInfo.oDefaultValue.get;
+							}
+							argIndex += 1;
+						}
+						return chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(ctorArgs));
 					}
+
+				} else {
+					cursor.fail(s"Invalid syntax for an object while parsing a ${helper.fullName}");
 				}
-			}
-			if (chosenManager == null) {
-				fail[C](s"There is no product extending ${helper.fullName} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}. Note that only the fields that are defined in at least one of said products are considered.")
-			} else if (isAmbiguous) {
-				fail[C](s"""Ambiguous products: more than one product of the coproduct "${helper.fullName}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 			} else {
-				// build the product constructor's arguments list
-				val chosenProductFields = chosenManager.productInfo.fields;
-				val ctorArgs: Array[Any] = new Array(chosenProductFields.size);
-				var argIndex: Int = 0;
-				while (argIndex < chosenProductFields.size) {
-					val fieldInfo = chosenProductFields(argIndex);
-					val matchingParsedFieldIndex = parsedFields.indexWhere(_.name == fieldInfo.name);
-					ctorArgs(argIndex) = if (matchingParsedFieldIndex >= 0) {
-						parsedFields(matchingParsedFieldIndex).value;
-					} else {
-						fieldInfo.oDefaultValue.get;
-					}
-					argIndex += 1;
-				}
-				hit(chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(ctorArgs)));
-
+				cursor.fail(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a ${helper.fullName}")
 			}
+		} else {
+			cursor.fail(s"A '{' expected but the end of the content was reached when trying to parse a ${helper.fullName}")
 		}
+		ignored[C]
 	}
-
-	override def parse(cursor: Cursor): C = {
-		val managers = helper.productsInfo.map(new Manager(_));
-		val c = productParser(managers).parse(cursor)
-		if (cursor.missed) {
-			cursor.fail(s"Invalid json object format found while parsing an instance of ${helper.fullName}");
-		}
-		c
-	}
-
 
 }

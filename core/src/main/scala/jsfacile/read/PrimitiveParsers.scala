@@ -12,20 +12,16 @@ object PrimitiveParsers {
 
 	val jpBoolean: Parser[Boolean] = { cursor =>
 		if (cursor.comes("true")) {
-			cursor.advance(4);
 			true
-		}
-		else if (cursor.comes("false")) {
-			cursor.advance(5)
+		} else if (cursor.comes("false")) {
 			false
-		}
-		else {
+		} else {
 			cursor.fail("A boolean was expected")
 			false
 		}
 	}
 
-	val jpNull: Parser[Null] = acceptStr("null") ^^^ null
+	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) orFail ("A null was expected")
 
 	/** Interpretador de Int en Json */
 	val jpInt: Parser[Int] = { cursor =>
@@ -137,30 +133,44 @@ object PrimitiveParsers {
 	}
 
 	val jpBigInt: Parser[BigInt] = { cursor =>
-		val integer = cursor.consume(() => SyntaxParsers.skipInteger.parse(cursor))
+		val integer = cursor.stringConsumedBy(() => SyntaxParsers.skipInteger(cursor))
 		if (cursor.ok && integer.length > 0) {
 			BigInt(integer);
 		} else {
-			cursor.fail("An integer number was expected");
+			cursor.fail("An integer number was expected while parsing a BigInt");
 			Parser.ignored[BigInt]
 		}
 	}
 
 	val jpBigDecimal: Parser[BigDecimal] = { cursor =>
-		val number = cursor.consume(() => SyntaxParsers.skipJsNumber.parse(cursor))
+		val number = cursor.stringConsumedBy(() => SyntaxParsers.skipJsNumber.parse(cursor))
 		if (cursor.ok && number.length > 0) {
 			BigDecimal(number);
 		} else {
-			cursor.fail("A number was expected");
+			cursor.fail("A number was expected while parsing a BigDecimal");
 			Parser.ignored[BigDecimal]
 		}
 	}
 
-	val jpDouble: Parser[Double] =
-		Parser.acceptStr("null").^^^(Double.NaN) | jpBigDecimal.map(_.doubleValue)
+	val jpDouble: Parser[Double] = { cursor =>
+		if (cursor.comes("null")) {
+			Double.NaN
+		} else {
+			val bigDecimal = jpBigDecimal.parse(cursor)
+			if (cursor.ok) bigDecimal.doubleValue
+			else Double.NaN
+		}
+	}
 
-	val jpFloat: Parser[Float] =
-		Parser.acceptStr("null").^^^(Float.NaN) | jpBigDecimal.map(_.floatValue)
+	val jpFloat: Parser[Float] = { cursor =>
+		if (cursor.comes("null")) {
+			Float.NaN
+		} else {
+			val bigDecimal = jpBigDecimal.parse(cursor)
+			if (cursor.ok) bigDecimal.floatValue
+			else Float.NaN
+		}
+	}
 
 
 	private val jpEnumerationCache = mutable.WeakHashMap.empty[String, Parser[_ <: Enumeration#Value]]
@@ -201,5 +211,5 @@ object PrimitiveParsers {
 		}
 	}
 	def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = pE ^^ {Some(_)}
-	val jpNone: Parser[None.type] = "null" ^^^ None
+	val jpNone: Parser[None.type] = ("null" ^^^ None) orFail ("A null was expected while trying to parsing a None")
 }

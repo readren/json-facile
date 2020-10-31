@@ -1,6 +1,7 @@
 package jsfacile.macros
 
-import scala.collection.immutable.ListMap
+import java.util.Comparator
+
 import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
@@ -10,14 +11,17 @@ import jsfacile.read.Parser
 
 trait ProductParserHelper[P <: Product] {
 	val fullName: String;
-	val fieldsInfo: ListMap[String, ProductParserHelper.PphFieldInfo[_]];
+	val fieldsInfo: Array[ProductParserHelper.PphFieldInfo[_]];
 	def createProduct(args: Seq[Any]): P
 }
 
 object ProductParserHelper {
 
 	/** TODO: make F covariant if [[Parser]] is made covariant. */
-	final case class PphFieldInfo[F](valueParser: Parser[F], oDefaultValue: Option[F])
+	final case class PphFieldInfo[F](name: String, valueParser: Parser[F], oDefaultValue: Option[F], ctorArgIndex: Int)
+
+	/** Compares two [[PphFieldInfo]] based solely on their names. */
+	val fieldInfoComparator: Comparator[PphFieldInfo[_]] = { (a, b) => a.name.compare(b.name) }
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[P <: Product]: ProductParserHelper[P] = macro materializeHelperImpl[P]
@@ -51,31 +55,34 @@ object ProductParserHelper {
 							}
 
 						addFieldInfoSnippetsBuilder.addOne(
-							q"""builder.addOne((${param.name.toString}, PphFieldInfo(Parser.apply[$paramType], $oDefaultValue)));"""
+							q"""builder.addOne(PphFieldInfo(${param.name.toString}, Parser.apply[$paramType], $oDefaultValue, $argIndex));"""
 						);
-						q"args($argIndex).asInstanceOf[${param.typeSignature}]";
+						q"args($argIndex).asInstanceOf[$paramType]";
 					}
 				}
 				q"""
-import _root_.scala.collection.immutable.ListMap
+import _root_.scala.Array;
 import _root_.jsfacile.read.Parser;
 import _root_.jsfacile.macros.ProductParserHelper;
-import ProductParserHelper.PphFieldInfo;
+import ProductParserHelper.{PphFieldInfo, fieldInfoComparator};
 
-val builder = ListMap.newBuilder[String, PphFieldInfo[_]];
+val builder = Array.newBuilder[PphFieldInfo[_]];
 ..${addFieldInfoSnippetsBuilder.result()}
+
+val fieldsArray = builder.result();
+_root_.java.util.Arrays.sort(fieldsArray, fieldInfoComparator);
+
 
 new ProductParserHelper[$productType] {
 	override val fullName: String = $productTypeName;
 
-	override val fieldsInfo: ListMap[String, PphFieldInfo[_]] =
-		builder.result();
+	override val fieldsInfo: Array[PphFieldInfo[_]] = fieldsArray;
 
-	override def createProduct(args: Seq[Any]):$productType =
-		new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
+	override def createProduct(args: Seq[Any]):$productType = new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
 }"""
 			}).asInstanceOf[ctx.Tree];
 
+//			ctx.info(ctx.enclosingPosition, "pph helper = " + show(helper), false)
 			ctx.Expr[ProductParserHelper[P]](ctx.typecheck(helper));
 		} else {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol should be a concrete class")

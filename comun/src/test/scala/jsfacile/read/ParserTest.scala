@@ -35,13 +35,13 @@ class ParserTest extends RefSpec {
 	}
 	object `Sea el contenido "El primero y el segundo"` {
 
-		private val alpha = acceptElemIf(Character.isAlphabetic)
+		private val alpha = acceptElemIf(Character.isLetter)
 		private val digit = acceptElemIf(Character.isDigit)
 		private val space = acceptElemIf(Character.isSpaceChar)
 
 		def `pursue should work`(): Unit = {
 			val p = new CursorStr("El primero y el segundo");
-			val i = ("El" ~ ' '.rep) ~> "primero" ~ (" y el " ~> (acceptElemIf(Character.isAlphabetic).rep1 ^^ (_.map(_.toChar).mkString)))
+			val i = ("El" ~ ' '.rep) ~> "primero" ~ (" y el " ~> alpha.rep1 ^^ (_.mkString))
 			assertResult(new ~("primero", "segundo"))(i.parse(p))
 			assert(p.ok && !p.failed && p.atEnd)
 		}
@@ -64,7 +64,7 @@ class ParserTest extends RefSpec {
 		def `recover shouldWork`(): Unit = {
 			val p = new CursorStr("bla/1ble/bli/3blo");
 			val escape = '/' ~> digit.orFail("digit expected after '/'");
-			val t = (alpha | escape).rep1.recover(List('-'.toInt)).rep ^^ { x => x.flatten.map(_.toChar).mkString }
+			val t = (alpha | escape).rep1.recover(List('-')).rep ^^ { x => x.flatten.mkString }
 			assertResult("-bli3blo")(t.parse(p));
 			assert(p.ok && p.atEnd && !p.failed);
 		}
