@@ -1,5 +1,7 @@
 package jsfacile.read
 
+import scala.collection.immutable.ArraySeq
+
 import jsfacile.macros.ProductParserHelper
 import jsfacile.macros.ProductParserHelper.PphFieldInfo
 import jsfacile.read.Parser._
@@ -55,7 +57,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 						fieldIndex += 1;
 					}
 					if (cursor.ok) {
-						return helper.createProduct(ctorArgs)
+						return helper.createProduct(ArraySeq.unsafeWrapArray(ctorArgs))
 					}
 				} else {
 					cursor.fail(s"Invalid syntax for an object while parsing a ${helper.fullName}");

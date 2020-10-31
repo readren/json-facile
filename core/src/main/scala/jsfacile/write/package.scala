@@ -6,7 +6,7 @@ import scala.language.experimental.macros
 import jsfacile.joint.Coproduct
 import jsfacile.macros.{CoproductAppenderHelper, ProductAppender}
 
-/** The implicit defined in this package object should NOT be imported in order to have less precedence than the implicit defined in the [[write.api]] package object, which should be imported.
+/** The implicits defined in this package object should NOT be imported in order to have less precedence than the implicit defined in the [[api.write]] package object, which should be imported.
  * The compiler finds the implicit defined here when it searches for instances of the [[Appender]] trait because it belongs to this package object. */
 package object write {
 

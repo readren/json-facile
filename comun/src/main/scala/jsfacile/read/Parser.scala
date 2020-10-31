@@ -34,22 +34,23 @@ object Parser {
 	 * This trait models the requirements that said cursor should obey. */
 	trait Cursor {
 		/** Current cursor position */
-		def pos: Pos;
+		@inline def pos: Pos;
 		/** This cursor missed and failed flags are not set. */
-		def ok: Boolean;
+		@inline def ok: Boolean;
 		/** This [[Cursor]] is [[ok]] and also is pointing to an element of the content (not at the end). */
-		def have: Boolean
-		/** Is true when this [[Cursor]] is at the end of the content (the position after the last element). */
-		def atEnd: Boolean;
+		@inline def have: Boolean
+		/** Is true when this [[Cursor]] is pointing to an element of the content and, therefore, the [[pointedElem]] has a valid value. This state changes to false when all the elements are consumed. */
+		def isPointing: Boolean;
 		/** Is true when this [[Cursor]] missed flag is set and the failure flag is not. */
 		def missed: Boolean;
 		/** The element being pointed by this [[Cursor]]. Assumes this cursor is pointing to an element of the content.*/
-		def pointedElem: Elem
-		/** If [[have]] gives true and the content subsequence starting at the [[pointedElem]] matches the received string then advances the cursor the length said subsequence and returns true. Otherwise nothing is changed and returs false. */
+		@inline def pointedElem: Elem
+		/** If [[have]] is true and the received string matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received string) and returns [[isPointing]]. Otherwise nothing is changed and returns false. */
 		def comes(expected: String): Boolean
 		/** Increments the position.
-		 * @return true if after the advance this cursor is pointing to an element of the content (same as [[have]]). */
-		def advance(cantPasos: Int = 1): Boolean
+		 * @steps number of steps to advance. Should be a positive number.
+		 * @return true if after the advance this cursor is pointing to an element of the content (same as [[isPointing]]). */
+		def advance(steps: Int = 1): Boolean
 		/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
 		def miss(): Unit
 		/** If already failed does nothing, else sets the failed flag and memorizes the cause. Failures propagates trough all normal parsers until a [[Parser.recover]] or [[Parser.recoverWith]] is reached. */

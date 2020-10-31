@@ -17,10 +17,10 @@ package object read {
 			val cursor = new CursorStr(string);
 			val result = pt.parse(cursor)
 			if (cursor.ok) {
-				if (cursor.atEnd)
-					Right(result)
-				else
+				if (cursor.isPointing)
 					Left(s"""The json input was not entirely consumed. The remaining fragment is: "${string.substring(cursor.pos)}".""")
+				else
+					Right(result)
 			} else if (cursor.failed) {
 				Left(s"""The parsing failed at position ${cursor.pos} with the message: ${cursor.failureCause}""")
 			} else {

@@ -11,7 +11,7 @@ class ParserTest extends RefSpec {
 		def `acceptChar('H') should hit, give 'H' and advance`(): Unit = {
 			val p = new CursorStr("Hola");
 			assertResult('H')(acceptChar('H').parse(p))
-			assert(p.ok && !p.failed && !p.atEnd)
+			assert(p.ok && !p.failed && p.isPointing)
 			assert(p.pos == 1)
 		}
 		def `acceptChar('P') should miss and stay`(): Unit = {
@@ -24,7 +24,7 @@ class ParserTest extends RefSpec {
 		def `acceptStr("Hola") should hit, give "Hola", and avance until end`(): Unit = {
 			val p = new CursorStr("Hola");
 			assertResult("Hola")(acceptStr("Hola").parse(p))
-			assert(p.ok && !p.failed && p.atEnd)
+			assert(p.ok && !p.failed && !p.isPointing)
 		}
 		def `acceptStr('Hello') should miss and stay`(): Unit = {
 			val p = new CursorStr("Hola");
@@ -43,7 +43,7 @@ class ParserTest extends RefSpec {
 			val p = new CursorStr("El primero y el segundo");
 			val i = ("El" ~ ' '.rep) ~> "primero" ~ (" y el " ~> alpha.rep1 ^^ (_.mkString))
 			assertResult(new ~("primero", "segundo"))(i.parse(p))
-			assert(p.ok && !p.failed && p.atEnd)
+			assert(p.ok && !p.failed && !p.isPointing)
 		}
 
 		def `orElse should work`(): Unit = {
@@ -51,7 +51,7 @@ class ParserTest extends RefSpec {
 			val i = "primero" | "segundo"
 			val t = (alpha.rep ~ space) ~> i ~ ((space ~ "y el" ~ space) ~> i)
 			assertResult(new ~("primero", "segundo"))(t.parse(p))
-			assert(p.ok && p.atEnd && !p.failed && !p.missed)
+			assert(p.ok && !p.isPointing && !p.failed && !p.missed)
 		}
 
 		def `orFail should work`(): Unit = {
@@ -66,7 +66,7 @@ class ParserTest extends RefSpec {
 			val escape = '/' ~> digit.orFail("digit expected after '/'");
 			val t = (alpha | escape).rep1.recover(List('-')).rep ^^ { x => x.flatten.mkString }
 			assertResult("-bli3blo")(t.parse(p));
-			assert(p.ok && p.atEnd && !p.failed);
+			assert(p.ok && !p.isPointing && !p.failed);
 		}
 	}
 }

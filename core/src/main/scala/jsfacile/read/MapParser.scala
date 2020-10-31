@@ -68,7 +68,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 						} else {
 							val keyCursor = new CursorStr(keyStr);
 							val key = parserK.parse(cursor);
-							if (!keyCursor.ok || !keyCursor.atEnd) {
+							if (!keyCursor.ok || keyCursor.isPointing) {
 								cursor.fail(s"The map key parser failed to interpret the key embedded in the json field name.")
 							}
 							key

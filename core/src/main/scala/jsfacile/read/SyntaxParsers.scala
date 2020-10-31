@@ -71,7 +71,6 @@ object SyntaxParsers {
 			val hasADigit = cursor.consumeCharIf(_.isDigit) && cursor.consumeWhile(_.isDigit);
 			if (!hasADigit) {
 				cursor.fail("A digit was expected as exponent")
-				false
 			}
 		}
 	}

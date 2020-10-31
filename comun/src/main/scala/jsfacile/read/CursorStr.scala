@@ -3,28 +3,14 @@ package jsfacile.read
 import jsfacile.read.Parser.{Elem, Pos, Cursor}
 
 /** A [[Parser.Cursor]] whose content is all contained in a single [[String]]. */
-class CursorStr(content: String) extends Cursor {
+class CursorStr(content: String) extends AbstractCursor {
 
 	protected var cursorPos: Int = 0;
-	protected var isMissed: Boolean = false;
-	protected var isFailed: Boolean = false;
-	protected var lastFailure: AnyRef = _;
 
 	override def pos: Pos = cursorPos;
 
-	@inline override def ok: Boolean = !isMissed && !isFailed;
+	override def isPointing: Boolean = cursorPos < content.length && cursorPos >= 0;
 
-	@inline override def have: Boolean = {
-		ok && cursorPos < content.length
-	}
-
-	override def atEnd: Boolean = {
-		cursorPos == content.length
-	}
-
-	override def missed: Boolean = isMissed && !isFailed;
-
-	override def failed: Boolean = isFailed;
 
 	@inline override def pointedElem: Elem = {
 		content.charAt(cursorPos)
@@ -42,33 +28,11 @@ class CursorStr(content: String) extends Cursor {
 
 	};
 
-	@inline override def advance(cantPasos: Int): Boolean = {
-		//		assert(ok)
-		this.cursorPos += cantPasos;
-		have
+	@inline override def advance(steps: Int): Boolean = {
+		//		assert(ok && cantPasos >= 0)
+		this.cursorPos += steps;
+		cursorPos < content.length;
 	}
-
-	override def miss(): Unit = this.isMissed = true;
-
-	override def fail(cause: AnyRef): Unit = {
-		if(!this.isFailed) {
-			this.lastFailure = cause
-			this.isFailed = true
-		};
-	};
-
-	override def failureCause: AnyRef =
-		if (this.isFailed) this.lastFailure
-		else null;
-
-	override def clearMiss(): Unit =
-		this.isMissed = false;
-
-	override def repair(): Unit = {
-		this.isMissed = false
-		this.isFailed = false;
-	}
-
 
 	override def attempt[@specialized(Int, Char) X](block: () => X): X = {
 		val startingPos = cursorPos;
@@ -93,37 +57,5 @@ class CursorStr(content: String) extends Cursor {
 				content.substring(startingPos, cursorPos)
 			}
 		}
-
-	}
-
-	override def consumeChar(char: Char): Boolean = {
-		if (have && pointedElem == char) {
-			this.cursorPos += 1;
-			have;
-		} else {
-			false
-		}
-	}
-	override def consumeCharIf(predicate: Char => Boolean): Boolean = {
-		if (have && predicate(pointedElem)) {
-			this.cursorPos += 1;
-			have;
-		} else {
-			false
-		}
-	}
-
-	override def consumeWhitespaces(): Boolean = {
-		while (have && pointedElem.isWhitespace) {
-			this.cursorPos += 1
-		}
-		have
-	}
-
-	override def consumeWhile(predicate: Elem => Boolean): Boolean = {
-		while (have && predicate(pointedElem)) {
-			this.cursorPos += 1
-		}
-		have
 	}
 }

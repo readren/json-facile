@@ -5,7 +5,7 @@ import scala.collection.mutable
 import jsfacile.joint.Coproduct
 import jsfacile.macros.{CoproductParserHelper, ProductParserHelper}
 
-/** The implicits defined in this package object should NOT be imported in order to have less precedence than the implicit defined in the [[read.api]] package object, which should be imported.
+/** The implicits defined in this package object should NOT be imported in order to have less precedence than the implicit defined in the [[api.read]] package object, which should be imported.
  * The compiler finds the implicits defined here when it searches for instances of the [[Parser]] trait because it belongs to this package object. */
 package object read {
 

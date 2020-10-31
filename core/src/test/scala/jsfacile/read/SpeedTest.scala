@@ -11,7 +11,7 @@ object SpeedTest {
 		def restart: Unit = this.cursorPos = 0;
 	}
 
-	def main(args: Array[String]) {
+	def main(args: Array[String]): Unit = {
 
 		val ss = SyntaxParsers.skipSpaces;
 		val c = new CursorStr("    ")
