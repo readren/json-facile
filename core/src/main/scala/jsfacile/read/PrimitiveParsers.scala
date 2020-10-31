@@ -133,7 +133,7 @@ object PrimitiveParsers {
 	}
 
 	val jpBigInt: Parser[BigInt] = { cursor =>
-		val integer = cursor.stringConsumedBy(() => SyntaxParsers.skipInteger(cursor))
+		val integer = cursor.stringConsumedBy(SyntaxParsers.skipInteger(_))
 		if (cursor.ok && integer.length > 0) {
 			BigInt(integer);
 		} else {
@@ -143,7 +143,7 @@ object PrimitiveParsers {
 	}
 
 	val jpBigDecimal: Parser[BigDecimal] = { cursor =>
-		val number = cursor.stringConsumedBy(() => SyntaxParsers.skipJsNumber.parse(cursor))
+		val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber.parse(_))
 		if (cursor.ok && number.length > 0) {
 			BigDecimal(number);
 		} else {

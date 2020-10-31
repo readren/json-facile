@@ -76,7 +76,7 @@ object Parser {
 		 * - is failed, should return `null`.
 		 *
 		 * @return a string containing the elements consumed by the `consumer` if the cursor is ok after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
-		def stringConsumedBy(consumer: () => Unit): String
+		def stringConsumedBy(consumer: Cursor => Unit): String
 
 		/** If the cursor is [[ok]] and the pointed element equals the received char, advances to next position and returns {{{ok && have}}}. Else does nothing and returns false.
 		 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns {{{ok && have}}} if the element was consumed, false otherwise. */

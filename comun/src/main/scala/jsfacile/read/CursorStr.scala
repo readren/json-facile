@@ -44,9 +44,9 @@ class CursorStr(content: String) extends AbstractCursor {
 		x
 	}
 
-	override def stringConsumedBy(consumer: () => Unit): String = {
+	override def stringConsumedBy(consumer: Cursor => Unit): String = {
 		val startingPos = cursorPos;
-		consumer();
+		consumer(this);
 		if (isFailed) {
 			null
 		} else {

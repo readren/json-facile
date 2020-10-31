@@ -8,8 +8,19 @@ import jsfacile.util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMa
 /** Contains the implicit parsers that require import tax.
  * The implicit defined in this package object should be imported in order to have more precedence than the [[jsfacile.read.jpProduct]] and [[jsfacile.read.jpCoproduct]], which should NOT be imported. */
 package object read {
-	////////////////
-	//// Suggar ////
+
+	/////////////////
+	//// Aliases ////
+
+	type Parser[A] = jsfacile.read.Parser[A]
+	type Cursor = jsfacile.read.Parser.Cursor
+	type CursorStr = jsfacile.read.CursorStr
+
+	/** Summons a [[Parser]] instance of the specified type */
+	def parserOf[A](implicit pa: Parser[A]): Parser[A] = pa
+
+	///////////////////////
+	//// Enrich string ////
 
 	/** Adds the [[fromJson]] method to String */
 	implicit class FromJsonConvertable(val string: String) extends AnyVal {

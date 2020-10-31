@@ -1,10 +1,10 @@
-package jsfacile.write
+package jsfacile.test
 
+import jsfacile.util.JsonGen
+import jsfacile.util.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import jsfacile.util.JsonGen
-import jsfacile.util.SampleADT._
 
 object ProductAppenderTest {
 
@@ -21,8 +21,8 @@ object ProductAppenderTest {
 
 class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
 	import ProductAppenderTest._
-	import jsfacile.api.write._
 	import jsfacile.api.read._
+	import jsfacile.api.write._
 
 	object `The appender should work ...` {
 

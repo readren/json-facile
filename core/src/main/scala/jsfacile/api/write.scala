@@ -7,8 +7,19 @@ import jsfacile.write.{Appender, IterableAppender, MapAppender, Record, RecordSt
 /** Contains the implicit appenders that require import tax.
  * The implicit defined in this package object should be imported in order to have more precedence than [[jsfacile.write.jaProduct]] and [[jsfacile.write.jaCoproduct]], which should NOT be imported. */
 package object write {
-	////////////////
-	//// Suggar ////
+
+	/////////////////
+	//// Aliases ////
+
+	type Appender[A] = jsfacile.write.Appender[A];
+	type Record = jsfacile.write.Record;
+	type RecordStr = jsfacile.write.RecordStr;
+
+	/** Summons an [[Appender]] instance of the specified type */
+	def appenderOf[A](implicit aoa: Appender[A]): Appender[A] = aoa
+
+	////////////////////////////////////
+	//// Enrich data types ////
 
 	/** Adds the [[toJson]] method to all objects */
 	implicit class ToJsonConvertable[T](val obj: T) extends AnyVal {

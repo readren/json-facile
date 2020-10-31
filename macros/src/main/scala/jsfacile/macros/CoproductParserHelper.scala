@@ -32,7 +32,7 @@ object CoproductParserHelper {
 		import ctx.universe._
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
-		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed  && !coproductSymbol.fullName.startsWith("scala.collection") && coproductSymbol.fullName != "scala.Option") {
+		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
 			val helper = cache.getOrElseUpdate(
 			coproductSymbol.fullName, {
 			val classSymbol = coproductSymbol.asClass;
