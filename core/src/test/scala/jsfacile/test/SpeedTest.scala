@@ -1,6 +1,5 @@
 package jsfacile.test
 
-import jsfacile.read.CursorStr
 import jsfacile.util.SampleADT.{PresentationData, presentationDataOriginal}
 import ProductParserTest.presentationDataFormat
 

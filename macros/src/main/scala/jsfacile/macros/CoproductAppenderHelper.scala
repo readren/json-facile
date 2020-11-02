@@ -23,11 +23,19 @@ object CoproductAppenderHelper {
 	val productInfoComparator: Comparator[CahProductInfo[_]] = { (a, b) => productNameComparator.compare(a.name, b.name) }
 
 	/** Compares two Strings based on the length and, if both have the same length, by alphabetic order of the reversed names.
-	 * Differences between dots and dollars are ignored if the dot is in the first name (an) and the dollar in the second name (bn).
+	 * If the second name (bn) ends with a dollar it is removed before the comparison begins. This is necessary because the runtime class name of module classes have an extra dollar at the end.
+	 * Differences between dots and dollars are ignored if the dot is in the first name (an) and the dollar in the second name (bn). This is necessary because the runtime class name of nested classes use a dollar instead of a dot to separate the container from members.
 	 * The names are considered equal if the fragments after the last dot are equal. */
 	val productNameComparator: Comparator[String] = { (an, bn) =>
 		val anl = an.length;
-		var d = anl - bn.length;
+		var bnl = bn.length;
+
+		// ignore the last char of `bn` if it is dollar. This is necessary because the runtime class name of module classes have an extra dollar at the end.
+		if (bn.charAt(bnl - 1) == '$') {
+			bnl -= 1;
+		}
+
+		var d = anl - bnl;
 		if (d == 0) {
 			var i = anl - 1;
 			var bc: Char = 0;
@@ -47,7 +55,7 @@ object CoproductAppenderHelper {
 
 	implicit def apply[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
-	private val cache: mutable.WeakHashMap[String, whitebox.Context#Tree] = mutable.WeakHashMap.empty
+	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
 	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
@@ -55,7 +63,7 @@ object CoproductAppenderHelper {
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
 		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
 			val helper = cache.getOrElseUpdate(
-			coproductSymbol.fullName, {
+			coproductType, {
 				val classSymbol = coproductSymbol.asClass;
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
@@ -69,37 +77,50 @@ object CoproductAppenderHelper {
 				for {
 					productSymbol <- classSymbol.knownDirectSubclasses.toIndexedSeq
 				} {
-					val productType = ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
-					val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+					if (productSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
+						productsInfoBuilder.addOne(ProductInfo(
+							productSymbol.name.toString,
+							productSymbol.asClass.toType,
+							Set.empty,
+							Nil
+						))
 
-					val requiredFieldNamesBuilder = Set.newBuilder[String];
-					var isFirstField = true;
-					val appendField_codeLines =
-						for {
-							params <- productCtorParamsLists
-							param <- params
-						} yield {
-							val paramNameStr = param.name.decodedName.toString;
-							val paramTypeSignature = param.typeSignature.dealias;
-							if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
-								requiredFieldNamesBuilder.addOne(paramNameStr)
-							}
-							val sb = new StringBuilder(paramNameStr.size+4)
-							if(isFirstField) {
-								isFirstField = false
-							} else {
-								sb.append(',');
-							}
-							sb.append('"').append(paramNameStr).append('"').append(':');
-							q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
-						}
+					} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then // TODO support nested traits (make this a recursive loop)
+						ctx.abort(ctx.enclosingPosition, "Nested traits are not supported yet")
 
-					productsInfoBuilder.addOne(ProductInfo(
-						productSymbol.name.toString,
-						productType,
-						requiredFieldNamesBuilder.result(),
-						appendField_codeLines
-					))
+					} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are its primary constructor parameters.
+						val productType = ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
+						val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+
+						val requiredFieldNamesBuilder = Set.newBuilder[String];
+						var isFirstField = true;
+						val appendField_codeLines =
+							for {
+								params <- productCtorParamsLists
+								param <- params
+							} yield {
+								val paramNameStr = param.name.decodedName.toString;
+								val paramTypeSignature = param.typeSignature.dealias;
+								if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
+									requiredFieldNamesBuilder.addOne(paramNameStr)
+								}
+								val sb = new StringBuilder(paramNameStr.size + 4)
+								if (isFirstField) {
+									isFirstField = false
+								} else {
+									sb.append(',');
+								}
+								sb.append('"').append(paramNameStr).append('"').append(':');
+								q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
+							}
+
+						productsInfoBuilder.addOne(ProductInfo(
+							productSymbol.name.toString,
+							productType,
+							requiredFieldNamesBuilder.result(),
+							appendField_codeLines
+						))
+					}
 				}
 				val productsInfo = productsInfoBuilder.result();
 
@@ -108,7 +129,7 @@ object CoproductAppenderHelper {
 					var i = productsInfo.size - 1;
 					while (i > 0) {
 						val pi = productsInfo(i);
-						if(!pi.isAmbiguous) {
+						if (!pi.isAmbiguous) {
 							var j = i - 1;
 							while (j >= 0) {
 								val pj = productsInfo(j);
@@ -166,8 +187,8 @@ new CoproductAppenderHelper[$coproductType] {
 	override val productsInfo = productsArray;
 }"""
 			}).asInstanceOf[ctx.Tree];
+			// ctx.info(ctx.enclosingPosition, show(helper), false)
 
-//			ctx.info(ctx.enclosingPosition, show(helper), false)
 			ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 		} else {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")

@@ -43,10 +43,10 @@ package object read {
 	//////////////////////////////////////////
 	//// Json parsers for primitive types ////
 
-	/** Interpretador de Int en Json */
+	implicit val jpBoolean: Parser[Boolean] = PrimitiveParsers.jpBoolean
+
 	implicit val jpInt: Parser[Int] = PrimitiveParsers.jpInt;
 
-	/** Interpretador de Long en Json */
 	implicit val jpLong: Parser[Long] = PrimitiveParsers.jpLong;
 
 	implicit val jpDouble: Parser[Double] = PrimitiveParsers.jpDouble;

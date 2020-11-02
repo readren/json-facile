@@ -23,16 +23,19 @@ lazy val macros = (project in file("macros")).dependsOn(comun)
 lazy val comun = (project in file("comun"))
 
 ThisBuild / libraryDependencies ++= Seq(
-	// scala reflection required for macros
-	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
-
-	// spray json used for testing
-	"com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % Test,
-
 	// test
 	"org.scalatest" %% "scalatest" % "3.2.2" % Test,
 	"org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test
+)
 
+core / libraryDependencies ++= Seq(
+	// spray json used for testing
+	"com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % Test
+)
+
+macros / libraryDependencies ++= Seq(
+	// scala reflection required for macros
+	"org.scala-lang" % "scala-reflect" % scalaVersion.value
 )
 
 ThisBuild / scalacOptions ++= Seq(

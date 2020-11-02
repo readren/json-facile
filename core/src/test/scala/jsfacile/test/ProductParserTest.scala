@@ -1,7 +1,8 @@
 package jsfacile.test
 
 import jsfacile.macros.ProductParserHelper
-import jsfacile.read.{CursorStr, Parser, ProductParser}
+import jsfacile.read.{Parser, ProductParser}
+import jsfacile.util.{::, Base}
 import jsfacile.util.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -135,6 +136,14 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 			val presentationDataJson = ToJsonConvertable(presentationDataOriginal).toJson
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
+		}
+
+		def `Json interpretation should work with HLists`(): Unit = {
+			import jsfacile.api.write._
+			val pilaOriginal = "top" :: 3 :: true :: Base
+			val pilaJson = ToJsonConvertable(pilaOriginal).toJson
+			val pilaParsed = pilaJson.fromJson[String :: Int :: Boolean :: Base.type]
+			assertResult(Right(pilaOriginal))(pilaParsed)
 		}
 	}
 
