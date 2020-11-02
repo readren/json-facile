@@ -77,50 +77,61 @@ object CoproductAppenderHelper {
 				for {
 					productSymbol <- classSymbol.knownDirectSubclasses.toIndexedSeq
 				} {
-					if (productSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
-						productsInfoBuilder.addOne(ProductInfo(
-							productSymbol.name.toString,
-							productSymbol.asClass.toType,
-							Set.empty,
-							Nil
-						))
+					ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor) match {
+						case Right(productType) =>
+							if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
 
-					} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then // TODO support nested traits (make this a recursive loop)
-						ctx.abort(ctx.enclosingPosition, "Nested traits are not supported yet")
+								if (productSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
+									productsInfoBuilder.addOne(ProductInfo(
+										productSymbol.name.toString,
+										productSymbol.asClass.toType,
+										Set.empty,
+										Nil
+									))
 
-					} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are its primary constructor parameters.
-						val productType = ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor)
-						val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+								} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then // TODO support nested traits (make this a recursive loop)
+									ctx.abort(ctx.enclosingPosition, "Nested traits are not supported yet")
 
-						val requiredFieldNamesBuilder = Set.newBuilder[String];
-						var isFirstField = true;
-						val appendField_codeLines =
-							for {
-								params <- productCtorParamsLists
-								param <- params
-							} yield {
-								val paramNameStr = param.name.decodedName.toString;
-								val paramTypeSignature = param.typeSignature.dealias;
-								if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
-									requiredFieldNamesBuilder.addOne(paramNameStr)
+								} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
+									val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+
+									val requiredFieldNamesBuilder = Set.newBuilder[String];
+									var isFirstField = true;
+									val appendField_codeLines =
+										for {
+											params <- productCtorParamsLists
+											param <- params
+										} yield {
+											val paramNameStr = param.name.decodedName.toString;
+											val paramTypeSignature = param.typeSignature.dealias;
+											if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
+												requiredFieldNamesBuilder.addOne(paramNameStr)
+											}
+											val sb = new StringBuilder(paramNameStr.size + 4)
+											if (isFirstField) {
+												isFirstField = false
+											} else {
+												sb.append(',');
+											}
+											sb.append('"').append(paramNameStr).append('"').append(':');
+											q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
+										}
+
+									productsInfoBuilder.addOne(ProductInfo(
+										productSymbol.name.toString,
+										productType,
+										requiredFieldNamesBuilder.result(),
+										appendField_codeLines
+									))
 								}
-								val sb = new StringBuilder(paramNameStr.size + 4)
-								if (isFirstField) {
-									isFirstField = false
-								} else {
-									sb.append(',');
-								}
-								sb.append('"').append(paramNameStr).append('"').append(':');
-								q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
+
 							}
 
-						productsInfoBuilder.addOne(ProductInfo(
-							productSymbol.name.toString,
-							productType,
-							requiredFieldNamesBuilder.result(),
-							appendField_codeLines
-						))
+						case Left(freeTypeParams) =>
+							ctx.abort(ctx.enclosingPosition, s"""The "${productSymbol}", which is a subclass of "${coproductSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
 					}
+
+
 				}
 				val productsInfo = productsInfoBuilder.result();
 
@@ -144,7 +155,7 @@ object CoproductAppenderHelper {
 					}
 				}
 
-				// for every product, generate the code lines creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
+				// for every product, generate the code lines that creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
 				val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
 					for {
 						productInfo <- productsInfo

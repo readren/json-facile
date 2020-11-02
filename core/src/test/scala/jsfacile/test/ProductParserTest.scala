@@ -147,6 +147,23 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 		}
 	}
 
+	object `Shout not compile when ...` {
+
+		def `parsing a type constructed by a type constructor that has a subclass with a free type parameter`(): Unit = {
+			"""
+			  |object Probando {
+			  |	sealed trait A[L] { def load: L };
+			  |	case class A1[L](load: L) extends A[L];
+			  |	case class A2[L, F](load: L, free: F) extends A[L]
+			  |
+			  |	def main(args: Array[String]): Unit = {
+			  |		import jsfacile.api.read._
+			  |		val aParsed = "?".fromJson[A[Double]]
+			  |	}
+			  |}""".stripMargin shouldNot typeCheck
+		}
+	}
+
 
 	override def withFixture(test: NoArgTest) = {
 		withFixture(test, 9)

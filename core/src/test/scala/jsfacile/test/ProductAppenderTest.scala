@@ -31,7 +31,7 @@ class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyC
 			assert(simpleJson == """{"text":"hola","number":7}""")
 		}
 
-		def `with nested classes`(): Unit = {
+		def `with nested classes with type parameters`(): Unit = {
 			val nestJson = nestOriginal.toJson
 			assert(nestJson == """{"name":"chau","simple":{"text":"hola","number":7}}""")
 		}
@@ -46,5 +46,24 @@ class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyC
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assert(presentationDataParsed == Right(presentationDataOriginal))
 		}
+	}
+
+	object `Should not compile when ...` {
+
+		def `appending a type constructed by a type constructor that has a subclass with a free type parameter`(): Unit = {
+			"""
+			  |object Probando {
+			  |	sealed trait A[L] { def load: L };
+			  |	case class A1[L](load: L) extends A[L];
+			  |	case class A2[L, F](load: L, free: F) extends A[L]
+			  |
+			  |	def main(args: Array[String]): Unit = {
+			  |		import jsfacile.api.write._
+			  |  	val a: A[Int] = A2(3, "free")
+			  |		val json = a.toJson
+			  |	}
+			  |}""".stripMargin shouldNot typeCheck
+		}
+
 	}
 }
