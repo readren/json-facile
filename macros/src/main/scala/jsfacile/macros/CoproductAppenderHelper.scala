@@ -162,7 +162,7 @@ object CoproductAppenderHelper {
 					} yield {
 						val appendDiscriminator_codeLine =
 							if (discriminatorIsRequired || productInfo.isAmbiguous) {
-								val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productsInfo.isEmpty) "" else ","}"""
+								val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productInfo.appendField_codeLines.isEmpty) "" else ","}"""
 								q"r.append($discriminatorField)"
 							} else {
 								q""
