@@ -7,43 +7,11 @@ import jsfacile.read.Parser._
 /** Both the methods of this object and the [[Parser]]s given by them are thread safe (or should be). */
 object SyntaxParsers {
 
-	type CodePoint = Int;
-
-	class MissingFieldException(className: String, fieldName: String) extends RuntimeException(s"class: $className, field: $fieldName")
-
-	class CodePointStrBuilder extends mutable.Builder[Int, String] {
-		private val sb = new java.lang.StringBuilder()
-		override def clear(): Unit = sb.setLength(0);
-		override def result(): String = sb.toString;
-		override def addOne(elem: Int): CodePointStrBuilder.this.type = {
-			sb.appendCodePoint(elem);
-			this;
-		};
-	}
-
-	val skipSpaces: Parser[Pos] = { cursor =>
-		var have = cursor.have;
-		while (have && Character.isWhitespace(cursor.pointedElem)) {
-			have = cursor.advance()
-		}
-		cursor.pos
-	}
-	val colon: Parser[Elem] = ':'
-	val coma: Parser[Elem] = ','
-
-	private val digit: Parser[Elem] = acceptElemIf(Character.isDigit)
-	private val skipDigits: Parser[Pos] = { cursor =>
-		cursor.consumeWhile(_.isDigit)
-		cursor.pos
-	}
-	private val digit19: Parser[Elem] = acceptElemIf(e => '1' <= e && e <= '9')
-
-	//////////////////
-
+	/** skips the next integer or miss if no integer follows
+	 * @return true iff an integer was consumed and the cursor is [[ok]]*/
 	def skipInteger(cursor: Cursor): Boolean = {
-		// Optimized version of: '-'.opt ~> ('0' ~> pos) | (digit19 ~> skipDigits)
 		val isNeg = cursor.consumeChar('-')
-		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIf(_.isDigit) && cursor.consumeWhile(_.isDigit)
+		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit)
 		if (hasMantisa) {
 			cursor.ok
 		} else {
@@ -55,73 +23,114 @@ object SyntaxParsers {
 			false
 		}
 	}
+	/** skips the next fraction or do nothing if no fraction follows */
 	private def skipOptionalFraction(cursor: Cursor): Unit = {
-		// optimized version of: '.' ~> digit ~> skipDigits
 		if (cursor.consumeChar('.')) {
-			val hasADigit = cursor.consumeCharIf(_.isDigit) && cursor.consumeWhile(_.isDigit);
+			val hasADigit = cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit);
 			if (!hasADigit) {
 				cursor.fail("A digit was expected after the decimal point")
 			}
 		}
 	}
+	/** skips the next exponent or do nothing if no exponent follows */
 	private def skipOptionalExponent(cursor: Cursor): Unit = {
-		// optimized version of:  acceptElemIf(elem => elem == 'e' || elem == 'E') ~> acceptElemIf(elem => elem == '+' || elem == '-').opt ~> digit ~> skipDigits // me parece que en lugar de "digit" debería ser "digit19", pero me regí por la página https://www.json.org/json-en.html
 		if (cursor.consumeCharIf(c => c == 'e' || c == 'E')) {
 			cursor.consumeCharIf(c => c == '+' || c == '-');
-			val hasADigit = cursor.consumeCharIf(_.isDigit) && cursor.consumeWhile(_.isDigit);
+			val hasADigit = cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit);
 			if (!hasADigit) {
 				cursor.fail("A digit was expected as exponent")
 			}
 		}
 	}
-	val skipJsNumber: Parser[Pos] = { cursor =>
-		// optimized version of: skipInteger ~> skipFraction.opt ~> skipExponent.opt ~> pos
+	/** skips the next number or miss if no number follows
+	 * @return true iff a number was consumed and the cursor is [[ok]] */
+	def skipJsNumber(cursor: Cursor): Boolean = {
 		if(skipInteger(cursor)) {
 			skipOptionalFraction(cursor);
-			skipOptionalExponent(cursor)
+			skipOptionalExponent(cursor);
+			cursor.ok
+		} else {
+			cursor.miss();
+			false
 		}
-		cursor.pos;
 	}
 
-	private val skipJsNull: Parser[Pos] = "null" ~> pos
+	/** skips the next "null" or miss if what follows isn't a "null"
+	 * @return true iff a "null" was consumed and the cursor is [[ok]] */
+	private def skipJsNull(cursor: Cursor): Boolean = cursor.comes("null") || { cursor.miss(); false }
 
-	private val skipJsBoolean: Parser[Pos] = ("true" | "false") ~> pos
+	/** skips the next boolean of miss if no boolean follows
+	 * @return true iff a boolean was consumed and the cursor is [[ok]] */
+	private def skipJsBoolean(cursor: Cursor): Boolean = cursor.comes("true") || cursor.comes( "false") || { cursor.miss(); false }
 
-	private val skipJsString: Parser[Pos] = string ~> pos
+	/** skips the next string or miss if no string follows
+	 * @return true iff a string was consumed and the cursor is [[ok]] */
+	private def skipJsString(cursor: Cursor): Boolean = { string.parse(cursor); cursor.ok }
 
-	private def skipJsArray: Parser[Pos] = '[' ~> skipSpaces ~> (skipJsValue ~> skipSpaces).repSep(coma ~> skipSpaces) ~> ']' ~> pos
-
-	private def skipJsObject: Parser[Pos] = '{' ~> skipSpaces ~> (string ~> skipSpaces ~> colon ~> skipSpaces ~> skipJsValue ~> skipSpaces).repSep(coma ~> skipSpaces) ~> '}' ~> pos
-
-	val skipJsValue: Parser[Pos] = new Parser[Pos] {
-		// I don't like lazy vals because they block the thread and that is not necessary here because in the worst case the value is initialized twice.
-		var skipObject: Parser[Pos] = _;
-		var skipArray: Parser[Pos] = _;
-		override def parse(cursor: Cursor): Pos = {
-			if (cursor.ok) {
-				val p = cursor.pointedElem match {
-					case '"' => skipJsString
-					case '{' =>
-						if (skipObject == null) {
-							skipObject = skipJsObject
-						}
-						skipObject
-					case '[' =>
-						if (skipArray == null) {
-							skipArray = skipJsArray
-						}
-						skipArray
-					case 't' | 'f' => skipJsBoolean
-					case 'n' => skipJsNull
-					case _ => skipJsNumber.orFail("Invalid json value format.")
-				}
-				p.parse(cursor)
-			} else {
-				cursor.pos
+	/** skips the next json array or miss if no array follows
+	 * @return true iff an array was consumed and the cursor is [[ok]] */
+	private def skipJsArray(cursor: Cursor): Boolean = {
+		if(cursor.consumeChar('[')) {
+			var have = cursor.consumeWhitespaces()
+			while(have && cursor.pointedElem != ']') {
+				skipJsValue(cursor);
+				have = cursor.consumeWhitespaces() && (cursor.consumeChar(',') && cursor.consumeWhitespaces() || cursor.pointedElem == ']')
 			}
+			if(have) {
+				cursor.advance()
+			} else {
+				cursor.fail("Invalid json array syntax found while skipping")
+			}
+		} else {
+			cursor.miss();
+		}
+		cursor.ok
+	}
+
+	/** skips the next json object or miss if no object follows
+	 * @return true iff an object was consumed and the cursor is [[ok]] */
+	def skipJsObject(cursor: Cursor): Boolean = {
+		if(cursor.consumeChar('{')) {
+			var ok = cursor.consumeWhitespaces();
+			while (ok && cursor.pointedElem != '}') {
+				skipJsString(cursor)
+				cursor.consumeWhitespaces()
+				cursor.consumeChar(':')
+				ok = cursor.consumeWhitespaces() && (cursor.consumeChar(',') && cursor.consumeWhitespaces() || cursor.pointedElem == '}')
+			}
+			if(ok) {
+				cursor.advance()
+			} else {
+				cursor.fail("Invalid json object syntax found while skipping")
+			}
+		} else {
+			cursor.miss();
+		}
+		cursor.ok
+	}
+
+	/** skips the next json value or miss if no json value follows
+	 * @return true iff a json value was consumed and the cursor is [[ok]] */
+	def skipJsValue(cursor: Cursor): Boolean = {
+		if (cursor.have) {
+			val p: Cursor => Boolean = cursor.pointedElem match {
+				case '"' => skipJsString
+				case '{' => skipJsObject
+				case '[' => skipJsArray
+				case 't' | 'f' => skipJsBoolean
+				case 'n' => skipJsNull
+				case _ => skipJsNumber
+			}
+			p(cursor);
+		} else {
+			cursor.miss();
+			false
 		}
 	}
 
+	/** A [[Parser]] of json strings.
+	 * Used to parse the json field names and string values.
+	 * Differs from [[PrimitiveParsers.jpString]] in that the second sets the failure flag when the match misses. */
 	object string extends Parser[String] {
 		override def parse(cursor: Cursor): String = {
 			if (cursor.have && cursor.pointedElem == '"') {

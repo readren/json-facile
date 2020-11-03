@@ -30,12 +30,12 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 		if (cursor.have) {
 			val builder = builderCtor();
 			val firstElem = cursor.pointedElem;
-			var ok = false;
+			var have = false;
 			if (firstElem == '[') {
 				cursor.advance();
-				ok = cursor.consumeWhitespaces();
-				while (ok && cursor.pointedElem != ']') {
-					ok = false;
+				have = cursor.consumeWhitespaces();
+				while (have && cursor.pointedElem != ']') {
+					have = false;
 					if (cursor.consumeChar('[') &&
 						cursor.consumeWhitespaces()
 					) {
@@ -50,7 +50,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 								cursor.consumeWhitespaces()
 							) {
 								builder.addOne(key -> value);
-								ok = cursor.pointedElem == ']' || (cursor.consumeChar(',') && cursor.consumeWhitespaces());
+								have = cursor.pointedElem == ']' || (cursor.consumeChar(',') && cursor.consumeWhitespaces());
 							}
 						}
 					}
@@ -58,9 +58,9 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 
 			} else if (firstElem == '{') {
 				cursor.advance();
-				ok = cursor.consumeWhitespaces();
-				while (ok && cursor.pointedElem != '}') {
-					ok = false;
+				have = cursor.consumeWhitespaces();
+				while (have && cursor.pointedElem != '}') {
+					have = false;
 					val keyStr = string.parse(cursor);
 					val key =
 						if (parserK == PrimitiveParsers.jpString) {
@@ -80,7 +80,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 						val value = parserV.parse(cursor);
 						if (cursor.consumeWhitespaces()) {
 							builder.addOne(key -> value);
-							ok = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+							have = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
 						}
 					}
 				}
@@ -88,7 +88,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 				cursor.fail(s"A map opening char was expected but '${cursor.pointedElem}' was found")
 			}
 
-			if (ok) {
+			if (have) {
 				cursor.advance();
 				builder.result()
 			} else {

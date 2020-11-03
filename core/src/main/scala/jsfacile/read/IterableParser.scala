@@ -33,16 +33,16 @@ class IterableParser[IC[e] <: IterableUpperBound[e], E](
 			if(cursor.pointedElem == '[') {
 				cursor.advance();
 				val builder = factoryHolder.factory.newBuilder[E];
-				var ok = cursor.consumeWhitespaces();
-				while (ok && cursor.pointedElem != ']') {
-					ok = false;
+				var have = cursor.consumeWhitespaces();
+				while (have && cursor.pointedElem != ']') {
+					have = false;
 					val value = parserE.parse(cursor);
 					if (cursor.consumeWhitespaces()) {
 						builder.addOne(value);
-						ok = cursor.pointedElem == ']' || (cursor.consumeChar(',') && cursor.consumeWhitespaces());
+						have = cursor.pointedElem == ']' || (cursor.consumeChar(',') && cursor.consumeWhitespaces());
 					}
 				}
-				if(ok) {
+				if(have) {
 					cursor.advance();
 					builder.result()
 				} else  {

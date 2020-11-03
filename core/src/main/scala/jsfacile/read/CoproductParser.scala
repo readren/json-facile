@@ -11,7 +11,7 @@ import jsfacile.read.SyntaxParsers._
 object CoproductParser {
 	private case class Field[+V](name: String, value: V);
 
-	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.map { _.name } mkString ", ";
+	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.map {_.name} mkString ", ";
 }
 
 
@@ -47,11 +47,12 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 					) {
 						if (fieldName == helper.discriminator) {
 							val productName = PrimitiveParsers.jpString.parse(cursor);
-							if(cursor.consumeWhitespaces()) {
+							if (cursor.consumeWhitespaces()) {
 								managers.foreach { m =>
 									if (m.productInfo.name != productName)
 										m.isViable = false;
 								}
+								have = true
 							}
 
 						} else {
@@ -60,7 +61,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 									// as side effect, actualize the product's managers
 									managers.foreach { manager =>
 										val index = manager.productInfo.fields.indexWhere(_.name == fieldName);
-										if(index < 0) {
+										if (index < 0) {
 											manager.isViable = false;
 										} else if (manager.productInfo.fields(index).oDefaultValue.isEmpty) {
 											manager.missingRequiredFieldsCounter -= 1
@@ -68,16 +69,17 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 									}
 									// parse the field value
 									val fieldValue = fieldValueParser.parse(cursor);
-									if(cursor.consumeWhitespaces()) {
+									if (cursor.consumeWhitespaces()) {
 										foundFields.addOne(Field(fieldName, fieldValue))
+										have = true
 									}
 
 								case None =>
-									skipJsValue.parse(cursor)
-									cursor.consumeWhitespaces()
+									skipJsValue(cursor)
+									have = cursor.consumeWhitespaces()
 							}
 						}
-						have = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+						have &&= cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
 					}
 				}
 				if (have) {

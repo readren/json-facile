@@ -143,8 +143,8 @@ object PrimitiveParsers {
 	}
 
 	val jpBigDecimal: Parser[BigDecimal] = { cursor =>
-		val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber.parse)
-		if (cursor.ok && number.length > 0) {
+		val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+		if (cursor.ok) {
 			BigDecimal(number);
 		} else {
 			cursor.fail("A number was expected while parsing a BigDecimal");
@@ -156,8 +156,8 @@ object PrimitiveParsers {
 		if (cursor.comes("null")) {
 			Double.NaN
 		} else {
-			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber.parse)
-			if (cursor.ok && number.length > 0) {
+			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+			if (cursor.ok) {
 				java.lang.Double.parseDouble(number);
 			} else {
 				cursor.fail("A number was expected while parsing a Double");
@@ -170,8 +170,8 @@ object PrimitiveParsers {
 		if (cursor.comes("null")) {
 			Float.NaN
 		} else {
-			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber.parse)
-			if (cursor.ok && number.length > 0) {
+			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+			if (cursor.ok) {
 				java.lang.Float.parseFloat(number);
 			} else {
 				cursor.fail("A number was expected while parsing a Float");

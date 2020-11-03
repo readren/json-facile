@@ -45,7 +45,7 @@ object Parser {
 		def missed: Boolean;
 		/** The element being pointed by this [[Cursor]]. Assumes this cursor is pointing to an element of the content.*/
 		@inline def pointedElem: Elem
-		/** If [[have]] is true and the received string matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received string) and returns [[isPointing]]. Otherwise nothing is changed and returns false. */
+		/** If the received string matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received string) and returns true. Otherwise nothing is changed and returns false. */
 		def comes(expected: String): Boolean
 		/** Increments the position.
 		 * @steps number of steps to advance. Should be a positive number.
@@ -75,24 +75,24 @@ object Parser {
 		 * - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
 		 * - is failed, should return `null`.
 		 *
-		 * @return a string containing the elements consumed by the `consumer` if the cursor is ok after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
+		 * @return a string containing the elements consumed by the `consumer` if the cursor is [[ok]] after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
 		def stringConsumedBy(consumer: Cursor => Unit): String
 
-		/** If the cursor is [[ok]] and the pointed element equals the received char, advances to next position and returns {{{ok && have}}}. Else does nothing and returns false.
-		 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns {{{ok && have}}} if the element was consumed, false otherwise. */
+		/** If the cursor [[have]] and the pointed element equals the received char, advances to next position and returns [[have]]. Else does nothing and returns false.
+		 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
 		def consumeChar(char: Char): Boolean;
 
-		/** If the cursor is [[ok]] and the pointed element satifies the predicate, advances to next position and returns {{{ok && have}}}. Else does nothing and returns false.
-		 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns {{{ok && have}}} if the element was consumed, false otherwise. */
+		/** If the cursor [[have]] and the pointed element satifies the predicate, advances to next position and returns [[have]]. Else does nothing and returns false.
+		 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
 		def consumeCharIf(predicate: Elem => Boolean): Boolean;
 
-		/** If the cursor is [[ok]] and the pointed element is a whitespace char, advances positions until the first non whitespace char after it. Else sets the missed flag.
+		/** If the cursor [[have]] and the pointed element is a whitespace char, advances positions until the first non whitespace char after it. Else sets the missed flag.
 		 * Equivalent to {{{consumeWhile(_.isWhitespace)}}}
-		 * @return true if the cursor is pointing to an element of the content independently if whitespaces were consumed or not. In other words, return {{ok && have}} */
+		 * @return true if the cursor is pointing to an element of the content independently if whitespaces were consumed or not. In other words, return [[have]] */
 		def consumeWhitespaces(): Boolean
 
-		/** If the cursor is ok and the pointed element satisfies the predicate, advances positions until the predicate is not satisfied.
-		 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return {{ok && have}} */
+		/** If the cursor [[have]] and the pointed element satisfies the predicate, advances positions until the predicate is not satisfied.
+		 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
 		def consumeWhile(predicate: Elem => Boolean): Boolean;
 	}
 

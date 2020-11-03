@@ -7,9 +7,9 @@ class CursorStr(content: String) extends AbstractCursor {
 
 	protected var cursorPos: Int = 0;
 
-	override def pos: Pos = cursorPos;
+	@inline override def pos: Pos = cursorPos;
 
-	override def isPointing: Boolean = cursorPos < content.length && cursorPos >= 0;
+	@inline override def isPointing: Boolean = cursorPos < content.length && cursorPos >= 0;
 
 
 	@inline override def pointedElem: Elem = {

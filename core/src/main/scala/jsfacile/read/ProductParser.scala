@@ -31,7 +31,7 @@ class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser
 					) {
 						val fieldInfo = BinarySearch.find[PphFieldInfo[_]](helper.fieldsInfo) {_.name.compare(fieldName)}
 						if (fieldInfo == null) {
-							skipJsValue.parse(cursor);
+							skipJsValue(cursor);
 						} else {
 							val fieldValue = fieldInfo.valueParser.parse(cursor);
 							ctorArgs(fieldInfo.ctorArgIndex) = fieldValue;
