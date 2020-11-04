@@ -22,117 +22,145 @@ object CoproductAppenderHelper {
 	/** Compares two [[CahProductInfo]] based their names using the [[productNameComparator]] as ordering criteria.. */
 	val productInfoComparator: Comparator[CahProductInfo[_]] = { (a, b) => productNameComparator.compare(a.name, b.name) }
 
-	/** Compares two Strings based on the length and, if both have the same length, by alphabetic order of the reversed names.
-	 * If the second name (bn) ends with a dollar it is removed before the comparison begins. This is necessary because the runtime class name of module classes have an extra dollar at the end.
-	 * Differences between dots and dollars are ignored if the dot is in the first name (an) and the dollar in the second name (bn). This is necessary because the runtime class name of nested classes use a dollar instead of a dot to separate the container from members.
+	/** Compares two class names based on the length and, if both have the same length, by alphabetic order of the reversed names.
+	 * If the second name (`b`) ends with a dollar, or a dollar followed by digits, they are removed before the comparison begins. This is necessary because the runtime class name of module classes have an extra dollar at the end, local classes have a dollar followed by digits, and local object digits surrounded by dollars.
+	 * Differences between dots and dollars are ignored if the dot is in the first name (`a`) and the dollar in the second name (`b`). This is necessary because the runtime class name of nested classes use a dollar instead of a dot to separate the container from members.
 	 * The names are considered equal if the fragments after the last dot are equal. */
-	val productNameComparator: Comparator[String] = { (an, bn) =>
-		val anl = an.length;
-		var bnl = bn.length;
+	val productNameComparator: Comparator[String] = { (a, b) =>
+		val aLength = a.length;
+		var bLength = b.length;
+		var bChar: Char = 0;
+		var index: Int = 0;
 
-		// ignore the last char of `bn` if it is dollar. This is necessary because the runtime class name of module classes have an extra dollar at the end.
-		if (bn.charAt(bnl - 1) == '$') {
-			bnl -= 1;
-		}
+		// Ignore the last segment of `b` if it matches "(\$\d*)+". This is necessary because the runtime class name of: module classes have an extra dollar at the end, local classes have a dollar followed by a number, and local object have a number surrounded by dollars.
+		// Optimized versión
+		var continue = false;
+		do {
+			index = bLength - 1;
+			continue = false;
+			//  find the index of the last non digit character
+			while ( {bChar = b.charAt(index); Character.isDigit(bChar)}) {
+				index -= 1;
+			}
+			// if the index of the last non digit character is a dollar, remove it along with the succeeding digits for the comparison.
+			if (b.charAt(index) == '$') {
+				bLength = index;
+				// if something was removed, repeat the process again to support combinations of edge cases. It is not necessary to know all the edge cases if it's known that any dollar or dollar followed by digits at the end are not part of the original class name. So we can remove combinations of them without fear.
+				continue = true;
+			}
+		} while(continue)
 
-		var d = anl - bnl;
-		if (d == 0) {
-			var i = anl - 1;
-			var bc: Char = 0;
+		// here starts the comparison
+		var diff = aLength - bLength;
+		if (diff == 0 && aLength > 0) {
+			index = aLength - 1;
 			do {
-				val ac = an.charAt(i);
-				bc = bn.charAt(i);
-				d = ac - bc;
-				// Ignore difference between dots and dollars. This assumes that the first name (an) is obtained by the macro, and the second (bn) may be obtained at runtime from the Class object.
-				if (ac == '.' && bc == '$') {
-					d = 0
+				val aChar = a.charAt(index);
+				bChar = b.charAt(index);
+				diff = if (aChar == '.' && bChar == '$') {
+					0 // Ignore difference between dots and dollars. This assumes that the first name (an) is obtained by the macro, and the second (bn) may be obtained at runtime from the Class object.
+				} else {
+					aChar - bChar;
 				}
-				i -= 1;
-			} while (d == 0 && i >= 0 && bc != '.')
+				index -= 1;
+			} while (diff == 0 && index >= 0 && bChar != '.')
 		}
-		d
+		diff
 	}
 
 	implicit def apply[C <: Coproduct]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
 	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
+
 	def materializeImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
+
+		case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
+			var isAmbiguous = false;
+		}
+
+		def addProductsBelongingTo(
+			coproductClassSymbol: ClassSymbol,
+			coproductType: Type,
+			productsInfoBuilder: mutable.Builder[ProductInfo, IndexedSeq[ProductInfo]]
+		): Unit = {
+			for {
+				productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq
+			} {
+				val productClassSymbol = productSymbol.asClass;
+				ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productClassSymbol.toTypeConstructor) match {
+					case Right(productType) =>
+						if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
+
+							if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
+								productsInfoBuilder.addOne(ProductInfo(
+									productClassSymbol.name.toString,
+									productClassSymbol.toType,
+									Set.empty,
+									Nil
+								))
+
+							} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
+								if( productClassSymbol.isSealed) {
+									addProductsBelongingTo(productClassSymbol, productType, productsInfoBuilder)
+								} else {
+									ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
+								}
+
+							} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
+								val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+
+								val requiredFieldNamesBuilder = Set.newBuilder[String];
+								var isFirstField = true;
+								val appendField_codeLines =
+									for {
+										params <- productCtorParamsLists
+										param <- params
+									} yield {
+										val paramNameStr = param.name.decodedName.toString;
+										val paramTypeSignature = param.typeSignature.dealias;
+										if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
+											requiredFieldNamesBuilder.addOne(paramNameStr)
+										}
+										val sb = new StringBuilder(paramNameStr.length + 4)
+										if (isFirstField) {
+											isFirstField = false
+										} else {
+											sb.append(',');
+										}
+										sb.append('"').append(paramNameStr).append('"').append(':');
+										q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
+									}
+
+								productsInfoBuilder.addOne(ProductInfo(
+									productSymbol.name.toString,
+									productType,
+									requiredFieldNamesBuilder.result(),
+									appendField_codeLines
+								))
+							}
+
+						}
+
+					case Left(freeTypeParams) =>
+						ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
+				}
+			}
+		}
+
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
 		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
 			val helper = cache.getOrElseUpdate(
 			coproductType, {
-				val classSymbol = coproductSymbol.asClass;
+				val coproductClassSymbol = coproductSymbol.asClass;
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val (discriminatorFieldName, discriminatorIsRequired) = discriminatorField.parse(ctx.universe)(classSymbol)
-
-				case class ProductInfo(simpleName: String, tpe: ctx.Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
-					var isAmbiguous = false;
-				}
+				val (discriminatorFieldName, discriminatorIsRequired) = discriminatorField.parse(ctx.universe)(coproductClassSymbol)
 
 				val productsInfoBuilder = IndexedSeq.newBuilder[ProductInfo]
-				for {
-					productSymbol <- classSymbol.knownDirectSubclasses.toIndexedSeq
-				} {
-					ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productSymbol.asClass.toTypeConstructor) match {
-						case Right(productType) =>
-							if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
-
-								if (productSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
-									productsInfoBuilder.addOne(ProductInfo(
-										productSymbol.name.toString,
-										productSymbol.asClass.toType,
-										Set.empty,
-										Nil
-									))
-
-								} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then // TODO support nested traits (make this a recursive loop)
-									ctx.abort(ctx.enclosingPosition, "Nested traits are not supported yet")
-
-								} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
-									val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
-
-									val requiredFieldNamesBuilder = Set.newBuilder[String];
-									var isFirstField = true;
-									val appendField_codeLines =
-										for {
-											params <- productCtorParamsLists
-											param <- params
-										} yield {
-											val paramNameStr = param.name.decodedName.toString;
-											val paramTypeSignature = param.typeSignature.dealias;
-											if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
-												requiredFieldNamesBuilder.addOne(paramNameStr)
-											}
-											val sb = new StringBuilder(paramNameStr.size + 4)
-											if (isFirstField) {
-												isFirstField = false
-											} else {
-												sb.append(',');
-											}
-											sb.append('"').append(paramNameStr).append('"').append(':');
-											q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
-										}
-
-									productsInfoBuilder.addOne(ProductInfo(
-										productSymbol.name.toString,
-										productType,
-										requiredFieldNamesBuilder.result(),
-										appendField_codeLines
-									))
-								}
-
-							}
-
-						case Left(freeTypeParams) =>
-							ctx.abort(ctx.enclosingPosition, s"""The "${productSymbol}", which is a subclass of "${coproductSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
-					}
-
-
-				}
+				addProductsBelongingTo(coproductClassSymbol, coproductType, productsInfoBuilder);
 				val productsInfo = productsInfoBuilder.result();
 
 				// Set the `isAmbiguous` flag to every product whose required field names match those of another product.
@@ -202,7 +230,7 @@ new CoproductAppenderHelper[$coproductType] {
 
 			ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 		} else {
-			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol should be a sealed trait or abstract class")
+			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed trait or abstract class")
 		}
 	}
 }

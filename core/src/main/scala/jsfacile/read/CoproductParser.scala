@@ -82,6 +82,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 						have &&= cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
 					}
 				}
+				// At this point all fields had been parsed. What continues determines to which product them belong, then uses the field values to build the arguments lists of the product's primary constructor, and finally calls said constructor to create the product instance.
 				if (have) {
 					cursor.advance();
 
@@ -101,7 +102,7 @@ class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends 
 					} else if (isAmbiguous) {
 						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "${helper.fullName}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 					} else {
-						// build the product constructor's arguments list
+						// build the arguments lists of the product's primary constructor
 						val chosenProductFields = chosenManager.productInfo.fields;
 						val ctorArgs: Array[Any] = new Array(chosenProductFields.size);
 						var argIndex: Int = 0;

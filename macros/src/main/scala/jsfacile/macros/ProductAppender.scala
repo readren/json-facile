@@ -55,7 +55,7 @@ new Appender[$productType] {
 
 			ctx.Expr[Appender[P]](ctx.typecheck(helper));
 		} else {
-			ctx.abort(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
+			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
 		}
 	}
 }

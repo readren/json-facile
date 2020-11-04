@@ -85,7 +85,7 @@ new ProductParserHelper[$productType] {
 
 			ctx.Expr[ProductParserHelper[P]](ctx.typecheck(helper));
 		} else {
-			ctx.abort(ctx.enclosingPosition, s"$productSymbol should be a concrete class")
+			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
 		}
 	}
 }

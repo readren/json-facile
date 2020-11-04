@@ -50,8 +50,8 @@ object ProductParserTest extends DefaultJsonProtocol {
 			}
 		}
 		override def write(obj: Shape): JsValue = obj match {
-			case b: Box => JsObject(boxFormat.write(b).asJsObject.fields + ("type"-> JsString("Box")))
-			case s: Sphere => JsObject(sphereFormat.write(s). asJsObject.fields + ("type"-> JsString("Sphere")))
+			case b: Box => JsObject(boxFormat.write(b).asJsObject.fields + ("type" -> JsString("Box")))
+			case s: Sphere => JsObject(sphereFormat.write(s).asJsObject.fields + ("type" -> JsString("Sphere")))
 		}
 	}
 	implicit val tableFormat = jsonFormat3(Table)
@@ -66,9 +66,9 @@ object ProductParserTest extends DefaultJsonProtocol {
 			}
 		}
 		override def write(obj: Thing): JsValue = obj match {
-			case t: Table => new JsObject(tableFormat.write(t).asJsObject.fields + ("type"->JsString("Table")))
-			case s: Shelf => new JsObject(shelfFormat.write(s).asJsObject.fields + ("type"->JsString("Shelf")))
-			case b: Ball => new JsObject(ballFormat.write(b).asJsObject.fields + ("type"->JsString("Ball")));
+			case t: Table => new JsObject(tableFormat.write(t).asJsObject.fields + ("type" -> JsString("Table")))
+			case s: Shelf => new JsObject(shelfFormat.write(s).asJsObject.fields + ("type" -> JsString("Shelf")))
+			case b: Ball => new JsObject(ballFormat.write(b).asJsObject.fields + ("type" -> JsString("Ball")));
 		}
 	}
 	implicit val presentationDataFormat = jsonFormat3(PresentationData)
@@ -104,23 +104,27 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 			val simpleParser = Parser.apply[Simple]
 			assert(simpleParser.isInstanceOf[ProductParser[Simple]])
 		}
+	}
 
-		def `Json interpretation should work for a simple product`(): Unit = {
+	object `Json interpretation should work ...` {
+
+
+		def `for a simple product`(): Unit = {
 			val simpleParsed = simpleJson.fromJson[Simple]
 			assertResult(Right(simpleOriginal))(simpleParsed)
 		}
 
-		def `Json interpretation should work for nested products`(): Unit = {
+		def `for nested products`(): Unit = {
 			val nestParsed = nestJson.fromJson[Nest]
 			assertResult(Right(nestOriginal))(nestParsed)
 		}
 
-		def `Json interpretation should work for products with iterables`(): Unit = {
+		def `for products with iterables`(): Unit = {
 			val treeParsed = treeJson.fromJson[Tree]
 			assertResult(Right(treeOriginal))(treeParsed)
 		}
 
-		def `Json interpretation should work for simple ADTs with a coproduct`(): Unit = {
+		def `for simple ADTs with a coproduct`(): Unit = {
 			val tableAParsed = tableA._2.toJson.prettyPrint.fromJson[Table]
 			assertResult(Right(tableA._2))(tableAParsed)
 
@@ -131,23 +135,47 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 			assertResult(Right(shelfA._2))(shelfAParsed)
 		}
 
-		def `Json interpretation should work for complex ADTs`(): Unit = {
+		def `for complex ADTs`(): Unit = {
 			import jsfacile.api.write._
 			val presentationDataJson = ToJsonConvertable(presentationDataOriginal).toJson
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
 		}
 
-		def `Json interpretation should work with HLists`(): Unit = {
+		def `with HLists`(): Unit = {
 			import jsfacile.api.write._
 			val pilaOriginal = "top" :: 3 :: true :: Base
 			val pilaJson = ToJsonConvertable(pilaOriginal).toJson
 			val pilaParsed = pilaJson.fromJson[String :: Int :: Boolean :: Base.type]
 			assertResult(Right(pilaOriginal))(pilaParsed)
 		}
+
+
+		sealed trait A[L] {def load: L};
+		case class A1[L](load: L) extends A[L]
+		case object A2 extends A[Int] {def load = 3}
+
+		sealed trait B[L] extends A[L]
+		case class B1[L](load: L, extra: Long) extends B[L]
+		case object B2 extends B[Float] {def load = 1.2f}
+
+		sealed trait C[L] extends B[L]
+		case class C1[L](load: L) extends C[L]
+		case object C2 extends C[String] {def load = "fixed"}
+
+
+		def `when traits and/or abstract classes are nested directly (no intermediate product)`(): Unit = {
+			import jsfacile.api.write._
+
+			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)
+			val json = ToJsonConvertable(set).toJson
+			val parsed = json.fromJson[Set[A[String]]]
+			assertResult(Right(set.toList))(parsed.map(_.toList))
+		}
+
 	}
 
-	object `Shout not compile when ...` {
+	object `Should not compile when ...` {
 
 		def `parsing a type constructed by a type constructor that has a subclass with a free type parameter`(): Unit = {
 			"""

@@ -62,25 +62,27 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 				while (have && cursor.pointedElem != '}') {
 					have = false;
 					val keyStr = string.parse(cursor);
-					val key =
-						if (parserK == PrimitiveParsers.jpString) {
-							keyStr.asInstanceOf[K]
-						} else {
-							val keyCursor = new CursorStr(keyStr);
-							val key = parserK.parse(cursor);
-							if (!keyCursor.ok || keyCursor.isPointing) {
-								cursor.fail(s"The map key parser failed to interpret the key embedded in the json field name.")
+					if(cursor.ok) {
+						val key =
+							if (parserK == PrimitiveParsers.jpString) {
+								keyStr.asInstanceOf[K]
+							} else {
+								val keyCursor = new CursorStr(keyStr);
+								val key = parserK.parse(keyCursor);
+								if (!keyCursor.ok || keyCursor.isPointing) {
+									cursor.fail(s"The map key parser failed to interpret the key embedded in the json field name.")
+								}
+								key
 							}
-							key
-						}
-					if (cursor.consumeWhitespaces() &&
-						cursor.consumeChar(':') &&
-						cursor.consumeWhitespaces()
-					) {
-						val value = parserV.parse(cursor);
-						if (cursor.consumeWhitespaces()) {
-							builder.addOne(key -> value);
-							have = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+						if (cursor.consumeWhitespaces() &&
+							cursor.consumeChar(':') &&
+							cursor.consumeWhitespaces()
+						) {
+							val value = parserV.parse(cursor);
+							if (cursor.consumeWhitespaces()) {
+								builder.addOne(key -> value);
+								have = cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+							}
 						}
 					}
 				}

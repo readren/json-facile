@@ -31,7 +31,7 @@ new SingletonParserHelper[$singletonType] {
 
 			ctx.Expr[SingletonParserHelper[S]](ctx.typecheck(helper));
 		} else {
-			ctx.abort(ctx.enclosingPosition, s"$singletonSymbol should be module class")
+			ctx.abort(ctx.enclosingPosition, s"$singletonSymbol is not a module class")
 		}
 	}
 }
