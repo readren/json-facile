@@ -89,11 +89,11 @@ object ProductParserTest extends DefaultJsonProtocol {
 //noinspection TypeAnnotation
 class ProductParserTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
 	import ProductParserTest._
-	import jsfacile.api.read._
 
 	object `Given sample ADTs...` {
 
 		def `Implicit resolution of the interpreters should work`(): Unit = {
+			import jsfacile.api.CursorStr
 
 			val simpleHelper = ProductParserHelper.materializeHelper[Simple];
 			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_.valueParser != null))
@@ -107,7 +107,7 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 	}
 
 	object `Json interpretation should work ...` {
-
+		import jsfacile.api.{FromJsonConvertable, ToJsonConvertable, CursorStr}
 
 		def `for a simple product`(): Unit = {
 			val simpleParsed = simpleJson.fromJson[Simple]
@@ -125,25 +125,26 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 		}
 
 		def `for simple ADTs with a coproduct`(): Unit = {
-			val tableAParsed = tableA._2.toJson.prettyPrint.fromJson[Table]
+			val tableAParsed = enrichAny(tableA._2).toJson.prettyPrint.fromJson[Table]
 			assertResult(Right(tableA._2))(tableAParsed)
 
-			val ballParsed = ballA._2.toJson.prettyPrint.fromJson[Ball]
+			val ballParsed = enrichAny(ballA._2).toJson.prettyPrint.fromJson[Ball]
 			assertResult(Right(ballA._2))(ballParsed)
 
-			val shelfAParsed = shelfA._2.toJson.prettyPrint.fromJson[Shelf]
+			val shelfAParsed = enrichAny(shelfA._2).toJson.prettyPrint.fromJson[Shelf]
 			assertResult(Right(shelfA._2))(shelfAParsed)
 		}
 
 		def `for complex ADTs`(): Unit = {
-			import jsfacile.api.write._
+			import jsfacile.api._
+
 			val presentationDataJson = ToJsonConvertable(presentationDataOriginal).toJson
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
 		}
 
 		def `with HLists`(): Unit = {
-			import jsfacile.api.write._
+			import jsfacile.api._
 			val pilaOriginal = "top" :: 3 :: true :: Base
 			val pilaJson = ToJsonConvertable(pilaOriginal).toJson
 			val pilaParsed = pilaJson.fromJson[String :: Int :: Boolean :: Base.type]
@@ -165,30 +166,27 @@ class ProductParserTest extends RefSpec with Matchers with Retries { // with Sca
 
 
 		def `when traits and/or abstract classes are nested directly (no intermediate product)`(): Unit = {
-			import jsfacile.api.write._
+			import jsfacile.api._
 
 			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)
 			val json = ToJsonConvertable(set).toJson
 			val parsed = json.fromJson[Set[A[String]]]
 			assertResult(Right(set.toList))(parsed.map(_.toList))
+
+			assert("{}".fromJson[A[Int]] == Right(A2))
 		}
 
 	}
 
 	object `Should not compile when ...` {
 
+		sealed trait A[L] { def load: L };
+		case class A1[L](load: L) extends A[L];
+		case class A2[L, F](load: L, free: F) extends A[L]
+
 		def `parsing a type constructed by a type constructor that has a subclass with a free type parameter`(): Unit = {
-			"""
-			  |object Probando {
-			  |	sealed trait A[L] { def load: L };
-			  |	case class A1[L](load: L) extends A[L];
-			  |	case class A2[L, F](load: L, free: F) extends A[L]
-			  |
-			  |	def main(args: Array[String]): Unit = {
-			  |		import jsfacile.api.read._
-			  |		val aParsed = "?".fromJson[A[Double]]
-			  |	}
-			  |}""".stripMargin shouldNot typeCheck
+			import jsfacile.api._
+			"""val aParsed = "?".fromJson[A[Double]]""" shouldNot typeCheck
 		}
 	}
 

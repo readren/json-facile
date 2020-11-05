@@ -10,9 +10,9 @@ object SpeedTest {
 
 		for ( j <- 1 to 10) {
 
+			System.gc();
 			{
-				import jsfacile.api.read._
-				import jsfacile.api.write._
+				import jsfacile.api._
 
 				val presentationDataJson = presentationDataOriginal.toJson
 				val ppd = parserOf[PresentationData]
@@ -25,6 +25,7 @@ object SpeedTest {
 				println("jsfacile:\t" + (java.lang.System.nanoTime() - start) / 1000000000f);
 			}
 
+			System.gc();
 			{
 				import spray.json.{DefaultJsonProtocol, JsObject, JsString, JsValue, RootJsonFormat, enrichAny, enrichString}
 

@@ -4,7 +4,9 @@ import scala.reflect.{api => sra}
 
 package object joint {
 
-	type Coproduct = Any;
+	type CoproductUpperBound = Any;
+
+	type ProductUpperBound  = Any;
 
 	val defaultDiscriminatorFieldName = "?"
 

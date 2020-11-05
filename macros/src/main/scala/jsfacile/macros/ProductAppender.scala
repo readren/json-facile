@@ -3,15 +3,14 @@ package jsfacile.macros
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
+import jsfacile.joint.ProductUpperBound
 import jsfacile.write.Appender
 
 object ProductAppender {
 
-	type UpperBound = Product
-
 	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
-	def materializeImpl[P <: UpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
+	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;

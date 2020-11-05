@@ -23,7 +23,7 @@ object MapAppender {
 		if (mfd.useObject) {
 			record.append('{')
 
-			if (ka == jsfacile.api.write.jaCharSequence) {
+			if (ka == jsfacile.write.jaCharSequence) {
 				map.foreach { e =>
 					if (isFirst) {
 						isFirst = false;
@@ -45,7 +45,7 @@ object MapAppender {
 					keyRecord.sb.setLength(0);
 					keyRecord.appendSummoned[K](e._1)(ka);
 
-					jsfacile.api.write.jaCharSequence.append(record, keyRecord.sb);
+					jsfacile.write.jaCharSequence.append(record, keyRecord.sb);
 					record.append(':')
 						.appendSummoned[V](e._2)(va)
 				}

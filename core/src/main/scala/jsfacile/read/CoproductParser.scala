@@ -3,7 +3,7 @@ package jsfacile.read
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 
-import jsfacile.joint.Coproduct
+import jsfacile.joint.CoproductUpperBound
 import jsfacile.macros.CoproductParserHelper
 import jsfacile.macros.CoproductParserHelper.CphProductInfo
 import jsfacile.read.SyntaxParsers._
@@ -15,7 +15,7 @@ object CoproductParser {
 }
 
 
-class CoproductParser[C <: Coproduct](helper: CoproductParserHelper[C]) extends Parser[C] {
+class CoproductParser[C <: CoproductUpperBound](helper: CoproductParserHelper[C]) extends Parser[C] {
 	import CoproductParser._;
 	import Parser._;
 

@@ -21,8 +21,7 @@ object ProductAppenderTest {
 
 class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
 	import ProductAppenderTest._
-	import jsfacile.api.read._
-	import jsfacile.api.write._
+	import jsfacile.api._
 
 	object `The appender should work ...` {
 

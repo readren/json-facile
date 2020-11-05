@@ -2,12 +2,13 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
+import jsfacile.joint.ProductUpperBound
 import jsfacile.macros.ProductParserHelper
 import jsfacile.macros.ProductParserHelper.PphFieldInfo
 import jsfacile.read.Parser._
 import jsfacile.util.BinarySearch
 
-class ProductParser[P <: Product](helper: ProductParserHelper[P]) extends Parser[P] {
+class ProductParser[P <: ProductUpperBound](helper: ProductParserHelper[P]) extends Parser[P] {
 	import SyntaxParsers._
 
 	assert(helper != null); // Fails here when the macro expansion of ProductParserHelper fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"

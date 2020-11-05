@@ -1,6 +1,6 @@
 package jsfacile.write
 
-import jsfacile.joint.Coproduct
+import jsfacile.joint.CoproductUpperBound
 import jsfacile.macros.CoproductAppenderHelper
 import jsfacile.macros.CoproductAppenderHelper.CahProductInfo
 import jsfacile.util.BinarySearch
@@ -11,7 +11,7 @@ object CoproductAppender {
 	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
 }
 
-class CoproductAppender[C <: Coproduct](helper: CoproductAppenderHelper[C]) extends Appender[C] {
+class CoproductAppender[C <: CoproductUpperBound](helper: CoproductAppenderHelper[C]) extends Appender[C] {
 
 	assert(helper != null)
 

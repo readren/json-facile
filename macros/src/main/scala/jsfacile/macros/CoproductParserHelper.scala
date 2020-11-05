@@ -5,11 +5,11 @@ import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
-import jsfacile.joint.{Coproduct, ReflectTools, discriminatorField}
+import jsfacile.joint.{CoproductUpperBound, ReflectTools, discriminatorField}
 import jsfacile.macros.CoproductParserHelper.{CphProductInfo, FieldName}
 import jsfacile.read.Parser
 
-trait CoproductParserHelper[C <: Coproduct] {
+trait CoproductParserHelper[C <: CoproductUpperBound] {
 	def fullName: String;
 	def discriminator: FieldName;
 	def productsInfo: ArraySeq[CphProductInfo[_ <: C]]
@@ -24,14 +24,27 @@ object CoproductParserHelper {
 	final case class CphProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Seq[CphFieldInfo[Any]], constructor: Seq[Any] => P);
 
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	implicit def materializeHelper[C <: Coproduct]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
+	implicit def materializeHelper[C <: CoproductUpperBound]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
 
 	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
+	/** Traits for which the [[jsfacile.read]] package provides an implicit [[Parser]]. */
+	val traitsForWhichTheReadPackageProvidesAnImplicitParser: Set[String] = Set(
+		classOf[scala.Option[Any]].getName, // by jpOption
+		classOf[scala.collection.Iterable[Any]].getName, // by jpIterable
+		classOf[scala.collection.Map[Any, Any]].getName, // by jpUnsortedMap
+		classOf[scala.collection.SortedMap[_, Any]].getName // by jpSortedMap
+	);
 
-	def materializeHelperImpl[C <: Coproduct : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductParserHelper[C]] = {
+	def materializeHelperImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductParserHelper[C]] = {
 		import ctx.universe._
 
+		/** Tell for which types is a [[Parser]] already provided in the [[jsfacile.read]] package, in order to avid letting the [[jsfacile.read.jpCoproduct]] generate another and cause ambiguity error. */
+		def doesTheReadPackageProvideAnImplicitParserFor(classSymbol: ClassSymbol): Boolean = {
+			classSymbol.baseClasses.exists(bc => traitsForWhichTheReadPackageProvidesAnImplicitParser.contains(bc.fullName))
+		}
+
+		/** Adds to the `productsSnippetBuilder` a snippet for each product that extends the specified trait (or abstract class). */
 		def addProductsBelongingTo(
 			coproductClassSymbol: ClassSymbol,
 			coproductType: Type,
@@ -57,7 +70,7 @@ productsInfoBuilder.addOne(CphProductInfo(
 								)
 
 							} else if (productClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
-								if( productClassSymbol.isSealed) {
+								if (productClassSymbol.isSealed) {
 									addProductsBelongingTo(productClassSymbol, productType, productsSnippetsBuilder)
 								} else {
 									ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
@@ -96,33 +109,39 @@ productFieldsSeqBuilder.addOne(CphFieldInfo(${param.name.toString}, $oDefaultVal
 productsInfoBuilder.addOne(CphProductInfo(${productClassSymbol.name.toString}, $requiredFieldsCounter, productFieldsSeqBuilder.result(), $ctorFunction));
 productFieldsSeqBuilder.clear();"""
 								)
-
 							}
-
 						}
 
 					case Left(freeTypeParams) =>
 						ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
 				}
-
 			}
-
 		}
 
+		//// the body of this method starts here ////
 
 		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
 		val coproductSymbol: Symbol = coproductType.typeSymbol;
-		if (coproductSymbol.isClass && coproductSymbol.isAbstract && coproductSymbol.asClass.isSealed) {
-			val helper = cache.getOrElseUpdate(
-			coproductType, {
-				val coproductClassSymbol = coproductSymbol.asClass;
-				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val discriminatorFieldName: String = discriminatorField.parse(ctx.universe)(coproductClassSymbol)._1;
+		if (!coproductSymbol.isClass || !coproductSymbol.isAbstract) {
+			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a trait or abstract class")
+		}
+		val coproductClassSymbol = coproductSymbol.asClass;
+		if (!coproductClassSymbol.isSealed) {
+			ctx.abort(ctx.enclosingPosition, s"$coproductClassSymbol is not sealed")
+		}
+		// Avoid generating parsers that are already provided in the [[jsfacile.read]] package. They have the same precedence than [[jsfacile.read.jpCoproduct]] and would cause ambiguity error.
+		if (doesTheReadPackageProvideAnImplicitParserFor(coproductClassSymbol)) {
+			ctx.abort(ctx.enclosingPosition, s"""A parser for $coproductClassSymbol is already provided in the "jsfacile.read" package.""")
+		}
+		val helper = cache.getOrElseUpdate(
+		coproductType, {
+			// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
+			val discriminatorFieldName: String = discriminatorField.parse(ctx.universe)(coproductClassSymbol)._1;
 
-				val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
-				addProductsBelongingTo(coproductClassSymbol, coproductType, productsSnippetsBuilder)
+			val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
+			addProductsBelongingTo(coproductClassSymbol, coproductType, productsSnippetsBuilder);
 
-				q"""
+			q"""
 import _root_.scala.collection.immutable;
 import _root_.jsfacile.read.Parser;
 import _root_.jsfacile.macros.CoproductParserHelper;
@@ -135,18 +154,15 @@ val productFieldsSeqBuilder = immutable.ArraySeq.newBuilder[CphFieldInfo[Any]];
 ..${productsSnippetsBuilder.result()}
 
 new CoproductParserHelper[$coproductType] {
-	override val fullName = ${coproductSymbol.fullName}
+	override val fullName = ${coproductType.toString}
 	override val discriminator = $discriminatorFieldName;
 	override val productsInfo = productsInfoBuilder.result();
 	override val fieldsInfo = fieldsInfoBuilder.result();
 }"""
-			}).asInstanceOf[ctx.Tree];
-			// ctx.info(ctx.enclosingPosition, "cph helper = " + show(helper), false)
+		}).asInstanceOf[ctx.Tree];
+		// ctx.info(ctx.enclosingPosition, "cph helper = " + show(helper), false)
 
-			ctx.Expr[CoproductParserHelper[C]](ctx.typecheck(helper));
-		} else {
-			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed trait or abstract class")
-		}
+		ctx.Expr[CoproductParserHelper[C]](ctx.typecheck(helper));
 	}
 }
 
