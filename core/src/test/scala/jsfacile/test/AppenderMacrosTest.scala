@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-object ProductAppenderTest {
+object AppenderMacrosTest {
 
 	case class Simple[A](text: String, number: A)
 	case class Nest[A](name: String, simple: Simple[A])
@@ -19,8 +19,8 @@ object ProductAppenderTest {
 
 }
 
-class ProductAppenderTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
-	import ProductAppenderTest._
+class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
+	import AppenderMacrosTest._
 	import jsfacile.api._
 
 	object `The appender should work ...` {

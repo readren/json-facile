@@ -1,7 +1,5 @@
 package jsfacile.read
 
-import scala.collection.mutable
-
 import jsfacile.read.Parser._
 
 /** Both the methods of this object and the [[Parser]]s given by them are thread safe (or should be). */

@@ -10,7 +10,7 @@ import org.scalatest.{Outcome, Retries, Succeeded}
 import spray.json.{DefaultJsonProtocol, DeserializationException, JsObject, JsString, JsValue, RootJsonFormat, enrichAny}
 
 //noinspection TypeAnnotation
-object ProductParserTest extends DefaultJsonProtocol {
+object ParserMacrosTest extends DefaultJsonProtocol {
 
 	//////////////////////////////
 	// Simple sample data types //
@@ -87,8 +87,8 @@ object ProductParserTest extends DefaultJsonProtocol {
 
 
 //noinspection TypeAnnotation
-class ProductParserTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
-	import ProductParserTest._
+class ParserMacrosTest extends RefSpec with Matchers with Retries { // with ScalaCheckDrivenPropertyChecks with JsonGen {
+	import ParserMacrosTest._
 
 	object `Given sample ADTs...` {
 
