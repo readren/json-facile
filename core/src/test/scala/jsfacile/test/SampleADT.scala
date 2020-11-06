@@ -1,4 +1,4 @@
-package jsfacile.util
+package jsfacile.test
 
 object SampleADT {
 

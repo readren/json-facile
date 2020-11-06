@@ -1,6 +1,6 @@
 package jsfacile.test
 
-import jsfacile.util.SampleADT.{PresentationData, presentationDataOriginal}
+import SampleADT.{PresentationData, presentationDataOriginal}
 import ParserMacrosTest.presentationDataFormat
 
 object SpeedTest {

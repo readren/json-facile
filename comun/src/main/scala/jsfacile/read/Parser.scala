@@ -18,9 +18,9 @@ object Parser {
 	trait Ignore[@specialized +T] {
 		def ignored: T
 	}
-	def ignored[T](implicit ignora: Ignore[T]): T = ignora.ignored;
+	def ignored[T](implicit ignore: Ignore[T]): T = ignore.ignored;
 
-	implicit val ignoredCodePoint: Ignore[Elem] = new Ignore[Elem] {
+	implicit val ignoredElem: Ignore[Elem] = new Ignore[Elem] {
 		override def ignored: Elem = IGNORED_ELEM
 	}
 
@@ -48,7 +48,7 @@ object Parser {
 		/** If the received string matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received string) and returns true. Otherwise nothing is changed and returns false. */
 		def comes(expected: String): Boolean
 		/** Increments the position.
-		 * @steps number of steps to advance. Should be a positive number.
+		 * @param steps number of steps to advance. Should be a positive number.
 		 * @return true if after the advance this cursor is pointing to an element of the content (same as [[isPointing]]). */
 		def advance(steps: Int = 1): Boolean
 		/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
@@ -135,7 +135,17 @@ object Parser {
 	/** Creates a [[Parser]] that hits if the pointed element equals the received [[Char]]. In that case advances the [[Cursor]] one position. */
 	implicit def acceptChar(char: Char): Parser[Elem] = acceptElem(char)
 
-	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]]. In that case advances the [[Cursor]] that [[String]] length positions. */
+	def pick: Parser[Elem] = { cursor =>
+		if(cursor.have){
+			cursor.pointedElem
+		}
+		else {
+			cursor.miss()
+			IGNORED_ELEM
+		}
+	}
+
+	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the same [[String]]. */
 	implicit def acceptStr(seq: String): Parser[String] = { (cursor: Cursor) =>
 		if (cursor.comes(seq)) {
 			seq
@@ -144,6 +154,15 @@ object Parser {
 			ignored[String]
 		}
 	}
+
+	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and fails otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the received `opaque` argument. */
+	def expectStr[A](str: String, opaque: A): Parser[A] = { cursor =>
+		if (!cursor.comes(str)) {
+			cursor.fail(s"A $str was expected.")
+		}
+		opaque
+	}
+
 
 	/** Creates a [[Parser]] that hits if the received predicate applied to the pointed element is true. In that case advances the [[Cursor]] one position. */
 	def acceptElemIf(predicate: Elem => Boolean): Parser[Elem] = { (cursor: Cursor) =>

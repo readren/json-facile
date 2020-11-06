@@ -10,7 +10,7 @@ object IterableParser {
 
 	type IterableUpperBound[E] = Iterable[E];
 
-	private val cache: mutable.WeakHashMap[(Parser[_], String), Parser[_]] = mutable.WeakHashMap.empty;
+//	private val cache: mutable.WeakHashMap[(Parser[_], String), Parser[_]] = mutable.WeakHashMap.empty;
 
 	/** @tparam IC iterator type constructor
 	 * @tparam E   element's type */
@@ -19,18 +19,22 @@ object IterableParser {
 		parserE: Parser[E],
 		factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.
 	): Parser[IC[E]] = {
-		cache.getOrElseUpdate(
-		(parserE, factoryHolder.id), new IterableParser(parserE, factoryHolder)).asInstanceOf[Parser[IC[E]]]
+//		cache.getOrElseUpdate(
+//			(parserE, factoryHolder.id),
+			new IterableParser(parserE, factoryHolder)
+//		).asInstanceOf[Parser[IC[E]]]
 	}
 }
 
 class IterableParser[IC[e] <: IterableUpperBound[e], E](
 	parserE: Parser[E],
 	factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.
-) extends Parser[IC[E]]{
+) extends Parser[IC[E]] {
+	assert(parserE != null && factoryHolder != null);
+
 	override def parse(cursor: Cursor): IC[E] = {
-		if(cursor.have) {
-			if(cursor.pointedElem == '[') {
+		if (cursor.have) {
+			if (cursor.pointedElem == '[') {
 				cursor.advance();
 				val builder = factoryHolder.factory.newBuilder[E];
 				var have = cursor.consumeWhitespaces();
@@ -42,11 +46,11 @@ class IterableParser[IC[e] <: IterableUpperBound[e], E](
 						have = cursor.pointedElem == ']' || (cursor.consumeChar(',') && cursor.consumeWhitespaces());
 					}
 				}
-				if(have) {
+				if (have) {
 					cursor.advance();
 					builder.result()
-				} else  {
-					cursor.fail(s"Invalid syntax for iterable. The builder factory is ${factoryHolder.factory.getClass.getName}" );
+				} else {
+					cursor.fail(s"Invalid syntax for iterable. The builder factory is ${factoryHolder.factory.getClass.getName}");
 					ignored[IC[E]]
 				}
 			} else {

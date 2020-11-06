@@ -72,7 +72,7 @@ object CoproductAppenderHelper {
 
 	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
 
-	/** Traits for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
+	/** Sealed traits and abstract classes for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
 	val traitsForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
 		classOf[scala.Option[Any]].getName, // by jpOption
 		classOf[scala.collection.Iterable[Any]].getName, // by jpIterable
@@ -248,7 +248,7 @@ new CoproductAppenderHelper[$coproductType] {
 	override val productsInfo = productsArray;
 }"""
 		}).asInstanceOf[ctx.Tree];
-		// ctx.info(ctx.enclosingPosition, show(helper), false)
+		// ctx.info(ctx.enclosingPosition, show(helper), false);
 
 		ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 	}

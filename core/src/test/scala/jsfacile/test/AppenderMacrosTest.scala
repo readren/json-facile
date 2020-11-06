@@ -1,7 +1,7 @@
 package jsfacile.test
 
-import jsfacile.util.JsonGen
-import jsfacile.util.SampleADT._
+import jsfacile.jsonast.JsonGen
+import SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
