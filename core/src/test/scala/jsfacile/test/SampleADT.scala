@@ -3,7 +3,7 @@ package jsfacile.test
 object SampleADT {
 
 	object DistanceUnit extends Enumeration {
-		type DistanceUnit = Value
+//		type DistanceUnit = Value
 		val Meter, Millimeter = Value;
 	}
 

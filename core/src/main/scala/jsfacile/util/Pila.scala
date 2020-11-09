@@ -1,7 +1,7 @@
 package jsfacile.util
 
 sealed abstract class Pila {
-	def ::[T](tope: T): ::[T, this.type] = new ::(tope, this)
+	def ::[@specialized T](tope: T): ::[T, this.type] = new ::(tope, this)
 }
 
 final case class ::[@specialized +T, +P <: Pila](tope: T, pila: P) extends Pila

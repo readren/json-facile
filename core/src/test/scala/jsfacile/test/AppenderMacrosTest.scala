@@ -1,6 +1,5 @@
 package jsfacile.test
 
-import jsfacile.jsonast.JsonGen
 import SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -19,7 +18,7 @@ object AppenderMacrosTest {
 
 }
 
-class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyChecks with JsonGen {
+class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyChecks {
 	import AppenderMacrosTest._
 	import jsfacile.api._
 

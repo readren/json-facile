@@ -191,7 +191,7 @@ object PrimitiveParsers {
 		val fullName = typeTag.tpe.toString
 		jpEnumerationCache.getOrElseUpdate(
 		fullName, {
-			val enum = {
+			val enum = { // TODO use a macro to obtain this to avoid the mirror
 				val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
 				val moduleMirror = classLoaderMirror.reflectModule(typeTag.tpe.termSymbol.asModule)
 				moduleMirror.instance.asInstanceOf[E]

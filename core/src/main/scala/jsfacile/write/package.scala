@@ -7,7 +7,7 @@ import jsfacile.macros.{CoproductAppenderHelper, ProductAppender}
 import jsfacile.write.MapAppender.{MapFormatDecider, defaultMapFormatDecider}
 
 /** It is not necessary to import any implicit defined in this package object. The compiler finds them anyway because the [[Appender]] trait is defined in the same package.
- *  Also, it is not recommended to import any of them so that they have lower precedence than any [[Appender]] accesible without prefix (imported or declared in the block scope). */
+ * Also, it is not recommended to import any of them so that they have lower precedence than any [[Appender]] accesible without prefix (imported or declared in the block scope). */
 package object write {
 
 	////////////////////////////////////////////
@@ -95,7 +95,7 @@ package object write {
 
 	/** Encodes the received [[Char]] in order to be part of a json string
 	 * Surrogate chars are not altered. */
-	def encodeStringChar(r: Record, char: Char): Record = {
+	def encodeStringChar[R <: Record](r: R, char: Char): R = {
 		if (char == '"') {
 			r.append('\\').append(char)
 		} else if (char == '\\') {
@@ -120,8 +120,9 @@ package object write {
 		}
 	}
 
-	/** Encodes the received [[CharSequence]] in order to be part of a json string */
-	def encodeStringCharSequence(r: Record, csq: CharSequence): Record = {
+	/** Encodes the received [[CharSequence]] in order to be part of a json string.
+	 * Surrogate pairs sanity is not checked. */
+	def encodeStringCharSequence[R <: Record](r: R, csq: CharSequence): R = {
 		var index = 0;
 		val length = csq.length;
 		while (index < length) {
