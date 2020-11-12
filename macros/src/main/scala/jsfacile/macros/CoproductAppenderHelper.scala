@@ -70,7 +70,7 @@ object CoproductAppenderHelper {
 
 	implicit def apply[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
-	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
+	private val cache: mutable.HashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.HashMap.empty
 
 	/** Sealed traits and abstract classes for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
 	val traitsForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
@@ -175,6 +175,8 @@ object CoproductAppenderHelper {
 			ctx.abort(ctx.enclosingPosition, s"""An appender for $coproductSymbol is already provided in the "jsfacile.write" package.""")
 		}
 
+		ctx.info(ctx.enclosingPosition, "coproduct appender helper start for " + show(coproductType), true);
+
 		val helper = cache.getOrElseUpdate(
 		coproductType, {
 
@@ -248,7 +250,7 @@ new CoproductAppenderHelper[$coproductType] {
 	override val productsInfo = productsArray;
 }"""
 		}).asInstanceOf[ctx.Tree];
-		// ctx.info(ctx.enclosingPosition, show(helper), false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper end for ${show(coproductType)} : ${show(helper)}", true);
 
 		ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
 	}

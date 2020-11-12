@@ -27,7 +27,7 @@ object ProductParserHelper {
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[P <: ProductUpperBound]: ProductParserHelper[P] = macro materializeHelperImpl[P]
 
-	private val cache: mutable.WeakHashMap[blackbox.Context#Type, blackbox.Context#Tree] = mutable.WeakHashMap.empty
+	private val cache: mutable.HashMap[blackbox.Context#Type, blackbox.Context#Tree] = mutable.HashMap.empty
 
 	/** Concrete classes for which the [[jsfacile.read]] package provides an implicit [[Parser]]. */
 	val concreteClassesForWhichTheReadPackageProvidesAnImplicitParser: Set[String] = Set(
@@ -54,6 +54,9 @@ object ProductParserHelper {
 		if (doesTheReadPackageProvideAnImplicitParserFor(classSymbol)) {
 			ctx.abort(ctx.enclosingPosition, s"""A parser for "$productSymbol" is already provided in the "jsfacile.read" package.""")
 		}
+
+		ctx.info(ctx.enclosingPosition, s"product parser helper start of ${show(productType)}", false)
+
 		val helper = cache.getOrElseUpdate(
 		productType, {
 			val productTypeName: String = show(productType);
@@ -100,7 +103,7 @@ new ProductParserHelper[$productType] {
 	override def createProduct(args: Seq[Any]):$productType = new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
 }"""
 		}).asInstanceOf[ctx.Tree];
-		// ctx.info(ctx.enclosingPosition, "pph helper = " + show(helper), false)
+		ctx.info(ctx.enclosingPosition, s"product parser helper end of ${show(productType)}: ${show(helper)}", false)
 
 		ctx.Expr[ProductParserHelper[P]](ctx.typecheck(helper));
 	}

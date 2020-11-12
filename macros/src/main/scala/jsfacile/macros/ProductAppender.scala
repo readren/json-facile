@@ -8,7 +8,7 @@ import jsfacile.write.Appender
 
 object ProductAppender {
 
-	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
+	private val cache: mutable.HashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.HashMap.empty
 
 	/** Concrete classes (including singleton) for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
 	val concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
@@ -34,9 +34,12 @@ object ProductAppender {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
 		}
 		val classSymbol = productSymbol.asClass;
-		if( doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol)) {
+		if (doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol)) {
 			ctx.abort(ctx.enclosingPosition, s"""An appender for $classSymbol is already provided in the "jsfacile.write" package.""")
 		}
+
+		ctx.info(ctx.enclosingPosition, s"product appender helper start for ${show(productType)}", true)
+
 		val helper = cache.getOrElseUpdate(
 		productType, {
 			val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
@@ -70,7 +73,7 @@ new Appender[$productType] {
 	}
 }"""
 		}).asInstanceOf[ctx.Tree];
-		// ctx.info(ctx.enclosingPosition, "pa helper: " + show(helper), false)
+		ctx.info(ctx.enclosingPosition, s"product appender helper end for ${show(productType)}: ${show(helper)}", true)
 
 		ctx.Expr[Appender[P]](ctx.typecheck(helper));
 	}

@@ -26,7 +26,7 @@ object CoproductParserHelper {
 	/** Macro implicit materializer of [[ProductParserHelper]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	implicit def materializeHelper[C <: CoproductUpperBound]: CoproductParserHelper[C] = macro materializeHelperImpl[C]
 
-	private val cache: mutable.WeakHashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.WeakHashMap.empty
+	private val cache: mutable.HashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.HashMap.empty
 
 	/** Traits for which the [[jsfacile.read]] package provides an implicit [[Parser]]. */
 	val traitsForWhichTheReadPackageProvidesAnImplicitParser: Set[String] = Set(
@@ -133,6 +133,9 @@ productFieldsSeqBuilder.clear();"""
 		if (doesTheReadPackageProvideAnImplicitParserFor(coproductClassSymbol)) {
 			ctx.abort(ctx.enclosingPosition, s"""A parser for $coproductClassSymbol is already provided in the "jsfacile.read" package.""")
 		}
+
+		ctx.info(ctx.enclosingPosition, s"coproduct parser helper start of ${show(coproductType)}", true)
+
 		val helper = cache.getOrElseUpdate(
 		coproductType, {
 			// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
@@ -160,7 +163,7 @@ new CoproductParserHelper[$coproductType] {
 	override val fieldsInfo = fieldsInfoBuilder.result();
 }"""
 		}).asInstanceOf[ctx.Tree];
-		// ctx.info(ctx.enclosingPosition, "cph helper = " + show(helper), false)
+		ctx.info(ctx.enclosingPosition, s"coproduct parser helper end of ${show(coproductType)}: ${show(helper)}", true)
 
 		ctx.Expr[CoproductParserHelper[C]](ctx.typecheck(helper));
 	}
