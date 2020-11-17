@@ -7,7 +7,7 @@ import SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatest.{Outcome, Retries, Succeeded}
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsObject, JsString, JsValue, RootJsonFormat, enrichAny}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsObject, JsString, JsValue, RootJsonFormat}
 
 //noinspection TypeAnnotation
 object ParserMacrosTest extends DefaultJsonProtocol {
@@ -15,16 +15,27 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 	//////////////////////////////
 	// Simple sample data types //
 
-	case class Simple(text: String, number: Long)
-	case class Nest(name: String, simple: Simple)
-	case class Tree(height: Int, nests: List[Nest], mapa: Map[String, Simple])
+	case class Simple(text: String, number: Long);
+	case class Nest(name: String, simple: Simple);
+	case class Tree(height: Int, nests: List[Nest], mapa: Map[String, Simple]);
+
+	//////////////////////////////////
+	// Recursive sample data types //
+
+	sealed trait Foo[T];
+	case class FooNext[T](next: Foo[T]) extends Foo[T];
+	case class FooBase[T](v: T) extends Foo[T];
+
+	sealed trait Arbol[V];
+	case class Rama[V](a: Arbol[V], b: Arbol[V]) extends Arbol[V];
+	case class Hoja[V](v: V) extends Arbol[V];
 
 	///////////////////////
 	// Spray boilerplate //
 
-	implicit val simpleFormat = jsonFormat2(Simple)
-	implicit val anidadoFormat = jsonFormat2(Nest)
-	implicit val treeFormat = jsonFormat3(Tree)
+	implicit val simpleFormat = jsonFormat2(Simple);
+	implicit val anidadoFormat = jsonFormat2(Nest);
+	implicit val treeFormat = jsonFormat3(Tree);
 
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
@@ -95,7 +106,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `Implicit resolution of the interpreters should work`(): Unit = {
 			import jsfacile.api.CursorStr
 
-			val simpleHelper = ProductParserHelper.materializeHelper[Simple];
+			val simpleHelper = ProductParserHelper.materialize[Simple];
 			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_.valueParser != null))
 
 			val productParser = new ProductParser[Simple](simpleHelper)
@@ -125,6 +136,8 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		}
 
 		def `for simple ADTs with a coproduct`(): Unit = {
+			import spray.json.enrichAny;
+
 			val tableAParsed = enrichAny(tableA._2).toJson.prettyPrint.fromJson[Table]
 			assertResult(Right(tableA._2))(tableAParsed)
 
@@ -138,7 +151,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `for complex ADTs`(): Unit = {
 			import jsfacile.api._
 
-			val presentationDataJson = ToJsonConvertable(presentationDataOriginal).toJson
+			val presentationDataJson = presentationDataOriginal.toJson
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
 		}
@@ -146,9 +159,24 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `with HLists`(): Unit = {
 			import jsfacile.api._
 			val pilaOriginal = "top" :: 3 :: true :: Base
-			val pilaJson = ToJsonConvertable(pilaOriginal).toJson
+			val pilaJson = pilaOriginal.toJson
 			val pilaParsed = pilaJson.fromJson[String :: Int :: Boolean :: Base.type]
 			assertResult(Right(pilaOriginal))(pilaParsed)
+		}
+
+		def `with recursive data types`(): Unit = {
+			import jsfacile.api._
+
+			val fooBase = FooBase(7);
+			val fooNext = FooNext(fooBase)
+			val fooJson = fooNext.toJson
+			val fooParsed = fooJson.fromJson[Foo[Int]]
+			assertResult(Right(fooNext))(fooParsed)
+
+			val arbol = Rama(Rama(Hoja(1), Hoja(2)), Hoja(3))
+			val json = arbol.toJson
+			val arbolParsed = json.fromJson[Arbol[Int]]
+			assertResult(Right(arbol))(arbolParsed)
 		}
 
 
@@ -175,7 +203,6 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 
 			assert("{}".fromJson[A[Int]] == Right(A2))
 		}
-
 	}
 
 	object `Should not compile when ...` {

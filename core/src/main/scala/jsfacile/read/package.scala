@@ -87,25 +87,25 @@ package object read {
 	/////////////////////////////////////////////////////////
 	//// Json parser for concrete non singleton classes  ////
 
-	private val jpProductsCache = mutable.WeakHashMap.empty[String, ProductParser[_ <: ProductUpperBound]]
+//	private val jpProductsCache = mutable.WeakHashMap.empty[String, ProductParser[_ <: ProductUpperBound]]
 
 	implicit def jpProduct[P <: ProductUpperBound](implicit helper: ProductParserHelper[P]): ProductParser[P] = {
-		jpProductsCache.getOrElseUpdate(
-			helper.fullName,
+//		jpProductsCache.getOrElseUpdate(
+//			helper.fullName,
 			new ProductParser[P](helper)
-		).asInstanceOf[ProductParser[P]]
+//		).asInstanceOf[ProductParser[P]]
 	}
 
 	///////////////////////////////////////////////////////////////////
 	//// Json parser for sealed trait and sealed abstract classes  ////
 
-	private val jpCoproductsCache = mutable.WeakHashMap.empty[String, CoproductParser[_ <: CoproductUpperBound]]
+//	private val jpCoproductsCache = mutable.WeakHashMap.empty[String, CoproductParser[_ <: CoproductUpperBound]]
 
 	implicit def jpCoproduct[C <: CoproductUpperBound](implicit helper: CoproductParserHelper[C]): CoproductParser[C] = {
-		jpCoproductsCache.getOrElseUpdate(
-			helper.fullName,
+//		jpCoproductsCache.getOrElseUpdate(
+//			helper.fullName,
 			new CoproductParser[C](helper)
-		).asInstanceOf[CoproductParser[C]]
+//		).asInstanceOf[CoproductParser[C]]
 	}
 
 }

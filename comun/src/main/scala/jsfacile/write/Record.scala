@@ -20,8 +20,7 @@ trait Record {
 	def append(double: Double): this.type;
 
 	def appendSummoned[T](t: T)(implicit appender: Appender[T]): this.type = {
-		assert(appender != null); // Fails here when the macro expansion of ProductAppender fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
-		appender.append(this, t);
+		appender.append(this, t); // Fails with null pointer exception here when the macro expansion of ProductAppender fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
 		this
 	};
 }

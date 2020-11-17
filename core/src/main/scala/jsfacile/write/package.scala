@@ -84,10 +84,13 @@ package object write {
 	///////////////////////////////////////////////////////////////////////
 	//// Json appenders for sealed traits and sealed abstract classes  ////
 
-	private val jaCoproductCache = mutable.WeakHashMap.empty[String, CoproductAppender[_ <: CoproductUpperBound]]
+//	private val jaCoproductCache = mutable.WeakHashMap.empty[String, CoproductAppender[_ <: CoproductUpperBound]]
 
 	implicit def jaCoproduct[C <: CoproductUpperBound](implicit helper: CoproductAppenderHelper[C]): CoproductAppender[C] = {
-		jaCoproductCache.getOrElseUpdate(helper.fullName, new CoproductAppender(helper)).asInstanceOf[CoproductAppender[C]]
+//		jaCoproductCache.getOrElseUpdate(
+//			helper.fullName,
+			new CoproductAppender(helper)
+//		).asInstanceOf[CoproductAppender[C]]
 	};
 
 	//////////////////////////////

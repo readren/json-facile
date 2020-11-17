@@ -1,4 +1,4 @@
-package jsfacile;
+package jsfacile
 
 import scala.reflect.{api => sra}
 
@@ -6,7 +6,7 @@ package object joint {
 
 	type CoproductUpperBound = Any;
 
-	type ProductUpperBound  = Any;
+	type ProductUpperBound = Any;
 
 	val defaultDiscriminatorFieldName = "?"
 

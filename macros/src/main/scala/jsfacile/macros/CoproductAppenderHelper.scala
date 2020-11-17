@@ -68,10 +68,6 @@ object CoproductAppenderHelper {
 		diff
 	}
 
-	implicit def apply[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = macro materializeImpl[C];
-
-	private val cache: mutable.HashMap[whitebox.Context#Type, whitebox.Context#Tree] = mutable.HashMap.empty
-
 	/** Sealed traits and abstract classes for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
 	val traitsForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
 		classOf[scala.Option[Any]].getName, // by jpOption
@@ -79,6 +75,21 @@ object CoproductAppenderHelper {
 		classOf[scala.collection.Map[Any, Any]].getName, // by jpUnsortedMap
 		classOf[scala.collection.SortedMap[_, Any]].getName // by jpSortedMap
 	);
+
+	class CaHelper[C <: CoproductUpperBound](val fullName: String, val productsInfo: Array[CahProductInfo[C]]) extends CoproductAppenderHelper[C]
+
+	class CaHelperLazy extends CoproductAppenderHelper[CoproductUpperBound] with Lazy {
+		private var instance: CoproductAppenderHelper[CoproductUpperBound] = _;
+		override def isEmpty: Boolean = this.instance == null;
+		def set[C <: CoproductUpperBound](helper: CoproductAppenderHelper[C]): Unit = this.instance = helper.asInstanceOf[CoproductAppenderHelper[CoproductUpperBound]];
+		def get[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = this.instance.asInstanceOf[CoproductAppenderHelper[C]];
+		override def fullName: String = this.instance.fullName
+		override def productsInfo: Array[CahProductInfo[CoproductUpperBound]] = this.instance.productsInfo;
+	}
+
+	val caHelpersBuffer: mutable.ArrayBuffer[CaHelperLazy] = mutable.ArrayBuffer.empty;
+
+	implicit def materialize[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = macro materializeImpl[C];
 
 	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
@@ -94,6 +105,7 @@ object CoproductAppenderHelper {
 		def addProductsBelongingTo(
 			coproductClassSymbol: ClassSymbol,
 			coproductType: Type,
+			superHandler: Handler,
 			productsInfoBuilder: mutable.Builder[ProductInfo, IndexedSeq[ProductInfo]]
 		): Unit = {
 			for {
@@ -114,7 +126,7 @@ object CoproductAppenderHelper {
 
 							} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
 								if (productClassSymbol.isSealed) {
-									addProductsBelongingTo(productClassSymbol, productType, productsInfoBuilder)
+									addProductsBelongingTo(productClassSymbol, productType, superHandler, productsInfoBuilder)
 								} else {
 									ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
 								}
@@ -130,18 +142,48 @@ object CoproductAppenderHelper {
 										param <- params
 									} yield {
 										val paramNameStr = param.name.decodedName.toString;
-										val paramTypeSignature = param.typeSignature.dealias;
-										if (paramTypeSignature.typeSymbol.fullName != "scala.Option") {
-											requiredFieldNamesBuilder.addOne(paramNameStr)
-										}
 										val sb = new StringBuilder(paramNameStr.length + 4)
 										if (isFirstField) {
 											isFirstField = false
 										} else {
 											sb.append(',');
 										}
+
+										val paramType = param.typeSignature.dealias;
+										val paramTypeSymbol = paramType.typeSymbol;
+										if (paramTypeSymbol.fullName != "scala.Option") {
+											requiredFieldNamesBuilder.addOne(paramNameStr)
+										}
+
+										val oGetAlreadyExpandedAppenderExpression =
+											if (paramTypeSymbol.isClass) {
+												appenderHandlersMap.get(new TypeKey(paramType)) match {
+													case Some(paramHandler) =>
+														superHandler.addDependency(paramHandler);
+
+														if (!paramTypeSymbol.isAbstract) {
+															Some(q"productsAppendersBuffer(${paramHandler.typeIndex}).get[$paramType]")
+														} else if (paramTypeSymbol.asClass.isSealed) {
+															Some(q"""new _root_.jsfacile.write.CoproductAppender[$paramType](caHelpersBuffer(${paramHandler.typeIndex}).get[$paramType])""")
+														} else {
+															ctx.abort(ctx.enclosingPosition, "Unreachable")
+														}
+													case None =>
+														None
+												}
+											} else {
+												None
+											}
 										sb.append('"').append(paramNameStr).append('"').append(':');
-										q"""r.append(${sb.toString}).appendSummoned[$paramTypeSignature](${Select(Ident(TermName("p")), param.name)})"""; // IntellijIde reports false error here
+
+										oGetAlreadyExpandedAppenderExpression match {
+											case Some(appenderExpression) =>
+												q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})($appenderExpression);""";
+
+											case None =>
+												q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})""";
+										}
+
 									}
 
 								productsInfoBuilder.addOne(ProductInfo(
@@ -171,88 +213,140 @@ object CoproductAppenderHelper {
 		if (!coproductClassSymbol.isSealed) {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed")
 		}
-		if(doesTheWritePackageProvideAnImplicitAppenderFor(coproductClassSymbol)) {
+		if (doesTheWritePackageProvideAnImplicitAppenderFor(coproductClassSymbol)) {
 			ctx.abort(ctx.enclosingPosition, s"""An appender for $coproductSymbol is already provided in the "jsfacile.write" package.""")
 		}
 
-		ctx.info(ctx.enclosingPosition, "coproduct appender helper start for " + show(coproductType), true);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
 
-		val helper = cache.getOrElseUpdate(
-		coproductType, {
+		val coproductTypeKey = new TypeKey(coproductType);
+		val coproductHandler = appenderHandlersMap.get(coproductTypeKey) match {
 
-			// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-			val (discriminatorFieldName, discriminatorIsRequired) = discriminatorField.parse(ctx.universe)(coproductClassSymbol)
+			case None =>
+				val caHelperIndex = appenderHandlersMap.size;
+				val coproductHandler = new Handler(caHelperIndex)
+				registerAppenderDependency(coproductHandler);
+				appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
-			val productsInfoBuilder = IndexedSeq.newBuilder[ProductInfo]
-			addProductsBelongingTo(coproductClassSymbol, coproductType, productsInfoBuilder);
-			val productsInfo = productsInfoBuilder.result();
+				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
+				val (discriminatorFieldName, discriminatorIsRequired) = discriminatorField.parse(ctx.universe)(coproductClassSymbol)
 
-			// Set the `isAmbiguous` flag to every product whose required field names match those of another product.
-			if (!discriminatorIsRequired) {
-				var i = productsInfo.size - 1;
-				while (i > 0) {
-					val pi = productsInfo(i);
-					if (!pi.isAmbiguous) {
-						var j = i - 1;
-						while (j >= 0) {
-							val pj = productsInfo(j);
-							if (pi.requiredFieldNames == pj.requiredFieldNames) {
-								pi.isAmbiguous = true;
-								pj.isAmbiguous = true;
+				val productsInfoBuilder = IndexedSeq.newBuilder[ProductInfo]
+				addProductsBelongingTo(coproductClassSymbol, coproductType, coproductHandler, productsInfoBuilder);
+				val productsInfo = productsInfoBuilder.result();
+
+				// Set the `isAmbiguous` flag to every product whose required field names match those of another product.
+				if (!discriminatorIsRequired) {
+					var i = productsInfo.size - 1;
+					while (i > 0) {
+						val pi = productsInfo(i);
+						if (!pi.isAmbiguous) {
+							var j = i - 1;
+							while (j >= 0) {
+								val pj = productsInfo(j);
+								if (pi.requiredFieldNames == pj.requiredFieldNames) {
+									pi.isAmbiguous = true;
+									pj.isAmbiguous = true;
+								}
+								j -= 1;
 							}
-							j -= 1;
 						}
+						i -= 1
 					}
-					i -= 1
 				}
-			}
 
-			// for every product, generate the code lines that creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
-			val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
-				for {
-					productInfo <- productsInfo
-				} yield {
-					val appendDiscriminator_codeLine =
-						if (discriminatorIsRequired || productInfo.isAmbiguous) {
-							val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productInfo.appendField_codeLines.isEmpty) "" else ","}"""
-							q"r.append($discriminatorField)"
-						} else {
-							q""
-						}
-					val productClassNameAtRuntime = productInfo.tpe.erasure.typeSymbol.fullName;
-					q"""
+				// for every product, generate the code lines that creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
+				val addProductInfo_codeLines: Seq[ctx.universe.Tree] =
+					for {
+						productInfo <- productsInfo
+					} yield {
+						val appendDiscriminator_codeLine =
+							if (discriminatorIsRequired || productInfo.isAmbiguous) {
+								val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productInfo.appendField_codeLines.isEmpty) "" else ","}"""
+								q"r.append($discriminatorField)"
+							} else {
+								q""
+							}
+						val productClassNameAtRuntime = productInfo.tpe.erasure.typeSymbol.fullName;
+						q"""
 val productAppender: _root_.jsfacile.write.Appender[${productInfo.tpe}] = { (r, p) =>
 	r.append('{')
 
- 	$appendDiscriminator_codeLine
+	$appendDiscriminator_codeLine
 
 	..${productInfo.appendField_codeLines}
 
-  	r.append('}')
+	r.append('}')
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
-				}
+					}
 
-			q"""
+				val caHelperInitCodeLines =
+					q"""
 import _root_.scala.Array;
-import _root_.jsfacile.macros.CoproductAppenderHelper;
-import CoproductAppenderHelper.CahProductInfo;
+import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelper, caHelpersBuffer, CahProductInfo, productInfoComparator};
+import _root_.jsfacile.macros.ProductAppender.productsAppendersBuffer;
 
-val productsInfoBuilder = Array.newBuilder[CahProductInfo[_ <: $coproductType]];
+val proxy = caHelpersBuffer($caHelperIndex);
+if (proxy.isEmpty) {
+	val productsInfoBuilder = Array.newBuilder[CahProductInfo[_ <: $coproductType]];
 
-..$addProductInfo_codeLines
+	..$addProductInfo_codeLines
 
-val productsArray = productsInfoBuilder.result().asInstanceOf[Array[CahProductInfo[$coproductType]]];
-_root_.java.util.Arrays.sort(productsArray, CoproductAppenderHelper.productInfoComparator);
+	val productsArray = productsInfoBuilder.result().asInstanceOf[Array[CahProductInfo[$coproductType]]];
+	_root_.java.util.Arrays.sort(productsArray, productInfoComparator);
 
-new CoproductAppenderHelper[$coproductType] {
-	override val fullName = ${coproductType.toString}
-	override val productsInfo = productsArray;
-}"""
-		}).asInstanceOf[ctx.Tree];
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper end for ${show(coproductType)} : ${show(helper)}", true);
+	proxy.set(new CaHelper[$coproductType](${coproductType.toString}, productsArray));
+}""";
 
-		ctx.Expr[CoproductAppenderHelper[C]](ctx.typecheck(helper));
+				coproductHandler.oExpression = Some(caHelperInitCodeLines);
+
+				ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+				ctx.typecheck(caHelperInitCodeLines);
+				coproductHandler.isCapturingDependencies = false
+				ctx.info(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+
+				coproductHandler
+
+			case Some(coproductHandler) =>
+				registerAppenderDependency(coproductHandler)
+				coproductHandler
+
+		};
+
+		val body =
+			if (coproductHandler.oExpression.isDefined && isOuterAppenderMacroInvocation(ctx)) {
+				val inits =
+					for {
+						(_, handler) <- appenderHandlersMap
+						if coproductHandler.doesDependOn(handler.typeIndex)
+					} yield handler.oExpression.get.asInstanceOf[ctx.Tree]
+
+				q"""
+import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
+import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
+
+while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
+	caHelpersBuffer.addOne(new CaHelperLazy);
+}
+while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
+	productsAppendersBuffer.addOne(new PaLazy);
+}
+
+{..$inits}
+caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
+
+			} else {
+				q"""
+import _root_.jsfacile.macros.CoproductAppenderHelper.caHelpersBuffer;
+caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
+			}
+
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		val checkedBody = ctx.typecheck(body);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper after body check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+
+		ctx.Expr[CoproductAppenderHelper[C]](checkedBody);
 	}
 }
 

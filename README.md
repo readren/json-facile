@@ -98,7 +98,7 @@ and do one or more of the following:
             // create an HList instance
             val hList = true :: "text" :: 3 :: Base
 
-            // convert the things map to JSON representation
+            // convert the HList to JSON representation
             import jsfacile.api._
             val json = hList.toJson
 

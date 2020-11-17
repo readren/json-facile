@@ -11,9 +11,9 @@ object AppenderMacrosTest {
 	case class Nest[A](name: String, simple: Simple[A])
 	case class Tree[N, A](height: Int, nests: List[N], mapa: Map[Simple[A], N])
 
-	val simpleOriginal = Simple("hola", 7)
-	val nestOriginal = Nest("chau", simpleOriginal)
-	val treeOriginal = Tree(7, List(nestOriginal), Map(simpleOriginal -> nestOriginal))
+	val simpleOriginal: Simple[Int] = Simple("hola", 7)
+	val nestOriginal: Nest[Int] = Nest("chau", simpleOriginal)
+	val treeOriginal: Tree[Nest[Int], Int] = Tree(7, List(nestOriginal), Map(simpleOriginal -> nestOriginal))
 
 
 }
