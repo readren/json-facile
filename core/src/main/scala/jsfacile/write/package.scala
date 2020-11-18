@@ -1,10 +1,8 @@
 package jsfacile
 
-import scala.collection.mutable
-
-import jsfacile.joint.{CoproductUpperBound, ProductUpperBound}
-import jsfacile.macros.{CoproductAppenderHelper, ProductAppender}
-import jsfacile.write.MapAppender.{MapFormatDecider, defaultMapFormatDecider}
+import jsfacile.api.{IterableUpperBound, MapUpperBound}
+import jsfacile.macros.{CoproductAppenderHelper, CoproductUpperBound, ProductAppender, ProductUpperBound}
+import jsfacile.write.MapAppender.MapFormatDecider
 
 /** It is not necessary to import any implicit defined in this package object. The compiler finds them anyway because the [[Appender]] trait is defined in the same package.
  * Also, it is not recommended to import any of them so that they have lower precedence than any [[Appender]] accesible without prefix (imported or declared in the block scope). */
@@ -12,6 +10,8 @@ package object write {
 
 	////////////////////////////////////////////
 	//// Json appenders for primitive types ////
+
+	implicit val jaUnit: Appender[Unit] = { (r: Record, _) => r.append("null") }
 
 	implicit val jaNull: Appender[Null] = { (r: Record, _) => r.append("null") }
 
@@ -65,14 +65,14 @@ package object write {
 	///////////////////////////////////////////////////////////////
 	//// Json appenders for standard collections library types ////
 
-	@inline implicit def jaIterable[E, IC[e] <: Iterable[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
+	@inline implicit def jaIterable[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
 		IterableAppender.apply[E, IC](elemAppender)
 
-	@inline implicit def jaMap[K, V, MC[k, v] <: Map[k, v]](
+	@inline implicit def jaMap[K, V, MC[k, v] <: MapUpperBound[k, v]](
 		implicit
 		ka: Appender[K],
 		va: Appender[V],
-		mfd: MapFormatDecider[K, V, MC[K, V]] = defaultMapFormatDecider
+		mfd: MapFormatDecider[K, V, MC]
 	): Appender[MC[K, V]] =
 		MapAppender.apply[K, V, MC](ka, va, mfd)
 

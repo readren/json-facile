@@ -1,6 +1,5 @@
 package jsfacile.util
 
-import scala.collection.immutable.LinearSeq
 import scala.collection.{IterableFactory, immutable, mutable}
 
 /** A non variant holder of an [[IterableFactory]][IC] instance. Used to suppress the covariant behaviour of the [[IterableFactory]] trait.
@@ -19,17 +18,17 @@ object NonVariantHolderOfAnIterableFactory {
 	implicit val genSetFactory: NonVariantHolderOfAnIterableFactory[scala.collection.Set] = new NonVariantHolderOfAnIterableFactory(scala.collection.Set)
 
 	implicit val immutableIterableFactory: NonVariantHolderOfAnIterableFactory[immutable.Iterable] = new NonVariantHolderOfAnIterableFactory(immutable.Iterable)
-	implicit val seqFactory: NonVariantHolderOfAnIterableFactory[immutable.Seq] = new NonVariantHolderOfAnIterableFactory(immutable.Seq)
-	implicit val indexedSeqFactory: NonVariantHolderOfAnIterableFactory[immutable.IndexedSeq] = new NonVariantHolderOfAnIterableFactory(immutable.IndexedSeq)
-	implicit val linearSeqFactory: NonVariantHolderOfAnIterableFactory[immutable.LinearSeq] = new NonVariantHolderOfAnIterableFactory(immutable.LinearSeq)
-	implicit val listFactory: NonVariantHolderOfAnIterableFactory[immutable.List] = new NonVariantHolderOfAnIterableFactory(immutable.List)
-	implicit val vectorFactory: NonVariantHolderOfAnIterableFactory[immutable.Vector] = new NonVariantHolderOfAnIterableFactory(immutable.Vector)
-	implicit val setFactory: NonVariantHolderOfAnIterableFactory[immutable.Set] = new NonVariantHolderOfAnIterableFactory(immutable.Set)
+	implicit val immutableSeqFactory: NonVariantHolderOfAnIterableFactory[immutable.Seq] = new NonVariantHolderOfAnIterableFactory(immutable.Seq)
+	implicit val immutableIndexedSeqFactory: NonVariantHolderOfAnIterableFactory[immutable.IndexedSeq] = new NonVariantHolderOfAnIterableFactory(immutable.IndexedSeq)
+	implicit val immutableLinearSeqFactory: NonVariantHolderOfAnIterableFactory[immutable.LinearSeq] = new NonVariantHolderOfAnIterableFactory(immutable.LinearSeq)
+	implicit val immutableListFactory: NonVariantHolderOfAnIterableFactory[immutable.List] = new NonVariantHolderOfAnIterableFactory(immutable.List)
+	implicit val immutableVectorFactory: NonVariantHolderOfAnIterableFactory[immutable.Vector] = new NonVariantHolderOfAnIterableFactory(immutable.Vector)
+	implicit val immutableSetFactory: NonVariantHolderOfAnIterableFactory[immutable.Set] = new NonVariantHolderOfAnIterableFactory(immutable.Set)
 
 	implicit val mutableIterableFactory: NonVariantHolderOfAnIterableFactory[mutable.Iterable] = new NonVariantHolderOfAnIterableFactory(mutable.Iterable)
-	implicit val arrayBufferFactory: NonVariantHolderOfAnIterableFactory[mutable.ArrayBuffer] = new NonVariantHolderOfAnIterableFactory(mutable.ArrayBuffer)
-	implicit val listBufferFactory: NonVariantHolderOfAnIterableFactory[mutable.ListBuffer] = new NonVariantHolderOfAnIterableFactory(mutable.ListBuffer)
-	implicit val queueFactory: NonVariantHolderOfAnIterableFactory[mutable.Queue] = new NonVariantHolderOfAnIterableFactory(mutable.Queue)
-	implicit val arrayDequeFactory: NonVariantHolderOfAnIterableFactory[mutable.ArrayDeque] = new NonVariantHolderOfAnIterableFactory(mutable.ArrayDeque)
-	implicit val stackFactory: NonVariantHolderOfAnIterableFactory[mutable.Stack] = new NonVariantHolderOfAnIterableFactory(mutable.Stack)
+	implicit val mutableArrayBufferFactory: NonVariantHolderOfAnIterableFactory[mutable.ArrayBuffer] = new NonVariantHolderOfAnIterableFactory(mutable.ArrayBuffer)
+	implicit val mutableListBufferFactory: NonVariantHolderOfAnIterableFactory[mutable.ListBuffer] = new NonVariantHolderOfAnIterableFactory(mutable.ListBuffer)
+	implicit val mutableQueueFactory: NonVariantHolderOfAnIterableFactory[mutable.Queue] = new NonVariantHolderOfAnIterableFactory(mutable.Queue)
+	implicit val mutableArrayDequeFactory: NonVariantHolderOfAnIterableFactory[mutable.ArrayDeque] = new NonVariantHolderOfAnIterableFactory(mutable.ArrayDeque)
+	implicit val mutableStackFactory: NonVariantHolderOfAnIterableFactory[mutable.Stack] = new NonVariantHolderOfAnIterableFactory(mutable.Stack)
 }

@@ -11,7 +11,11 @@ object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
-	val jpString: Parser[String] = SyntaxParsers.string.orFail("A string was expected.");
+	val jpString: Parser[String] = SyntaxParsers.string orFail "A string was expected.";
+
+	val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) orFail "A null was expected";
+
+	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) orFail "A null was expected";
 
 	val jpBoolean: Parser[Boolean] = { cursor =>
 		if (cursor.comes("true")) {
@@ -24,7 +28,6 @@ object PrimitiveParsers {
 		}
 	}
 
-	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) orFail ("A null was expected")
 
 	/** Interpretador de Int en Json */
 	val jpInt: Parser[Int] = { cursor =>

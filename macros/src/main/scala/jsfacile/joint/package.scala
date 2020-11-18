@@ -4,10 +4,6 @@ import scala.reflect.{api => sra}
 
 package object joint {
 
-	type CoproductUpperBound = Any;
-
-	type ProductUpperBound = Any;
-
 	val defaultDiscriminatorFieldName = "?"
 
 	/** An annotation for sealed traits or abstract classes that:

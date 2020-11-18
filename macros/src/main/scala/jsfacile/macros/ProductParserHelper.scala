@@ -6,7 +6,6 @@ import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
-import jsfacile.joint.ProductUpperBound
 import jsfacile.read.Parser
 
 

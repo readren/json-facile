@@ -1,4 +1,4 @@
-package jsfacile.util
+package jsfacile.test
 
 sealed abstract class Pila {
 	def ::[@specialized T](tope: T): ::[T, this.type] = new ::(tope, this)

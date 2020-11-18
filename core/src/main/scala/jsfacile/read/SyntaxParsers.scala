@@ -6,7 +6,7 @@ import jsfacile.read.Parser._
 object SyntaxParsers {
 
 	/** skips the next integer or miss if no integer follows
-	 * @return true iff an integer was consumed and the cursor is [[ok]]*/
+	 * @return true iff an integer was consumed and the cursor is [[Cursor.ok]]*/
 	def skipInteger(cursor: Cursor): Boolean = {
 		val isNeg = cursor.consumeChar('-')
 		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit)
@@ -41,7 +41,7 @@ object SyntaxParsers {
 		}
 	}
 	/** skips the next number or miss if no number follows
-	 * @return true iff a number was consumed and the cursor is [[ok]] */
+	 * @return true iff a number was consumed and the cursor is [[Cursor.ok]] */
 	def skipJsNumber(cursor: Cursor): Boolean = {
 		if(skipInteger(cursor)) {
 			skipOptionalFraction(cursor);
@@ -54,19 +54,19 @@ object SyntaxParsers {
 	}
 
 	/** skips the next "null" or miss if what follows isn't a "null"
-	 * @return true iff a "null" was consumed and the cursor is [[ok]] */
+	 * @return true iff a "null" was consumed and the cursor is [[Cursor.ok]] */
 	private def skipJsNull(cursor: Cursor): Boolean = cursor.comes("null") || { cursor.miss(); false }
 
 	/** skips the next boolean of miss if no boolean follows
-	 * @return true iff a boolean was consumed and the cursor is [[ok]] */
+	 * @return true iff a boolean was consumed and the cursor is [[Cursor.ok]] */
 	private def skipJsBoolean(cursor: Cursor): Boolean = cursor.comes("true") || cursor.comes( "false") || { cursor.miss(); false }
 
 	/** skips the next string or miss if no string follows
-	 * @return true iff a string was consumed and the cursor is [[ok]] */
+	 * @return true iff a string was consumed and the cursor is [[Cursor.ok]] */
 	private def skipJsString(cursor: Cursor): Boolean = { string.parse(cursor); cursor.ok }
 
 	/** skips the next json array or miss if no array follows
-	 * @return true iff an array was consumed and the cursor is [[ok]] */
+	 * @return true iff an array was consumed and the cursor is [[Cursor.ok]] */
 	private def skipJsArray(cursor: Cursor): Boolean = {
 		if(cursor.consumeChar('[')) {
 			var have = cursor.consumeWhitespaces()
@@ -86,7 +86,7 @@ object SyntaxParsers {
 	}
 
 	/** skips the next json object or miss if no object follows
-	 * @return true iff an object was consumed and the cursor is [[ok]] */
+	 * @return true iff an object was consumed and the cursor is [[Cursor.ok]] */
 	def skipJsObject(cursor: Cursor): Boolean = {
 		if(cursor.consumeChar('{')) {
 			var ok = cursor.consumeWhitespaces();
@@ -108,7 +108,7 @@ object SyntaxParsers {
 	}
 
 	/** skips the next json value or miss if no json value follows
-	 * @return true iff a json value was consumed and the cursor is [[ok]] */
+	 * @return true iff a json value was consumed and the cursor is [[Cursor.ok]] */
 	def skipJsValue(cursor: Cursor): Boolean = {
 		if (cursor.have) {
 			val p: Cursor => Boolean = cursor.pointedElem match {

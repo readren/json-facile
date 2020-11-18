@@ -6,6 +6,9 @@ import scala.reflect.macros.whitebox
 
 package object macros {
 
+	type CoproductUpperBound = Any;
+	type ProductUpperBound = Any;
+
 	trait Lazy {
 		def isEmpty: Boolean;
 	};
@@ -60,7 +63,7 @@ package object macros {
 
 	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
 		val macros = ctx.openMacros.map { ctx =>
-			if (true) s"\n\thashCode: $ctx.hashCode, macroApp: ${ctx.macroApplication}"
+			if (true) s"\n\thashCode: ${ctx.hashCode}, macroApp: ${ctx.macroApplication}"
 			else
 				s"""
 				   |Context(

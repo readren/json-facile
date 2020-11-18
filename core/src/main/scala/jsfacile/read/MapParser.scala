@@ -2,16 +2,12 @@ package jsfacile.read
 
 import scala.collection.mutable
 
-import jsfacile.read.MapParser.MapUpperBound
+import jsfacile.api.MapUpperBound
 import jsfacile.read.Parser._
 import jsfacile.read.SyntaxParsers._
 
 
 object MapParser {
-
-	type MapUpperBound[K, V] = scala.collection.Map[K, V];
-
-	type SortedMapUpperBound[K, V] = scala.collection.SortedMap[K, V]
 
 	def apply[M <: MapUpperBound[K, V], K, V](
 		parserK: Parser[K],

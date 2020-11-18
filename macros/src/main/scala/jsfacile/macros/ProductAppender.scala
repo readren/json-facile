@@ -3,7 +3,6 @@ package jsfacile.macros
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
-import jsfacile.joint.ProductUpperBound
 import jsfacile.write.{Appender, Record}
 
 object ProductAppender {

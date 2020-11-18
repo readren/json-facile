@@ -1,7 +1,6 @@
 package jsfacile.util
 
-import scala.collection.immutable.{HashMap, ListMap, SeqMap}
-import scala.collection.{MapFactory, mutable}
+import scala.collection.{MapFactory, immutable, mutable}
 
 /** A non variant holder of an [[MapFactory]][UMC] instance. Used to suppress the covariant behaviour of the [[MapFactory]] trait.
  *
@@ -12,10 +11,12 @@ object NonVariantHolderOfAMapFactory {
 	//		type NvhMf[UMC[_, _]] = NonVariantHolderOfAMapFactory[UMC]
 	//		@inline private def nvhMf[UMC[_, _]](factory: MapFactory[UMC]) = new NonVariantHolderOfAMapFactory(factory)
 
-	implicit val mapFactory: NonVariantHolderOfAMapFactory[Map] = new NonVariantHolderOfAMapFactory(Map)
-	implicit val hashMapFactory: NonVariantHolderOfAMapFactory[HashMap] = new NonVariantHolderOfAMapFactory(HashMap)
-	implicit val seqMapFactory: NonVariantHolderOfAMapFactory[SeqMap] = new NonVariantHolderOfAMapFactory(SeqMap)
-	implicit val listMapFactory: NonVariantHolderOfAMapFactory[ListMap] = new NonVariantHolderOfAMapFactory(ListMap)
+	implicit val genericMapFactory: NonVariantHolderOfAMapFactory[scala.collection.Map] = new NonVariantHolderOfAMapFactory(scala.collection.Map)
+
+	implicit val immutableMapFactory: NonVariantHolderOfAMapFactory[immutable.Map] = new NonVariantHolderOfAMapFactory(immutable.Map)
+	implicit val immutableHashMapFactory: NonVariantHolderOfAMapFactory[immutable.HashMap] = new NonVariantHolderOfAMapFactory(immutable.HashMap)
+	implicit val immutableSeqMapFactory: NonVariantHolderOfAMapFactory[immutable.SeqMap] = new NonVariantHolderOfAMapFactory(immutable.SeqMap)
+	implicit val immutableListMapFactory: NonVariantHolderOfAMapFactory[immutable.ListMap] = new NonVariantHolderOfAMapFactory(immutable.ListMap)
 
 	implicit val mutableMapFactory: NonVariantHolderOfAMapFactory[mutable.Map] = new NonVariantHolderOfAMapFactory(mutable.Map)
 	implicit val mutableHashMapFactory: NonVariantHolderOfAMapFactory[mutable.HashMap] = new NonVariantHolderOfAMapFactory(mutable.HashMap)

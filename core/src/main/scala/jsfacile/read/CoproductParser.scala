@@ -3,8 +3,7 @@ package jsfacile.read
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 
-import jsfacile.joint.CoproductUpperBound
-import jsfacile.macros.CoproductParserHelper
+import jsfacile.macros.{CoproductParserHelper, CoproductUpperBound}
 import jsfacile.macros.CoproductParserHelper.CphProductInfo
 import jsfacile.read.SyntaxParsers._
 

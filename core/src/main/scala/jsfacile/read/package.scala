@@ -1,11 +1,7 @@
 package jsfacile
 
-import scala.collection.mutable
-
-import jsfacile.joint.{CoproductUpperBound, ProductUpperBound}
-import jsfacile.macros.{CoproductParserHelper, ProductParserHelper, SingletonParserHelper}
-import jsfacile.read.IterableParser.IterableUpperBound
-import jsfacile.read.MapParser.{MapUpperBound, SortedMapUpperBound}
+import jsfacile.api.{IterableUpperBound, MapUpperBound, SortedMapUpperBound}
+import jsfacile.macros.{CoproductUpperBound, ProductUpperBound, CoproductParserHelper, ProductParserHelper, SingletonParserHelper}
 import jsfacile.util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMapFactory, NonVariantHolderOfAnIterableFactory}
 
 
@@ -15,6 +11,10 @@ package object read {
 
 	//////////////////////////////////////////
 	//// Json parsers for primitive types ////
+
+	implicit val jpUnit: Parser[Unit] = PrimitiveParsers.jpUnit
+
+	implicit val jpNull: Parser[Null] = PrimitiveParsers.jpNull
 
 	implicit val jpBoolean: Parser[Boolean] = PrimitiveParsers.jpBoolean
 

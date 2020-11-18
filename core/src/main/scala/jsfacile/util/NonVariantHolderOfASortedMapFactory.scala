@@ -1,7 +1,6 @@
 package jsfacile.util
 
-import scala.collection.immutable.{SortedMap, TreeMap}
-import scala.collection.{SortedMapFactory, mutable}
+import scala.collection.{SortedMapFactory, immutable, mutable}
 
 /** A non variant holder of an [[SortedMapFactory]][SMC] instance. Used to suppress the covariant behaviour of the [[SortedMapFactory]] trait.
  *
@@ -9,8 +8,10 @@ import scala.collection.{SortedMapFactory, mutable}
 class NonVariantHolderOfASortedMapFactory[SMC[_, _]](val factory: SortedMapFactory[SMC]);
 object NonVariantHolderOfASortedMapFactory {
 
-	implicit val sortedMapFactory: NonVariantHolderOfASortedMapFactory[SortedMap] = new NonVariantHolderOfASortedMapFactory(SortedMap)
-	implicit val treeMapFactory: NonVariantHolderOfASortedMapFactory[TreeMap] = new NonVariantHolderOfASortedMapFactory(TreeMap)
+	implicit val genSortedMapFactory: NonVariantHolderOfASortedMapFactory[scala.collection.SortedMap] = new NonVariantHolderOfASortedMapFactory(scala.collection.SortedMap)
+
+	implicit val immutableSortedMapFactory: NonVariantHolderOfASortedMapFactory[immutable.SortedMap] = new NonVariantHolderOfASortedMapFactory(immutable.SortedMap)
+	implicit val immutableTreeMapFactory: NonVariantHolderOfASortedMapFactory[immutable.TreeMap] = new NonVariantHolderOfASortedMapFactory(immutable.TreeMap)
 
 	implicit val mutableSortedMapFactory: NonVariantHolderOfASortedMapFactory[mutable.SortedMap] = new NonVariantHolderOfASortedMapFactory(mutable.SortedMap)
 	implicit val mutableTreeMapFactory: NonVariantHolderOfASortedMapFactory[mutable.TreeMap] = new NonVariantHolderOfASortedMapFactory(mutable.TreeMap)

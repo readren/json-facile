@@ -5,7 +5,7 @@ import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
-import jsfacile.joint.{CoproductUpperBound, ReflectTools, discriminatorField}
+import jsfacile.joint.{ReflectTools, discriminatorField}
 import jsfacile.macros.CoproductParserHelper.{CphProductInfo, FieldName}
 import jsfacile.read.Parser
 

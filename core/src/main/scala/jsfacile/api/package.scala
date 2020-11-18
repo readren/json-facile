@@ -4,6 +4,11 @@ package object api {
 	//////////////////////
 	//// Aliases ////
 
+	type IterableUpperBound[E] = scala.collection.Iterable[E];
+	type MapUpperBound[K, V] = scala.collection.Map[K, V];
+	type SortedMapUpperBound[K, V] = scala.collection.SortedMap[K, V];
+
+
 	type Parser[A] = jsfacile.read.Parser[A]
 	val Parser = jsfacile.read.Parser;
 	type Cursor = jsfacile.read.Parser.Cursor;

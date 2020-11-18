@@ -2,7 +2,6 @@ package jsfacile.test
 
 import jsfacile.macros.ProductParserHelper
 import jsfacile.read.{Parser, ProductParser}
-import jsfacile.util.{::, Base}
 import SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec

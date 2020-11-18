@@ -1,7 +1,6 @@
 package jsfacile.write
 
-import jsfacile.joint.CoproductUpperBound
-import jsfacile.macros.CoproductAppenderHelper
+import jsfacile.macros.{CoproductAppenderHelper, CoproductUpperBound}
 import jsfacile.macros.CoproductAppenderHelper.CahProductInfo
 import jsfacile.util.BinarySearch
 import jsfacile.write.CoproductAppender.UnexpectedProductTypeException

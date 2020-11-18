@@ -1,14 +1,10 @@
 package jsfacile.read
 
-import scala.collection.mutable
-
-import jsfacile.read.IterableParser.IterableUpperBound
+import jsfacile.api.IterableUpperBound
 import jsfacile.read.Parser._
 import jsfacile.util.NonVariantHolderOfAnIterableFactory
 
 object IterableParser {
-
-	type IterableUpperBound[E] = Iterable[E];
 
 //	private val cache: mutable.WeakHashMap[(Parser[_], String), Parser[_]] = mutable.WeakHashMap.empty;
 
