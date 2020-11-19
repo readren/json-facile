@@ -14,7 +14,7 @@ object MapAppender {
 	 * @tparam K the type of the map keys.
 	 * @tparam V the type of the map values. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map values's type is irrelevant, which uses to be.  For example: {{{implicit val mfd: MapFormatDecider[Foo, Any, SortedMap] = ??? }}} would determine the map format for all maps that extend {{{immutable.SortedMap[Foo, Any]}}}
 	 * @tparam MC the map's type constructor. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map collection's type is irrelevant, which uses to be.*/
-	trait MapFormatDecider[K, -V, -MC[k, v] <: MapUpperBound[k, v]] {
+	trait MapFormatDecider[K, -V, -MC[_, _]] {
 		/** Advice: When possible, implement this method with a `val` to improve speed efficiency.
 		 *
 		 * @return the result determines the JSON format of the map: true -> object, false -> array. */

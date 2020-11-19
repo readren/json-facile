@@ -50,11 +50,11 @@ class IterableParser[IC[e] <: IterableUpperBound[e], E](
 					ignored[IC[E]]
 				}
 			} else {
-				cursor.fail(s"An iterable opening char was expected but '${cursor.pointedElem}' was found")
+				cursor.miss(s"An iterable opening char was expected.")
 				ignored[IC[E]]
 			}
 		} else {
-			cursor.fail("A iterable opening char was expected but the end of the content was reached")
+			cursor.miss("A iterable opening char was expected but the end of the content was reached.")
 			ignored[IC[E]]
 
 		}

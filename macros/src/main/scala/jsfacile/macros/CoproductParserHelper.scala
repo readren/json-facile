@@ -34,7 +34,7 @@ object CoproductParserHelper {
 	final class CpHelper[C <: CoproductUpperBound](val fullName: String, val discriminator: FieldName, val productsInfo: ArraySeq[CphProductInfo[_ <: C]], val fieldsInfo: Map[FieldName, Parser[_]]) extends CoproductParserHelper[C]
 
 	final class CpHelperLazy extends CoproductParserHelper[CoproductUpperBound] with Lazy {
-		private var instance: CoproductParserHelper[CoproductUpperBound] = _
+		@volatile private var instance: CoproductParserHelper[CoproductUpperBound] = _
 		def set[C <: CoproductUpperBound](helper: CoproductParserHelper[C]): Unit = this.instance = helper.asInstanceOf[CoproductParserHelper[CoproductUpperBound]];
 		def get[C <: CoproductUpperBound]: CoproductParserHelper[C] = this.asInstanceOf[CoproductParserHelper[C]];
 		override def isEmpty: Boolean = instance == null;
@@ -232,12 +232,17 @@ if (proxy.isEmpty) {
 import _root_.jsfacile.macros.CoproductParserHelper;
 import CoproductParserHelper.{CpHelper, CpHelperLazy, cpHelpersBuffer};
 import _root_.jsfacile.macros.ProductParserHelper.{PpHelperLazy, ppHelpersBuffer};
+import _root_.jsfacile.macros.parsersBufferSemaphore;
 
-while(cpHelpersBuffer.size < ${parserHandlersMap.size}) {
-	cpHelpersBuffer.addOne(new CpHelperLazy);
-}
-while(ppHelpersBuffer.size < ${parserHandlersMap.size}) {
-	ppHelpersBuffer.addOne(new PpHelperLazy);
+if (cpHelpersBuffer.size < ${parserHandlersMap.size}) {
+	parsersBufferSemaphore.synchronized {
+		while(ppHelpersBuffer.size < ${parserHandlersMap.size}) {
+			ppHelpersBuffer.addOne(new PpHelperLazy);
+		}
+		while(cpHelpersBuffer.size < ${parserHandlersMap.size}) {
+			cpHelpersBuffer.addOne(new CpHelperLazy);
+		}
+	}
 }
 {..$inits}
 cpHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""

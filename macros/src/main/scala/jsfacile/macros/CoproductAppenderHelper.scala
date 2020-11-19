@@ -79,7 +79,7 @@ object CoproductAppenderHelper {
 	class CaHelper[C <: CoproductUpperBound](val fullName: String, val productsInfo: Array[CahProductInfo[C]]) extends CoproductAppenderHelper[C]
 
 	class CaHelperLazy extends CoproductAppenderHelper[CoproductUpperBound] with Lazy {
-		private var instance: CoproductAppenderHelper[CoproductUpperBound] = _;
+		@volatile private var instance: CoproductAppenderHelper[CoproductUpperBound] = _;
 		override def isEmpty: Boolean = this.instance == null;
 		def set[C <: CoproductUpperBound](helper: CoproductAppenderHelper[C]): Unit = this.instance = helper.asInstanceOf[CoproductAppenderHelper[CoproductUpperBound]];
 		def get[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = this.instance.asInstanceOf[CoproductAppenderHelper[C]];
@@ -325,14 +325,18 @@ if (proxy.isEmpty) {
 				q"""
 import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
 import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
+import _root_.jsfacile.macros.appendersBufferSemaphore;
 
-while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
-	caHelpersBuffer.addOne(new CaHelperLazy);
+if (caHelpersBuffer.size < ${appenderHandlersMap.size}) {
+	appendersBufferSemaphore.synchronized {
+		while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
+			productsAppendersBuffer.addOne(new PaLazy);
+		}
+		while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
+			caHelpersBuffer.addOne(new CaHelperLazy);
+		}
+	}
 }
-while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
-	productsAppendersBuffer.addOne(new PaLazy);
-}
-
 {..$inits}
 caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 

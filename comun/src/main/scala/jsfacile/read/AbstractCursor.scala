@@ -7,6 +7,7 @@ abstract class AbstractCursor extends Cursor {
 	protected var isMissed: Boolean = false;
 	protected var isFailed: Boolean = false;
 	protected var lastFailure: AnyRef = _;
+	protected var lastMissCause: String = _;
 
 	@inline override def ok: Boolean = !isMissed && !isFailed;
 
@@ -16,7 +17,16 @@ abstract class AbstractCursor extends Cursor {
 
 	@inline override def failed: Boolean = isFailed;
 
-	@inline override def miss(): Unit = this.isMissed = true;
+	@inline override def miss(): Unit = {
+		this.isMissed = true
+		this.lastMissCause = null;
+	};
+	@inline override def miss(cause: String): Unit = {
+		this.isMissed = true;
+		this.lastMissCause = cause;
+	};
+
+	override def missCause: String = lastMissCause;
 
 	override def fail(cause: AnyRef): Unit = {
 		if(!this.isFailed) {

@@ -32,7 +32,7 @@ object ProductParserHelper {
 	);
 
 	final class PpHelperLazy extends ProductParserHelper[ProductUpperBound] with Lazy {
-		private var instance: ProductParserHelper[ProductUpperBound] = _;
+		@volatile private var instance: ProductParserHelper[ProductUpperBound] = _;
 		def set[P](helper: ProductParserHelper[P]): Unit = this.instance = helper.asInstanceOf[ProductParserHelper[ProductUpperBound]];
 		def get[P]: ProductParserHelper[P] = this.asInstanceOf[ProductParserHelper[P]];
 		override def isEmpty: Boolean = instance == null;
@@ -171,12 +171,17 @@ if (proxy.isEmpty) {
 import _root_.jsfacile.macros.CoproductParserHelper.{CpHelperLazy, cpHelpersBuffer};
 import _root_.jsfacile.macros.ProductParserHelper
 import ProductParserHelper.{PpHelperLazy, ppHelpersBuffer}
+import _root_.jsfacile.macros.parsersBufferSemaphore;
 
-while(cpHelpersBuffer.size < ${parserHandlersMap.size}) {
-	cpHelpersBuffer.addOne(new CpHelperLazy);
-}
-while(ppHelpersBuffer.size < ${parserHandlersMap.size}) {
-	ppHelpersBuffer.addOne(new PpHelperLazy);
+if (ppHelpersBuffer.size < ${parserHandlersMap.size}) {
+	parsersBufferSemaphore.synchronized {
+		while(cpHelpersBuffer.size < ${parserHandlersMap.size}) {
+			cpHelpersBuffer.addOne(new CpHelperLazy);
+		}
+		while(ppHelpersBuffer.size < ${parserHandlersMap.size}) {
+			ppHelpersBuffer.addOne(new PpHelperLazy);
+		}
+	}
 }
 {..$inits}
 ppHelpersBuffer(${productHandler.typeIndex}).get[$productType]"""

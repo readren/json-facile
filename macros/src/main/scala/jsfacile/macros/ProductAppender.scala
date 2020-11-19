@@ -20,7 +20,7 @@ object ProductAppender {
 
 
 	class PaLazy extends Appender[ProductUpperBound] with Lazy {
-		private var instance: Appender[ProductUpperBound] = _;
+		@volatile private var instance: Appender[ProductUpperBound] = _;
 		def set[P <: ProductUpperBound](appender: Appender[P]): Unit = this.instance = appender.asInstanceOf[Appender[ProductUpperBound]];
 		def get[P <: ProductUpperBound]: Appender[P] = this.instance.asInstanceOf[Appender[P]];
 		override def isEmpty: Boolean = this.instance == null;
@@ -152,12 +152,17 @@ if (proxy.isEmpty) {
 				q"""
 import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
 import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
+import _root_.jsfacile.macros.appendersBufferSemaphore;
 
-while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
-	caHelpersBuffer.addOne(new CaHelperLazy);
-}
-while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
-	productsAppendersBuffer.addOne(new PaLazy);
+if (productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
+	appendersBufferSemaphore.synchronized {
+		while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
+			caHelpersBuffer.addOne(new CaHelperLazy);
+		}
+		while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
+			productsAppendersBuffer.addOne(new PaLazy);
+		}
+	}
 }
 {..$inits}
 productsAppendersBuffer(${productHandler.typeIndex}).get[$productType]""";

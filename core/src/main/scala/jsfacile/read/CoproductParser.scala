@@ -97,7 +97,7 @@ class CoproductParser[C <: CoproductUpperBound](helper: CoproductParserHelper[C]
 						}
 					}
 					if (chosenManager == null) {
-						cursor.fail(s"There is no product extending ${helper.fullName} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}. Note that only the fields that are defined in at least one of said products are considered.")
+						cursor.miss(s"There is no product extending ${helper.fullName} with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}. Note that only the fields that are defined in at least one of said products are considered.")
 					} else if (isAmbiguous) {
 						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "${helper.fullName}" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(foundFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 					} else {
@@ -122,10 +122,10 @@ class CoproductParser[C <: CoproductUpperBound](helper: CoproductParserHelper[C]
 					cursor.fail(s"Invalid syntax for an object while parsing a ${helper.fullName}");
 				}
 			} else {
-				cursor.fail(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a ${helper.fullName}")
+				cursor.miss(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a ${helper.fullName}")
 			}
 		} else {
-			cursor.fail(s"A '{' expected but the end of the content was reached when trying to parse a ${helper.fullName}")
+			cursor.miss(s"A '{' expected but the end of the content was reached when trying to parse a ${helper.fullName}")
 		}
 		ignored[C]
 	}

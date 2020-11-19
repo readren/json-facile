@@ -1,6 +1,5 @@
 package jsfacile.read
 
-import scala.collection.IterableOnce.iterableOnceExtensionMethods
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 
@@ -11,11 +10,11 @@ object PrimitiveParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
-	val jpString: Parser[String] = SyntaxParsers.string orFail "A string was expected.";
+	val jpString: Parser[String] = SyntaxParsers.string;
 
-	val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) orFail "A null was expected";
+	val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) withMissCause "A null was expected";
 
-	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) orFail "A null was expected";
+	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) withMissCause "A null was expected";
 
 	val jpBoolean: Parser[Boolean] = { cursor =>
 		if (cursor.comes("true")) {
@@ -23,7 +22,7 @@ object PrimitiveParsers {
 		} else if (cursor.comes("false")) {
 			false
 		} else {
-			cursor.fail("A boolean was expected")
+			cursor.miss("A boolean was expected")
 			false
 		}
 	}
@@ -42,12 +41,15 @@ object PrimitiveParsers {
 					have = cursor.advance();
 					if (have) {
 						pointedElem = cursor.pointedElem
-						// Note that `cursor.fail("A digit was expected")` will be called later because the "digit" var won't contain a digit
 					}
 				};
 				var digit = pointedElem - '0';
 				if (digit < 0 || 9 < digit) {
-					cursor.fail("A digit was expected");
+					if(isNegative) {
+						cursor.fail("A digit was expected after the minus sign when parsing a Int")
+					} else {
+						cursor.miss("The first digit of an Int was expected")
+					}
 				} else {
 					do {
 						accum = accum * 10 + digit;
@@ -78,7 +80,7 @@ object PrimitiveParsers {
 				else accum
 			}
 		} else {
-			cursor.fail("An Int was expected")
+			cursor.miss("An Int was expected")
 			0
 		}
 	}
@@ -97,12 +99,16 @@ object PrimitiveParsers {
 					have = cursor.advance();
 					if (have) {
 						pointedElem = cursor.pointedElem
-						// Note that `cursor.fail("A digit was expected")` will be called later because the "digit" var won't contain a digit
 					}
 				};
 				var digit = pointedElem - '0';
 				if (digit < 0 || 9 < digit) {
-					cursor.fail("A digit was expected");
+					if(isNegative) {
+						cursor.fail("A digit was expected after the minus sign when parsing a Long")
+					} else {
+						cursor.miss("The first digit of a Long was expected")
+					}
+
 				} else {
 					do {
 						accum = accum * 10L + digit;
@@ -133,7 +139,7 @@ object PrimitiveParsers {
 				else accum
 			}
 		} else {
-			cursor.fail("A Long was expected")
+			cursor.miss("A Long was expected")
 			0L
 		}
 	}
@@ -143,7 +149,7 @@ object PrimitiveParsers {
 		if (cursor.ok && integer.length > 0) {
 			BigInt(integer);
 		} else {
-			cursor.fail("An integer number was expected while parsing a BigInt");
+			cursor.miss("An integer number was expected while parsing a BigInt");
 			Parser.ignored[BigInt]
 		}
 	}
@@ -153,7 +159,7 @@ object PrimitiveParsers {
 		if (cursor.ok) {
 			BigDecimal(number);
 		} else {
-			cursor.fail("A number was expected while parsing a BigDecimal");
+			cursor.miss("A number was expected while parsing a BigDecimal");
 			Parser.ignored[BigDecimal]
 		}
 	}
@@ -166,7 +172,7 @@ object PrimitiveParsers {
 			if (cursor.ok) {
 				java.lang.Double.parseDouble(number);
 			} else {
-				cursor.fail("A number was expected while parsing a Double");
+				cursor.miss("A number was expected while parsing a Double");
 				Parser.ignored[Double]
 			}
 		}
@@ -180,7 +186,7 @@ object PrimitiveParsers {
 			if (cursor.ok) {
 				java.lang.Float.parseFloat(number);
 			} else {
-				cursor.fail("A number was expected while parsing a Float");
+				cursor.miss("A number was expected while parsing a Float");
 				Parser.ignored[Float]
 			}
 		}
@@ -210,7 +216,7 @@ object PrimitiveParsers {
 							if (index >= 0) {
 								values(index);
 							} else {
-								cursor.fail(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
+								cursor.miss(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
 								ignored[E#Value]
 							}
 						} else {
@@ -221,17 +227,17 @@ object PrimitiveParsers {
 						if (cursor.ok) {
 							val value = BinarySearch.find(values.unsafeArray.asInstanceOf[Array[enum.Value]])(_.id - id)
 							if (value == null) {
-								cursor.fail(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
+								cursor.miss(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
 							}
 							value
 						} else {
-							cursor.fail(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
+							cursor.miss(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
 							ignored[E#Value]
 						}
 					}
 
 				} else {
-					cursor.fail(s"""A value of the enum "$fullName" was expected but the end of the content was reached.""")
+					cursor.miss(s"""A value of the enum "$fullName" was expected but the end of the content was reached.""")
 					null
 				}
 			}
@@ -249,9 +255,24 @@ object PrimitiveParsers {
 	def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = { cursor => Some(pE.parse(cursor)) }
 
 	val jpNone: Parser[None.type] = { cursor =>
-		if(!cursor.comes("null")) {
-			cursor.fail("A null was expected while trying to parse a None")
+		if (!cursor.comes("null")) {
+			cursor.miss("A null was expected while trying to parse a None")
 		}
 		None
 	}
+
+	/** Implemented with an optimized versión of {{{(pR ^^ { r => Right[L, R](r).asInstanceOf[Either[L, R]] }) | (pL ^^ { l => Left[L, R](l).asInstanceOf[Either[L, R]] })}}} */
+	def jpEither[L, R](implicit pL: Parser[L], pR: Parser[R]): Parser[Either[L, R]] = { cursor =>
+		val r = cursor.attempt(() => pR.parse(cursor));
+		if (cursor.ok) {
+			Right(r)
+		} else {
+			cursor.repair();
+			Left(pL.parse(cursor))
+		}
+	}
+
+	def jpLeft[L, R](implicit pL: Parser[L]): Parser[Left[L, R]] = pL ^^ Left[L, R]
+	def jpRight[L, R](implicit pR: Parser[R]): Parser[Right[L, R]] = pR ^^ Right[L, R]
+
 }

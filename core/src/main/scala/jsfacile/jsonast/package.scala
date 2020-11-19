@@ -26,7 +26,7 @@ package object jsonast {
 		if (cursor.comes("true")) JsTrue
 		else if (cursor.comes("false")) JsFalse
 		else {
-			cursor.fail("A boolean was expected")
+			cursor.miss("A boolean was expected")
 			JsFalse
 		}
 	}

@@ -1,17 +1,19 @@
 # json-facile
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
-* Converts between scala algebraic data types and String JSON documents directly, without any intermediate representations.
-* An efficient JSON parser. Sligtly Faster than [spray].
+* Converts between scala algebraic data types and String JSON documents directly, without any intermediate representation.
+* An efficient JSON parser. Sligtly faster than [spray] (around 6%).
 * Type-class based conversion (no runtime reflection, no intrusion).
-* Automatic derivation: the conversion type classes are automaticaly generated at compile-time by macros. Zero boilerplate. 
+* Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
+* The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`. The fields names and its types are extracted from the primary constructor.
+Abstract types must be sealed and have at least one concrete implementation.
 * No external dependencies.
-* A discriminator to differentiate between products of a coproduct is needed by the parser only when two products have the same amount of required fields and all these fields have the same names.
-* Scala maps can be represented as both, JSON object or as a JSON array of pairs
+* Scala maps can be represented as either, JSON objects or as JSON arrays of pairs.
 * Map keys can be of any type, even when represented as a JSON object. In that case the keys are encoded in the JSON object field names.
+* When parsing an abstract type, a discriminator field to distinguish between different concrete implementations of said abstract type is needed only for those that are ambiguous: have the same amount of required fields and all these fields have the same names.
 
 _json-facile_ allows you to convert between
- * instances of arbitrary Scala types including parameterized algebraic data types 
+ * instances of arbitrary Scala data types, including parameterized and recursive algebraic data types. 
  * String JSON documents
  * JSON Abstract Syntax Trees (ASTs) with base type JsValue 
  
@@ -76,12 +78,63 @@ By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `C
 	{"{\"id\":1,\"value\":false}":"one","{\"id\":2,\"value\":true}":"two"}
 	``
 	Note that the key values are JSON enconded in the JSON object's field names.
+
+	CAUTION: Derived appenders (and parser) are buffered to improve speed and reduce the proyect size. Therefore, all appenders that were buffered before the declaration of the implicit instances of `MapFormatDecider` are not affected.
+	To overcome this problem use the `clearAppenderBufferOf` method on the types that contains the target maps.
+
 ## More examples
 
-1. A more elavorate ADT (algebraic data type) that includes enumerations and collections.
-
+1. A good example of the support of parameterized ADTs (algebraic data types) is HList.
+	
 	```scala
 	object example1 {
+		sealed abstract class HList {
+			def ::[H](head: H): ::[H, this.type] = new ::(head, this)
+		}
+		final case class ::[+H, +T <: HList](head: H, tail: T) extends HList
+		case object Base extends HList
+
+		def main(args: Array[String]) {
+			// create an HList instance
+			val hList = true :: "text" :: 3 :: Base
+
+			// convert the HList to JSON representation
+			import jsfacile.api._
+			val json = hList.toJson
+			println(json);
+
+			// convert the JSON string back to an HList instance
+			val parsedHList = json.fromJson[Boolean :: String :: Int :: Base.type]
+
+			// check
+			assert(parsedHList == Right(hList))
+		}
+	}
+	```
+	prints
+	```json
+	{"head":true,"tail":{"head":"text","tail":{"head":3,"tail":{}}}}
+	```
+	
+2. This examples show the support of recursive data types.
+
+	```scala
+	object example2 {
+		sealed trait Foo[T];
+		case class FooNext[T](next: Foo[T]) extends Foo[T];
+		case class FooBase[T](v: T) extends Foo[T];
+
+		val fooBase = FooBase(7);
+		val fooNext = FooNext(fooBase)
+
+		val fooJson = fooNext.toJson
+		val fooParsed = fooJson.fromJson[Foo[Int]]
+		assert(Right(fooNext) == fooParsed)
+	```
+1. Next is a more elavorate ADTs (algebraic data types) hierarchy that includes enumerations and collections.
+
+	```scala
+	object example3 {
 		object DistanceUnit extends Enumeration {
 			val Meter, Millimeter = Value;
 		}
@@ -140,62 +193,12 @@ By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `C
 
 		}
 	}
-	```
-	
-2. A good example of the support of parameterized ADTs are HLists.
-	
-	```scala
-	object example2 {
-		sealed abstract class HList {
-			def ::[H](head: H): ::[H, this.type] = new ::(head, this)
-		}
-		final case class ::[+H, +T <: HList](head: H, tail: T) extends HList
-		case object Base extends HList
-
-		def main(args: Array[String]) {
-			// create an HList instance
-			val hList = true :: "text" :: 3 :: Base
-
-			// convert the HList to JSON representation
-			import jsfacile.api._
-			val json = hList.toJson
-			println(json);
-
-			// convert the JSON string back to an HList instance
-			val parsedHList = json.fromJson[Boolean :: String :: Int :: Base.type]
-
-			// check
-			assert(parsedHList == Right(hList))
-		}
-	}
-	```
-	prints
-	```json
-	{"head":true,"tail":{"head":"text","tail":{"head":3,"tail":{}}}}
-	```
-	
-3. Convert a recursive ADT to JSON and back
-
-	```scala
-	object example3 {
-		sealed trait Foo[T];
-		case class FooNext[T](next: Foo[T]) extends Foo[T];
-		case class FooBase[T](v: T) extends Foo[T];
-
-		val fooBase = FooBase(7);
-		val fooNext = FooNext(fooBase)
-
-		val fooJson = fooNext.toJson
-		val fooParsed = fooJson.fromJson[Foo[Int]]
-		assert(Right(fooNext) == fooParsed)
-	```
-	
+	```	
 ## Supported standard types
-
 * Int, Long, Float, Double, Char, Boolean, Unit, Null
 * String, CharSequence
 * BigInt, BigDecimal
-* Option (is treated specially)
+* Option and Either (are treated specially)
 * All tuples and products
 * scala.{Array, Enumeration}
 * scala.collection.{Iterable, Seq, IndexedSeq, LinearSeq, Set}
@@ -204,13 +207,12 @@ By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `C
 * scala.collection.{Map, SortedMap}
 * scala.collection.immutable.{Map, HashMap, SeqMap, ListMap, SortedMap, TreeMap}
 * scala.collection.mutable.{Map, HashMap, SortedMap, TreeMap}
-* JsValue
 
-You can add support to any other collection with a single line. Look the "jsfacile.util.NonVariantHolderOf*" scala files to see how.
+You can add support to any other collection with a single line provided it has a factory. Look the "jsfacile.util.NonVariantHolderOf*" scala files to see how.
 
 ## Limitations
 
-1. The automatically derived parser of abstract types (sealed traits or abstract classes), does not support the case when two of the concrete implementations have a field with the same name but different type.
+1. The automatically derived parser of abstract data types (sealed traits or abstract classes), does not support the case when two of the concrete implementations have a field with the same name but different type.
 
 	```scala
 	import jsfacile.api._
@@ -231,7 +233,7 @@ You can add support to any other collection with a single line. Look the "jsfaci
 	This is a consequence of a design decision: execution speed is more important than support of rare or easily avoidable use cases.
 2. Some IDEs hightlight false "implicit not found" kind error mensajes. Ignore or suppress them.
 3. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time is significantly increased.
-This problem can be easily mittigated moving the involved ADTs to separate SBT project. 
+This problem can be easily mittigated moving the involved ADTs to a separate SBT project. 
 
 ###To be continued...
 

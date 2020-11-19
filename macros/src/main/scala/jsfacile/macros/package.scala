@@ -42,6 +42,9 @@ package object macros {
 	@inline def showParserHandlers: String = Handler.show(parserHandlersMap);
 	@inline def showAppenderHandlers: String = Handler.show(appenderHandlersMap);
 
+	val appendersBufferSemaphore = new Object;
+	val parsersBufferSemaphore = new Object;
+
 	//////////////////
 
 	def isOuterParserMacroInvocation(ctx: whitebox.Context): Boolean = {

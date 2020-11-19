@@ -51,7 +51,7 @@ class ProductParser[P <: ProductUpperBound](helper: ProductParserHelper[P]) exte
 								case Some(defaultValue) =>
 									ctorArgs(fieldIndex) = defaultValue
 								case None =>
-									cursor.fail(s"""Missing required field "${fieldInfo.name}" when trying to parse a "${helper.fullName}""")
+									cursor.miss(s"""Missing required field "${fieldInfo.name}" when trying to parse a "${helper.fullName}""")
 							}
 						}
 						fieldIndex += 1;
@@ -63,10 +63,10 @@ class ProductParser[P <: ProductUpperBound](helper: ProductParserHelper[P]) exte
 					cursor.fail(s"Invalid syntax for an object while parsing a ${helper.fullName}");
 				}
 			} else {
-				cursor.fail(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a ${helper.fullName}")
+				cursor.miss();
 			}
 		} else {
-			cursor.fail(s"A '{' expected but the end of the content was reached when trying to parse a ${helper.fullName}")
+			cursor.miss(s"A '{' expected but the end of the content was reached when trying to parse a ${helper.fullName}")
 		}
 		ignored[P]
 	}

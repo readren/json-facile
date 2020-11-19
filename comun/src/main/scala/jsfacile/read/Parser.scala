@@ -53,6 +53,10 @@ object Parser {
 		def advance(steps: Int = 1): Boolean
 		/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
 		def miss(): Unit
+		/** Sets the missed flag and informs the cause. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
+		def miss(cause: String): Unit;
+		/** Get the miss cause or null if no cause was given in the last miss. */
+		def missCause: String;
 		/** If already failed does nothing, else sets the failed flag and memorizes the cause. Failures propagates trough all normal parsers until a [[Parser.recover]] or [[Parser.recoverWith]] is reached. */
 		def fail(cause: AnyRef): Unit
 		/** The cause of the last failure or null if the failing flag is not set. */
@@ -155,10 +159,10 @@ object Parser {
 		}
 	}
 
-	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and fails otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the received `opaque` argument. */
+	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the received `opaque` argument. */
 	def expectStr[A](str: String, opaque: A): Parser[A] = { cursor =>
 		if (!cursor.comes(str)) {
-			cursor.fail(s"A $str was expected.")
+			cursor.miss(s"A $str was expected.")
 		}
 		opaque
 	}
@@ -372,11 +376,20 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	}
 	def repN(n: Int): Parser[List[A]] = repNGen(n, () => List.newBuilder)
 
-	/** Lanza falla si este [[Parser]] fracasa. */
+	/** Set the failure flag if this [[Parser]] misses. */
 	def orFail(cause: AnyRef): Parser[A] = { (cursor: Cursor) =>
 		val a = self.parse(cursor);
 		if (cursor.missed) {
 			cursor.fail(cause)
+		}
+		a
+	}
+
+	/** Give a parser that behaves identically to this parser except that, when it misses and no miss cause is specified, sets the received one. */
+	def withMissCause(cause: String): Parser[A] = { cursor =>
+		val a = this.parse(cursor);
+		if(cursor.missed && cursor.missCause == null) {
+			cursor.miss(cause)
 		}
 		a
 	}

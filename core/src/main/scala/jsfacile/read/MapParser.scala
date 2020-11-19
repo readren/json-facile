@@ -83,7 +83,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 					}
 				}
 			} else {
-				cursor.fail(s"A map opening char was expected but '${cursor.pointedElem}' was found")
+				cursor.miss(s"A map opening char was expected.")
 			}
 
 			if (have) {
@@ -95,7 +95,7 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 			}
 
 		} else {
-			cursor.fail("A map opening char was expected but the end of the content was reached")
+			cursor.miss("A map opening char was expected but the end of the content was reached")
 			ignored[M]
 		}
 	}

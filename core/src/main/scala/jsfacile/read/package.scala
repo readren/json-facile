@@ -79,7 +79,7 @@ package object read {
 	implicit def jpSingleton[S](implicit helper: SingletonParserHelper[S]): Parser[S] = { cursor =>
 		val ok = SyntaxParsers.skipJsObject(cursor);
 		if (!ok) {
-			cursor.fail(s"A json empty object was expected while parsing the singleton object ${helper.instance.getClass.getName}")
+			cursor.miss(s"A json empty object was expected while parsing the singleton object ${helper.instance.getClass.getName}")
 		}
 		helper.instance
 	}

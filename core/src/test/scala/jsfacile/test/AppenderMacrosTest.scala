@@ -1,6 +1,8 @@
 package jsfacile.test
 
 import SampleADT._
+import jsfacile.macros.Tools
+import jsfacile.write.MapAppender.MapFormatDecider
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -35,8 +37,17 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 		}
 
 		def `with iterators and maps`(): Unit = {
-			val treeJson = treeOriginal.toJson
-			assert(treeJson == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
+			{
+				val mapAsArray: String = treeOriginal.toJson;
+				assert(mapAsArray == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":[[{"text":"hola","number":7},{"name":"chau","simple":{"text":"hola","number":7}}]]}""");
+			}
+			{
+				implicit val mfd = new MapFormatDecider[Simple[Int], Any, MapUpperBound] {override val useObject: Boolean = true};
+				Tools.clearAppenderBufferOf[Tree[Nest[Int], Int]];
+
+				val mapAsObjects: String = treeOriginal.toJson;
+				assert(mapAsObjects == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
+			}
 		}
 
 		def `with abstract types`(): Unit = {
