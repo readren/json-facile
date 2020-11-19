@@ -4,9 +4,9 @@ import scala.reflect.macros.whitebox
 
 object Tools {
 
-	def clearAppenderBufferOf[T]: Unit = macro clearAppenderBufferOfImpl[T];
+	def clearAppenderBufferOf[T](): Unit = macro clearAppenderBufferOfImpl[T];
 
-	def clearAppenderBufferOfImpl[T : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Unit] = {
+	def clearAppenderBufferOfImpl[T : ctx.WeakTypeTag](ctx: whitebox.Context)(): ctx.Expr[Unit] = {
 		import ctx.universe._
 
 		val tpe: Type = ctx.weakTypeTag[T].tpe.dealias;

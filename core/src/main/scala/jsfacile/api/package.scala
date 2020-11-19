@@ -19,7 +19,7 @@ package object api {
 	type Record = jsfacile.write.Record;
 	type RecordStr = jsfacile.write.RecordStr;
 
-	type MapFormatDecider[K, V, MC] = jsfacile.write.MapAppender.MapFormatDecider[K, V, MC];
+	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapAppender.MapFormatDecider[K, V, MC];
 
 	///////////////////
 	//// Summoners ////
@@ -95,5 +95,5 @@ package object api {
 
 	/** Removes the `Appender[T]` instance that where stored in the derived appenders buffer.
 	 * This is needed to recreate the appender after a circumstance from which it depends has changed. For example, when a new [[MapFormatDecider]] enters into implicit scope after the [[Appender]] creation. */
-	@inline def clearAppenderBufferOf[T]: Unit = jsfacile.macros.Tools.clearAppenderBufferOf[T];
+	@inline def clearAppenderBufferOf[T](): Unit = jsfacile.macros.Tools.clearAppenderBufferOf[T];
 }

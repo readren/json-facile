@@ -1,7 +1,9 @@
 package jsfacile
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
+//import scala.reflect.api.Trees#Symbol
 
 
 package object macros {
@@ -47,37 +49,54 @@ package object macros {
 
 	//////////////////
 
+	/** Checks if there is no macro call under the top of the macro call stack that satisfies the received predicate on the called macro full name.
+	 * @return true if no macro call in the macro stack (excluding the top one) satisfies the predicate */
+	private def isOuterMacroInvocation(ctx: whitebox.Context)(predicate: String => Boolean): Boolean = {
+		import ctx.universe._;
+
+		@tailrec
+		def loop(head: whitebox.Context, tail: List[whitebox.Context]): Boolean = {
+			var next = tail;
+			// ignore immediate repetitions
+			while (next.nonEmpty && next.head == head) next = next.tail;
+			if (next.isEmpty) true
+			else {
+				val q"$term[..$_](...$_)" = head.macroApplication;
+				val termSymbol = term.symbol;
+				if (termSymbol.isMacro && predicate(termSymbol.fullName)) false
+				else loop(next.head, next.tail)
+			}
+		}
+		loop(ctx.enclosingMacros.head, ctx.enclosingMacros.tail)
+	}
 	def isOuterParserMacroInvocation(ctx: whitebox.Context): Boolean = {
-		1 >= ctx.openImplicits.count { ic =>
-			ic.sym.isMacro && (
-				ic.sym.fullName == "jsfacile.macros.ProductParserHelper.materialize"
-				|| ic.sym.fullName == "jsfacile.macros.CoproductParserHelper.materialize"
-				)
+		this.isOuterMacroInvocation(ctx){ methodFullName =>
+			methodFullName == "jsfacile.macros.ProductParserHelper.materialize" || methodFullName == "jsfacile.macros.CoproductParserHelper.materialize"
 		}
 	}
 	def isOuterAppenderMacroInvocation(ctx: whitebox.Context): Boolean = {
-		1 >= ctx.openImplicits.count { ic =>
-			ic.sym.isMacro && (
-				ic.sym.fullName == "jsfacile.write.jaProduct"
-				|| ic.sym.fullName == "jsfacile.macros.CoproductAppenderHelper.materialize"
-				)
+		this.isOuterMacroInvocation(ctx){ methodFullName =>
+			methodFullName == "jsfacile.write.jaProduct" || methodFullName == "jsfacile.macros.CoproductAppenderHelper.materialize"
 		}
 	}
 
 	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
 		val macros = ctx.openMacros.map { ctx =>
 			if (true) s"\n\thashCode: ${ctx.hashCode}, macroApp: ${ctx.macroApplication}"
-			else
+			else {
+				import ctx.universe._
+				val q"$term[..$_](...$_)" = ctx.macroApplication
 				s"""
 				   |Context(
-				   |	macroApp:	${ctx.universe.showRaw(ctx.macroApplication)} -> ${ctx.macroApplication},
-				   |	actualType:	${ctx.universe.showRaw(ctx.prefix.actualType)} -> ${ctx.prefix.actualType},
-				   | 	prefix:		${ctx.universe.showRaw(ctx.prefix)} -> ${ctx.prefix},
+				   |	macroApp:	${ctx.macroApplication} -> ${ctx.universe.showRaw(ctx.macroApplication)},
+				   |	actualType:	${ctx.prefix.actualType} -> ${ctx.universe.showRaw(ctx.prefix.actualType)},
+				   | 	prefix:		${ctx.prefix} -> ${ctx.universe.showRaw(ctx.prefix)},
 				   |  	hashCode:	${ctx.hashCode}
 				   |)""".stripMargin
+			}
 		}.mkString
 		val implicits = ctx.openImplicits.map { ic =>
-			if (true) s"${ic.sym.fullName} <- ${ic.tree}"
+			if (true) s"\n\t${ic.sym.fullName} <- ${ic.tree}"
 			else
 				s"""|
 				|ImplicitCandidate(
