@@ -10,7 +10,7 @@ package object api {
 
 	type Parser[A] = jsfacile.read.Parser[A]
 	val Parser: jsfacile.read.Parser.type = jsfacile.read.Parser;
-	type Cursor = jsfacile.read.Parser.Cursor;
+	type Cursor = jsfacile.read.Cursor;
 	type CursorStr = jsfacile.read.CursorStr;
 
 
@@ -35,7 +35,7 @@ package object api {
 	//// Existent types enrichment ////
 
 	/** Adds the [[toJson]] method to all objects */
-	implicit class ToJsonConvertable[T](val obj: T) extends AnyVal {
+	implicit class ToJsonConvertible[T](val obj: T) extends AnyVal {
 		def toJson(implicit at: Appender[T]): String = {
 			val r = new RecordStr(new java.lang.StringBuilder());
 			at.append(r, obj);
@@ -44,7 +44,7 @@ package object api {
 	}
 
 	/** Adds the [[fromJson]] method to String */
-	implicit class FromJsonConvertable(val jsonDoc: String) extends AnyVal {
+	implicit class FromJsonConvertible(val jsonDoc: String) extends AnyVal {
 		/** Tries to create an instance of the specified type with the value represented by this [[String]] in JSON format.
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
@@ -95,5 +95,5 @@ package object api {
 
 	/** Removes the `Appender[T]` instance that where stored in the derived appenders buffer.
 	 * This is needed to recreate the appender after a circumstance from which it depends has changed. For example, when a new [[MapFormatDecider]] enters into implicit scope after the [[Appender]] creation. */
-	@inline def clearAppenderBufferOf[T](): Unit = jsfacile.macros.Tools.clearAppenderBufferOf[T];
+	@inline def clearAppenderBufferOf[T](): Unit = jsfacile.macros.Tools.clearAppenderBufferOf[T]();
 }

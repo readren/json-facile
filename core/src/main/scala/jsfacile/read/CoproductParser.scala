@@ -5,7 +5,6 @@ import scala.collection.mutable.ArrayBuffer
 
 import jsfacile.macros.{CoproductParserHelper, CoproductUpperBound}
 import jsfacile.macros.CoproductParserHelper.CphProductInfo
-import jsfacile.read.SyntaxParsers._
 
 object CoproductParser {
 	private case class Field[+V](name: String, value: V);
@@ -39,13 +38,13 @@ class CoproductParser[C <: CoproductUpperBound](helper: CoproductParserHelper[C]
 				var have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
 					have = false;
-					val fieldName = string.parse(cursor);
+					val fieldName = jpString.parse(cursor);
 					if (cursor.consumeWhitespaces() &&
 						cursor.consumeChar(':') &&
 						cursor.consumeWhitespaces()
 					) {
 						if (fieldName == helper.discriminator) {
-							val productName = PrimitiveParsers.jpString.parse(cursor);
+							val productName = BasicParsers.jpString.parse(cursor);
 							if (cursor.consumeWhitespaces()) {
 								managers.foreach { m =>
 									if (m.productInfo.name != productName)
@@ -74,7 +73,7 @@ class CoproductParser[C <: CoproductUpperBound](helper: CoproductParserHelper[C]
 									}
 
 								case None =>
-									skipJsValue(cursor)
+									Skip.jsValue(cursor)
 									have = cursor.consumeWhitespaces()
 							}
 						}

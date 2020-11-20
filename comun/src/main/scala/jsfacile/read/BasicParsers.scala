@@ -6,11 +6,93 @@ import scala.collection.mutable
 import jsfacile.read.Parser._
 import jsfacile.util.BinarySearch
 
-object PrimitiveParsers {
+object BasicParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
 
-	val jpString: Parser[String] = SyntaxParsers.string;
+	/** A [[Parser]] of JSON strings.
+	 * Used to parse the JSON field names and string values. */
+	object jpString extends Parser[String] {
+		override def parse(cursor: Cursor): String = {
+			if (cursor.have && cursor.pointedElem == '"') {
+				if (!cursor.advance()) {
+					cursor.fail("unclosed string");
+					return ignored[String]
+				}
+				val sb = new java.lang.StringBuilder();
+
+				var pe = cursor.pointedElem;
+				while (pe != '"') {
+					pe match {
+						case '\\' =>
+							if (!cursor.advance()) {
+								cursor.fail("unfinished string escape");
+								return ignored[String]
+							}
+							cursor.pointedElem match {
+								case '"' => sb.append('"')
+								case '\\' => sb.append('\\')
+								case '/' => sb.append('/')
+								case 'b' => sb.append('\b')
+								case 'f' => sb.append('\f')
+								case 'n' => sb.append('\n')
+								case 'r' => sb.append('\r')
+								case 't' => sb.append('\t')
+								case 'u' =>
+									var counter = 4;
+									var hexCode: Int = 0;
+									do {
+										if (!cursor.advance()) {
+											cursor.fail("unfinished string hex code escape");
+											return ignored[String]
+										}
+										hexCode *= 16;
+										pe = cursor.pointedElem;
+										if ('0' <= pe & pe <= '9') {
+											hexCode += pe - '0'
+										} else if ('a' <= pe && pe <= 'f') {
+											hexCode += pe - 'a' + 10
+										} else if ('A' <= pe && pe <= 'F') {
+											hexCode += pe - 'A' + 10
+										} else {
+											cursor.fail("invalid hex code");
+											return ignored[String]
+										}
+										counter -= 1;
+									} while (counter > 0)
+									sb.appendCodePoint(hexCode)
+							}
+
+						case highSurrogate if highSurrogate >= Character.MIN_HIGH_SURROGATE =>
+							if (!cursor.advance()) {
+								cursor.fail("unfinished string in middle of surrogate pair");
+								return ignored[String]
+							}
+							pe = cursor.pointedElem;
+							if (!pe.isLowSurrogate) {
+								cursor.fail("invalid surrogate pair");
+								return ignored[String]
+							}
+							sb.append(highSurrogate).append(pe)
+
+						case normal => sb.append(normal)
+					};
+					if (!cursor.advance()) {
+						cursor.fail("unclosed string");
+						return ignored[String]
+					}
+					pe = cursor.pointedElem
+				}
+				cursor.advance() // consume closing quote char
+				sb.toString
+
+			} else {
+				cursor.miss()
+				ignored[String]
+			}
+		}
+	}
+
 
 	val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) withMissCause "A null was expected";
 
@@ -145,7 +227,7 @@ object PrimitiveParsers {
 	}
 
 	val jpBigInt: Parser[BigInt] = { cursor =>
-		val integer = cursor.stringConsumedBy(SyntaxParsers.skipInteger)
+		val integer = cursor.stringConsumedBy(Skip.integer)
 		if (cursor.ok && integer.length > 0) {
 			BigInt(integer);
 		} else {
@@ -155,7 +237,7 @@ object PrimitiveParsers {
 	}
 
 	val jpBigDecimal: Parser[BigDecimal] = { cursor =>
-		val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+		val number = cursor.stringConsumedBy(Skip.jsNumber)
 		if (cursor.ok) {
 			BigDecimal(number);
 		} else {
@@ -168,7 +250,7 @@ object PrimitiveParsers {
 		if (cursor.comes("null")) {
 			Double.NaN
 		} else {
-			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+			val number = cursor.stringConsumedBy(Skip.jsNumber)
 			if (cursor.ok) {
 				java.lang.Double.parseDouble(number);
 			} else {
@@ -182,7 +264,7 @@ object PrimitiveParsers {
 		if (cursor.comes("null")) {
 			Float.NaN
 		} else {
-			val number = cursor.stringConsumedBy(SyntaxParsers.skipJsNumber)
+			val number = cursor.stringConsumedBy(Skip.jsNumber)
 			if (cursor.ok) {
 				java.lang.Float.parseFloat(number);
 			} else {
@@ -190,58 +272,6 @@ object PrimitiveParsers {
 				Parser.ignored[Float]
 			}
 		}
-	}
-
-
-	private val jpEnumerationCache = mutable.WeakHashMap.empty[String, Parser[_ <: Enumeration#Value]]
-	import scala.reflect.runtime.{universe => ru}
-
-	def jpEnumeration[E <: scala.Enumeration](implicit typeTag: ru.TypeTag[E]): Parser[E#Value] = {
-		val fullName = typeTag.tpe.toString
-		jpEnumerationCache.getOrElseUpdate(
-		fullName, {
-			val enum = { // TODO use a macro to obtain this to avoid the mirror
-				val classLoaderMirror = ru.runtimeMirror(getClass.getClassLoader)
-				val moduleMirror = classLoaderMirror.reflectModule(typeTag.tpe.termSymbol.asModule)
-				moduleMirror.instance.asInstanceOf[E]
-			}
-			val values = ArraySeq.from(enum.values)
-
-			{ cursor =>
-				if (cursor.have) {
-					if (cursor.pointedElem == '"') {
-						val name = SyntaxParsers.string.parse(cursor);
-						if (cursor.ok) {
-							val index = values.indexWhere(_.toString == name)
-							if (index >= 0) {
-								values(index);
-							} else {
-								cursor.miss(s"""The expected enum "$fullName" does not contain a value with this name: $name.""")
-								ignored[E#Value]
-							}
-						} else {
-							ignored[E#Value]
-						}
-					} else {
-						val id = jpInt.parse(cursor)
-						if (cursor.ok) {
-							val value = BinarySearch.find(values.unsafeArray.asInstanceOf[Array[enum.Value]])(_.id - id)
-							if (value == null) {
-								cursor.miss(s"""The expected enum "$fullName" does not contain a value with this id: $id.""")
-							}
-							value
-						} else {
-							cursor.miss(s"""A string with the name or an integer with the id of an element of the enum "$fullName" was expected.""")
-							ignored[E#Value]
-						}
-					}
-
-				} else {
-					cursor.miss(s"""A value of the enum "$fullName" was expected but the end of the content was reached.""")
-					null
-				}
-			}
-		}).asInstanceOf[Parser[E#Value]]
 	}
 
 	def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = { cursor =>
@@ -261,7 +291,8 @@ object PrimitiveParsers {
 		None
 	}
 
-	/** Implemented with an optimized versión of {{{(pR ^^ { r => Right[L, R](r).asInstanceOf[Either[L, R]] }) | (pL ^^ { l => Left[L, R](l).asInstanceOf[Either[L, R]] })}}} */
+	/** The right parser has priority. If it hits the left parser is ignored.
+	 *  Implemented with an optimized versión of {{{(pR ^^ { r => Right[L, R](r).asInstanceOf[Either[L, R]] }) | (pL ^^ { l => Left[L, R](l).asInstanceOf[Either[L, R]] })}}} */
 	def jpEither[L, R](implicit pL: Parser[L], pR: Parser[R]): Parser[Either[L, R]] = { cursor =>
 		val r = cursor.attempt(() => pR.parse(cursor));
 		if (cursor.ok) {

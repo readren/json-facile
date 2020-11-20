@@ -4,8 +4,6 @@ import scala.collection.mutable
 
 import jsfacile.api.MapUpperBound
 import jsfacile.read.Parser._
-import jsfacile.read.SyntaxParsers._
-
 
 object MapParser {
 
@@ -57,10 +55,10 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 				have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
 					have = false;
-					val keyStr = string.parse(cursor);
+					val keyStr = jpString.parse(cursor);
 					if(cursor.ok) {
 						val key =
-							if (parserK == PrimitiveParsers.jpString) {
+							if (parserK == jpString) {
 								keyStr.asInstanceOf[K]
 							} else {
 								val keyCursor = new CursorStr(keyStr);

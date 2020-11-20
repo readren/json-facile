@@ -1,7 +1,7 @@
 package jsfacile
 
-import jsfacile.api.{IterableUpperBound, MapUpperBound}
-import jsfacile.macros.{CoproductAppenderHelper, CoproductUpperBound, ProductAppender, ProductUpperBound}
+import jsfacile.api.{IterableUpperBound, MapUpperBound, Parser}
+import jsfacile.macros.{CoproductAppenderHelper, CoproductUpperBound, EnumParserMacro, ProductAppender, ProductUpperBound}
 import jsfacile.write.MapAppender.MapFormatDecider
 
 /** It is not necessary to import any implicit defined in this package object. The compiler finds them anyway because the [[Appender]] trait is defined in the same package.
@@ -9,7 +9,7 @@ import jsfacile.write.MapAppender.MapFormatDecider
 package object write {
 
 	////////////////////////////////////////////
-	//// Json appenders for primitive types ////
+	//// JSON appenders for primitive types ////
 
 	implicit val jaUnit: Appender[Unit] = { (r: Record, _) => r.append("null") }
 
@@ -37,7 +37,7 @@ package object write {
 	}
 
 	////////////////////////////////////////
-	//// Json appenders for basic types ////
+	//// JSON appenders for basic types ////
 
 	implicit val jaCharSequence: Appender[CharSequence] = { (r, csq) =>
 		r.append('"');
@@ -63,7 +63,7 @@ package object write {
 	implicit val jaNone: Appender[None.type] = (r, _) => r.append("null");
 
 	///////////////////////////////////////////////////////////////
-	//// Json appenders for standard collections library types ////
+	//// JSON appenders for standard collections library types ////
 
 	@inline implicit def jaIterable[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
 		IterableAppender.apply[E, IC](elemAppender)
@@ -77,7 +77,9 @@ package object write {
 		MapAppender.apply[K, V, MC](ka, va, mfd)
 
 	/////////////////////////////////////////////
-	//// Json appenders for concrete classes ////
+	//// JSON appenders for concrete classes ////
+
+	implicit def jpEnumeration[E <: scala.Enumeration]: Parser[E#Value] = macro EnumParserMacro.materializeImpl[E]
 
 	implicit def jaProduct[P <: ProductUpperBound]: Appender[P] = macro ProductAppender.materializeImpl[P]
 
@@ -94,9 +96,9 @@ package object write {
 	};
 
 	//////////////////////////////
-	//// Json string enconders ////
+	//// JSON string enconders ////
 
-	/** Encodes the received [[Char]] in order to be part of a json string
+	/** Encodes the received [[Char]] in order to be part of a JSON string
 	 * Surrogate chars are not altered. */
 	def encodeStringChar[R <: Record](r: R, char: Char): R = {
 		if (char == '"') {
@@ -123,7 +125,7 @@ package object write {
 		}
 	}
 
-	/** Encodes the received [[CharSequence]] in order to be part of a json string.
+	/** Encodes the received [[CharSequence]] in order to be part of a JSON string.
 	 * Surrogate pairs sanity is not checked. */
 	def encodeStringCharSequence[R <: Record](r: R, csq: CharSequence): R = {
 		var index = 0;

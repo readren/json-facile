@@ -1,8 +1,8 @@
 package jsfacile.read
 
-import jsfacile.read.Parser.{Elem, Pos, Cursor}
+import jsfacile.read.Parser.{Elem, Pos}
 
-/** A [[Parser.Cursor]] whose content is all contained in a single [[String]]. */
+/** A [[Cursor]] whose content is all contained in a single [[String]]. */
 class CursorStr(content: String) extends AbstractCursor {
 
 	protected var cursorPos: Int = 0;

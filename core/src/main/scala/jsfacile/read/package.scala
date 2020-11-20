@@ -1,7 +1,7 @@
 package jsfacile
 
 import jsfacile.api.{IterableUpperBound, MapUpperBound, SortedMapUpperBound}
-import jsfacile.macros.{CoproductUpperBound, ProductUpperBound, CoproductParserHelper, ProductParserHelper, SingletonParserHelper}
+import jsfacile.macros.{CoproductParserHelper, CoproductUpperBound, EnumParserMacro, ProductParserHelper, ProductUpperBound, SingletonParserHelper}
 import jsfacile.util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMapFactory, NonVariantHolderOfAnIterableFactory}
 
 
@@ -12,37 +12,36 @@ package object read {
 	//////////////////////////////////////////
 	//// Json parsers for primitive types ////
 
-	implicit val jpUnit: Parser[Unit] = PrimitiveParsers.jpUnit
+	implicit val jpUnit: Parser[Unit] = BasicParsers.jpUnit
 
-	implicit val jpNull: Parser[Null] = PrimitiveParsers.jpNull
+	implicit val jpNull: Parser[Null] = BasicParsers.jpNull
 
-	implicit val jpBoolean: Parser[Boolean] = PrimitiveParsers.jpBoolean
+	implicit val jpBoolean: Parser[Boolean] = BasicParsers.jpBoolean
 
-	implicit val jpInt: Parser[Int] = PrimitiveParsers.jpInt;
+	implicit val jpInt: Parser[Int] = BasicParsers.jpInt;
 
-	implicit val jpLong: Parser[Long] = PrimitiveParsers.jpLong;
+	implicit val jpLong: Parser[Long] = BasicParsers.jpLong;
 
-	implicit val jpDouble: Parser[Double] = PrimitiveParsers.jpDouble;
+	implicit val jpDouble: Parser[Double] = BasicParsers.jpDouble;
 
-	implicit val jpFloat: Parser[Float] = PrimitiveParsers.jpFloat;
+	implicit val jpFloat: Parser[Float] = BasicParsers.jpFloat;
 
 	//////////////////////////////////////
 	//// Json parsers for basic types ////
 
-	implicit val jpCharSequence: Parser[CharSequence] = PrimitiveParsers.jpString.asInstanceOf[Parser[CharSequence]]
+	implicit val jpCharSequence: Parser[CharSequence] = BasicParsers.jpString.asInstanceOf[Parser[CharSequence]]
 
-	implicit val jpString: Parser[String] = PrimitiveParsers.jpString
+	implicit val jpString: Parser[String] = BasicParsers.jpString
 
-	implicit val jpBigInt: Parser[BigInt] = PrimitiveParsers.jpBigInt;
+	implicit val jpBigInt: Parser[BigInt] = BasicParsers.jpBigInt;
 
-	implicit val jpBigDecimal: Parser[BigDecimal] = PrimitiveParsers.jpBigDecimal;
+	implicit val jpBigDecimal: Parser[BigDecimal] = BasicParsers.jpBigDecimal;
 
-	implicit def jpEnumeration[E <: scala.Enumeration](implicit typeTag: scala.reflect.runtime.universe.TypeTag[E]): Parser[E#Value] =
-		PrimitiveParsers.jpEnumeration[E](typeTag)
+	implicit def jpEnumeration[E <: scala.Enumeration]: Parser[E#Value] = macro EnumParserMacro.materializeImpl[E]
 
-	implicit def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = PrimitiveParsers.jpOption(pE);
-	implicit def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = PrimitiveParsers.jpSome(pE)
-	implicit val jpNone: Parser[None.type] = PrimitiveParsers.jpNone
+	implicit def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = BasicParsers.jpOption(pE);
+	implicit def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = BasicParsers.jpSome(pE)
+	implicit val jpNone: Parser[None.type] = BasicParsers.jpNone
 
 	////////////////////////////////////////////////////////////
 	//// Json parser for standard collections library types ////
@@ -77,7 +76,7 @@ package object read {
 	//// Json parser for singleton classes (scala object)  ////
 
 	implicit def jpSingleton[S](implicit helper: SingletonParserHelper[S]): Parser[S] = { cursor =>
-		val ok = SyntaxParsers.skipJsObject(cursor);
+		val ok = Skip.jsObject(cursor);
 		if (!ok) {
 			cursor.miss(s"A json empty object was expected while parsing the singleton object ${helper.instance.getClass.getName}")
 		}

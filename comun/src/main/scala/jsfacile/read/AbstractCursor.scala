@@ -1,6 +1,6 @@
 package jsfacile.read
 
-import jsfacile.read.Parser.{Cursor, Elem, Pos}
+import jsfacile.read.Parser.Elem
 
 abstract class AbstractCursor extends Cursor {
 

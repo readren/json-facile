@@ -117,7 +117,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 	}
 
 	object `Json interpretation should work ...` {
-		import jsfacile.api.{FromJsonConvertable, ToJsonConvertable, CursorStr}
+		import jsfacile.api.FromJsonConvertible
 
 		def `for a simple product`(): Unit = {
 			val simpleParsed = simpleJson.fromJson[Simple]
@@ -196,7 +196,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			import jsfacile.api._
 
 			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)
-			val json = ToJsonConvertable(set).toJson
+			val json = ToJsonConvertible(set).toJson
 			val parsed = json.fromJson[Set[A[String]]]
 			assertResult(Right(set.toList))(parsed.map(_.toList))
 
