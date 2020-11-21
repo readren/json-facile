@@ -40,6 +40,7 @@ macros / libraryDependencies ++= Seq(
 
 ThisBuild / scalacOptions ++= Seq(
 	"-deprecation",
-	"-feature",
-	"-Ymacro-debug-lite"
+	"-feature"/*,
+	"-Ymacro-debug-lite",
+	"-Xlog-implicits"*/
 )

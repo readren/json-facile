@@ -46,7 +46,7 @@ object ProductAppender {
 			ctx.abort(ctx.enclosingPosition, s"""An appender for $classSymbol is already provided in the "jsfacile.write" package.""")
 		}
 
-		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true)
+		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
 		val productTypeKey = new TypeKey(productType);
 		val productHandler = appenderHandlersMap.get(productTypeKey) match {
@@ -129,10 +129,10 @@ if (proxy.isEmpty) {
 
 				productHandler.oExpression = Some(productAppenderExpression);
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(productAppenderExpression);
 				productHandler.isCapturingDependencies = false
-				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 				productHandler
 
@@ -174,9 +174,9 @@ productsAppendersBuffer(${productHandler.typeIndex}).get[$productType]"""
 
 			}
 
-		ctx.info(ctx.enclosingPosition, s"product appender unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true)
+		ctx.info(ctx.enclosingPosition, s"product appender unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 		val checkedBody = ctx.typecheck(body);
-		ctx.info(ctx.enclosingPosition, s"product appender after body check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true)
+		ctx.info(ctx.enclosingPosition, s"product appender after body check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
 		ctx.Expr[Appender[P]](checkedBody);
 	}

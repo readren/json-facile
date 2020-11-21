@@ -217,7 +217,7 @@ object CoproductAppenderHelper {
 			ctx.abort(ctx.enclosingPosition, s"""An appender for $coproductSymbol is already provided in the "jsfacile.write" package.""")
 		}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductHandler = appenderHandlersMap.get(coproductTypeKey) match {
@@ -301,10 +301,10 @@ if (proxy.isEmpty) {
 
 				coproductHandler.oExpression = Some(caHelperInitCodeLines);
 
-				ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(caHelperInitCodeLines);
 				coproductHandler.isCapturingDependencies = false
-				ctx.info(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 				coproductHandler
 
@@ -346,9 +346,9 @@ import _root_.jsfacile.macros.CoproductAppenderHelper.caHelpersBuffer;
 caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 		val checkedBody = ctx.typecheck(body);
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper after body check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender helper after body check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		ctx.Expr[CoproductAppenderHelper[C]](checkedBody);
 	}

@@ -63,6 +63,22 @@ abstract class AbstractCursor extends Cursor {
 			false
 		}
 	}
+	override def consumeCharIfDigit(): Boolean = {
+		if (have && '0' <= pointedElem && pointedElem <= '9') {
+			this.advance( 1)
+			have;
+		} else {
+			false
+		}
+	}
+	override def consumeCharIfEither(a: Char, b: Char): Boolean = {
+		if (have && (pointedElem == a || pointedElem == b)) {
+			this.advance( 1)
+			have;
+		} else {
+			false
+		}
+	}
 
 	override def consumeWhitespaces(): Boolean = {
 		while (have && pointedElem.isWhitespace) {
@@ -77,4 +93,11 @@ abstract class AbstractCursor extends Cursor {
 		}
 		have
 	}
+	override def consumeWhileDigit(): Boolean = {
+		while (have && '0' <= pointedElem && pointedElem <= '9') {
+			this.advance( 1)
+		}
+		have
+	}
+
 }

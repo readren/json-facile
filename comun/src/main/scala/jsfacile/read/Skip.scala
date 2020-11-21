@@ -7,7 +7,7 @@ object Skip {
 	 * @return true iff an integer was consumed and the cursor is [[Cursor.ok]]*/
 	def integer(cursor: Cursor): Boolean = {
 		val isNeg = cursor.consumeChar('-')
-		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit)
+		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIfDigit() && cursor.consumeWhileDigit()
 		if (hasMantisa) {
 			cursor.ok
 		} else {
@@ -22,18 +22,20 @@ object Skip {
 	/** skips the next fraction or do nothing if no fraction follows */
 	private def optionalFraction(cursor: Cursor): Unit = {
 		if (cursor.consumeChar('.')) {
-			val hasADigit = cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit);
-			if (!hasADigit) {
+			if ('0' <= cursor.pointedElem && cursor.pointedElem <= '9') {
+				cursor.consumeWhileDigit();
+			} else {
 				cursor.fail("A digit was expected after the decimal point")
 			}
 		}
 	}
 	/** skips the next exponent or do nothing if no exponent follows */
 	private def optionalExponent(cursor: Cursor): Unit = {
-		if (cursor.consumeCharIf(c => c == 'e' || c == 'E')) {
-			cursor.consumeCharIf(c => c == '+' || c == '-');
-			val hasADigit = cursor.consumeCharIf(Character.isDigit) && cursor.consumeWhile(Character.isDigit);
-			if (!hasADigit) {
+		if (cursor.consumeCharIfEither('e','E')) {
+			cursor.consumeCharIfEither('+', '-');
+			if ('0' <= cursor.pointedElem && cursor.pointedElem <= '9') {
+				cursor.consumeWhileDigit()
+			} else {
 				cursor.fail("A digit was expected as exponent")
 			}
 		}

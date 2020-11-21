@@ -1,5 +1,7 @@
 package jsfacile
 
+import java.util.Comparator
+
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
@@ -10,6 +12,11 @@ package object macros {
 
 	type CoproductUpperBound = Any;
 	type ProductUpperBound = Any;
+
+	trait Named {
+		def name: String;
+	}
+	val namedOrdering: Ordering[Named] = Ordering.by(_.name)
 
 	trait Lazy {
 		def isEmpty: Boolean;

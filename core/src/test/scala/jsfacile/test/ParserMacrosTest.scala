@@ -57,6 +57,7 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 			json.asJsObject.fields("type") match {
 				case JsString("Box") => boxFormat.read(json)
 				case JsString("Sphere") => sphereFormat.read(json)
+				case _ => throw new AssertionError
 			}
 		}
 		override def write(obj: Shape): JsValue = obj match {
@@ -73,6 +74,7 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 				case JsString("Table") => tableFormat.read(json)
 				case JsString("Shelf") => shelfFormat.read(json)
 				case JsString("Ball") => ballFormat.read(json)
+				case _ => throw new AssertionError()
 			}
 		}
 		override def write(obj: Thing): JsValue = obj match {

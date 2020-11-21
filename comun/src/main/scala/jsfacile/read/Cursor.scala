@@ -59,9 +59,11 @@ trait Cursor {
 	 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
 	def consumeChar(char: Char): Boolean;
 
-	/** If the cursor [[have]] and the pointed element satifies the predicate, advances to next position and returns [[have]]. Else does nothing and returns false.
+	/** If the cursor [[have]] and the pointed element satisfies the predicate, advances to next position and returns [[have]]. Else does nothing and returns false.
 	 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
 	def consumeCharIf(predicate: Elem => Boolean): Boolean;
+	def consumeCharIfDigit(): Boolean
+	def consumeCharIfEither(a: Char, b: Char): Boolean;
 
 	/** If the cursor [[have]] and the pointed element is a whitespace char, advances positions until the first non whitespace char after it. Else sets the missed flag.
 	 * Equivalent to {{{consumeWhile(_.isWhitespace)}}}
@@ -71,4 +73,5 @@ trait Cursor {
 	/** If the cursor [[have]] and the pointed element satisfies the predicate, advances positions until the predicate is not satisfied.
 	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
 	def consumeWhile(predicate: Elem => Boolean): Boolean;
+	def consumeWhileDigit(): Boolean
 }
