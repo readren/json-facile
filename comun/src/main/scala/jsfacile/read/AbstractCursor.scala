@@ -1,6 +1,6 @@
 package jsfacile.read
 
-import jsfacile.read.Parser.Elem
+import jsfacile.util.CharPredicate
 
 abstract class AbstractCursor extends Cursor {
 
@@ -49,15 +49,15 @@ abstract class AbstractCursor extends Cursor {
 
 	override def consumeChar(char: Char): Boolean = {
 		if (have && pointedElem == char) {
-			this.advance(1)
+			this.advance();
 			have;
 		} else {
 			false
 		}
 	}
-	override def consumeCharIf(predicate: Char => Boolean): Boolean = {
+	override def consumeCharIf(predicate: CharPredicate): Boolean = {
 		if (have && predicate(pointedElem)) {
-			this.advance( 1)
+			this.advance();
 			have;
 		} else {
 			false
@@ -65,7 +65,7 @@ abstract class AbstractCursor extends Cursor {
 	}
 	override def consumeCharIfDigit(): Boolean = {
 		if (have && '0' <= pointedElem && pointedElem <= '9') {
-			this.advance( 1)
+			this.advance();
 			have;
 		} else {
 			false
@@ -73,7 +73,7 @@ abstract class AbstractCursor extends Cursor {
 	}
 	override def consumeCharIfEither(a: Char, b: Char): Boolean = {
 		if (have && (pointedElem == a || pointedElem == b)) {
-			this.advance( 1)
+			this.advance();
 			have;
 		} else {
 			false
@@ -82,20 +82,20 @@ abstract class AbstractCursor extends Cursor {
 
 	override def consumeWhitespaces(): Boolean = {
 		while (have && pointedElem.isWhitespace) {
-			this.advance( 1)
+			this.advance()
 		}
 		have
 	}
 
-	override def consumeWhile(predicate: Elem => Boolean): Boolean = {
+	override def consumeWhile(predicate: CharPredicate): Boolean = {
 		while (have && predicate(pointedElem)) {
-			this.advance( 1)
+			this.advance()
 		}
 		have
 	}
 	override def consumeWhileDigit(): Boolean = {
 		while (have && '0' <= pointedElem && pointedElem <= '9') {
-			this.advance( 1)
+			this.advance()
 		}
 		have
 	}

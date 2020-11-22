@@ -1,10 +1,6 @@
 package jsfacile.read
 
-import scala.collection.immutable.ArraySeq
-import scala.collection.mutable
-
 import jsfacile.read.Parser._
-import jsfacile.util.BinarySearch
 
 object BasicParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
@@ -23,60 +19,60 @@ object BasicParsers {
 
 				var pe = cursor.pointedElem;
 				while (pe != '"') {
-					pe match {
-						case '\\' =>
-							if (!cursor.advance()) {
-								cursor.fail("unfinished string escape");
-								return ignored[String]
-							}
-							cursor.pointedElem match {
-								case '"' => sb.append('"')
-								case '\\' => sb.append('\\')
-								case '/' => sb.append('/')
-								case 'b' => sb.append('\b')
-								case 'f' => sb.append('\f')
-								case 'n' => sb.append('\n')
-								case 'r' => sb.append('\r')
-								case 't' => sb.append('\t')
-								case 'u' =>
-									var counter = 4;
-									var hexCode: Int = 0;
-									do {
-										if (!cursor.advance()) {
-											cursor.fail("unfinished string hex code escape");
-											return ignored[String]
-										}
-										hexCode *= 16;
-										pe = cursor.pointedElem;
-										if ('0' <= pe & pe <= '9') {
-											hexCode += pe - '0'
-										} else if ('a' <= pe && pe <= 'f') {
-											hexCode += pe - 'a' + 10
-										} else if ('A' <= pe && pe <= 'F') {
-											hexCode += pe - 'A' + 10
-										} else {
-											cursor.fail("invalid hex code");
-											return ignored[String]
-										}
-										counter -= 1;
-									} while (counter > 0)
-									sb.appendCodePoint(hexCode)
-							}
+					if (pe == '\\') {
+						if (!cursor.advance()) {
+							cursor.fail("unfinished string escape");
+							return ignored[String]
+						}
+						cursor.pointedElem match {
+							case '"' => sb.append('"')
+							case '\\' => sb.append('\\')
+							case '/' => sb.append('/')
+							case 'b' => sb.append('\b')
+							case 'f' => sb.append('\f')
+							case 'n' => sb.append('\n')
+							case 'r' => sb.append('\r')
+							case 't' => sb.append('\t')
+							case 'u' =>
+								var counter = 4;
+								var hexCode: Int = 0;
+								do {
+									if (!cursor.advance()) {
+										cursor.fail("unfinished string hex code escape");
+										return ignored[String]
+									}
+									hexCode *= 16;
+									pe = cursor.pointedElem;
+									if ('0' <= pe & pe <= '9') {
+										hexCode += pe - '0'
+									} else if ('a' <= pe && pe <= 'f') {
+										hexCode += pe - 'a' + 10
+									} else if ('A' <= pe && pe <= 'F') {
+										hexCode += pe - 'A' + 10
+									} else {
+										cursor.fail("invalid hex code");
+										return ignored[String]
+									}
+									counter -= 1;
+								} while (counter > 0)
+								sb.appendCodePoint(hexCode)
+						}
+					} else if (pe >= Character.MIN_HIGH_SURROGATE) {
+						if (!cursor.advance()) {
+							cursor.fail("unfinished string in middle of surrogate pair");
+							return ignored[String]
+						}
+						val ls = cursor.pointedElem;
+						if (!ls.isLowSurrogate) {
+							cursor.fail("invalid surrogate pair");
+							return ignored[String]
+						}
+						sb.append(ls).append(pe)
 
-						case highSurrogate if highSurrogate >= Character.MIN_HIGH_SURROGATE =>
-							if (!cursor.advance()) {
-								cursor.fail("unfinished string in middle of surrogate pair");
-								return ignored[String]
-							}
-							pe = cursor.pointedElem;
-							if (!pe.isLowSurrogate) {
-								cursor.fail("invalid surrogate pair");
-								return ignored[String]
-							}
-							sb.append(highSurrogate).append(pe)
+					} else {
+						sb.append(pe)
+					}
 
-						case normal => sb.append(normal)
-					};
 					if (!cursor.advance()) {
 						cursor.fail("unclosed string");
 						return ignored[String]

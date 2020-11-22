@@ -1,6 +1,7 @@
 package jsfacile.read
 
 import jsfacile.read.Parser.{Elem, Pos}
+import jsfacile.util.CharPredicate
 
 /**The low-level API on which [[Parser]] implementations are built.
  * The [[Parser.parse]] method receives an instance of this class from which it extracts the input elements and to which it mutates to communicate the parsing progress to the next parser.
@@ -61,7 +62,7 @@ trait Cursor {
 
 	/** If the cursor [[have]] and the pointed element satisfies the predicate, advances to next position and returns [[have]]. Else does nothing and returns false.
 	 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
-	def consumeCharIf(predicate: Elem => Boolean): Boolean;
+	def consumeCharIf(predicate: CharPredicate): Boolean;
 	def consumeCharIfDigit(): Boolean
 	def consumeCharIfEither(a: Char, b: Char): Boolean;
 
@@ -72,6 +73,6 @@ trait Cursor {
 
 	/** If the cursor [[have]] and the pointed element satisfies the predicate, advances positions until the predicate is not satisfied.
 	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
-	def consumeWhile(predicate: Elem => Boolean): Boolean;
+	def consumeWhile(predicate: CharPredicate): Boolean;
 	def consumeWhileDigit(): Boolean
 }

@@ -325,7 +325,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	}
 
 	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and hits returning the received value.
-	 * TODO: take a [[PartialFunction]][Any, B] instead */
+	 * TODO: take a [[PartialFunction]][AnyRef, B] instead */
 	def recover[B >: A](b: B): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {
@@ -337,7 +337,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	}
 
 	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser.
-	 * TODO: take a [[PartialFunction]][[[Any]], [[Parser]][B] instead.*/
+	 * TODO: take a [[PartialFunction]][[[AnyRef]], [[Parser]][B] instead.*/
 	def recoverWith[B >: A](iB: Parser[B]): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {

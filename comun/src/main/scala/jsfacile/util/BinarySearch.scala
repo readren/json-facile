@@ -5,7 +5,7 @@ object BinarySearch {
 	/** Finds the element of the array such that the `criteria` function return zero.
 	 * @param sortedArray an array sorted with a criteria compatible with the received criteria.
 	 * @param criteria a function that receives one of the elements contained in the array and should return zero if it is the searched one, a positive number if it has a higher index than the searched one, or a negative number otherwise. */
-	def find[T <: AnyRef](sortedArray: Array[T])(criteria: T => Int): T = {
+	def find[@specialized(Int) T <: AnyRef](sortedArray: Array[T])(criteria: FuncToInt[T]): T = {
 		var low: Int = 0;
 		var high: Int = sortedArray.length;
 
