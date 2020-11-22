@@ -214,10 +214,9 @@ if (proxy.isEmpty) {
 	proxy.set(new CpHelper[$coproductType](${coproductType.toString}, $discriminatorFieldName, productsInfoBuilder.result(), fieldsParsersBuilder.sortInPlace()(namedOrdering.asInstanceOf[Ordering[CphFieldParser]]).toArray));
 }""";
 
-				coproductHandler.oExpression = Some(cpHelperInitCodeLines);
-
 				ctx.echo(ctx.enclosingPosition, s"coproduct parser helper unchecked init for ${show(coproductType)} : ${show(cpHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-				ctx.typecheck(cpHelperInitCodeLines);
+				// the recursion is triggered by the type-check
+				coproductHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(cpHelperInitCodeLines)));
 				coproductHandler.isCapturingDependencies = false
 				ctx.echo(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -234,7 +233,7 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- parserHandlersMap
 						if coproductHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
+					} yield handler.oExpression.get.in(ctx.mirror);
 
 				q"""
 import _root_.jsfacile.macros.CoproductParserHelper;

@@ -7,7 +7,7 @@ import scala.reflect.macros.whitebox
 /** Manages the construction and inter-relation of an [[jsfacile.write.Appender]] or [[jsfacile.read.Parser]] of the type indicated by the received [[TypeIndex]]. */
 class Handler(val typeIndex: TypeIndex) {
 	/** The code lines that initializes a [[jsfacile.read.Parser]] or a [[jsfacile.write.Appender]].*/
-	var oExpression: Option[whitebox.Context#Tree] = None;
+	var oExpression: Option[whitebox.Context#Expr[Unit]] = None;
 
 	/** Is 'true' while this [[Handler]] is open to add more dependencies to its dependency set.
 	 * Tells the [[Handler.registerDependency]] method that it have to add any [[TypeIndex]] it receives to the [[dependencies]] set of this [[Handler]].

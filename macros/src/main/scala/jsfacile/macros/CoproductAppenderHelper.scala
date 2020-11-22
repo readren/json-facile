@@ -299,10 +299,9 @@ if (proxy.isEmpty) {
 	proxy.set(new CaHelper[$coproductType](${coproductType.toString}, productsArray));
 }""";
 
-				coproductHandler.oExpression = Some(caHelperInitCodeLines);
-
 				ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
-				ctx.typecheck(caHelperInitCodeLines);
+				// the recursion is triggered by the type-check
+				coproductHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(caHelperInitCodeLines)));
 				coproductHandler.isCapturingDependencies = false
 				ctx.info(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
@@ -320,7 +319,7 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- appenderHandlersMap
 						if coproductHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree]
+					} yield handler.oExpression.get.in(ctx.mirror);
 
 				q"""
 import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};

@@ -144,10 +144,9 @@ if (proxy.isEmpty) {
 		override def createProduct(args: Seq[Any]):$productType = new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
 	})
 }""";
-				productHandler.oExpression = Some(ppHelperInitCodeLines);
-
 				ctx.echo(ctx.enclosingPosition, s"product parser helper unchecked init for ${show(productType)}: ${show(ppHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-				ctx.typecheck(ppHelperInitCodeLines);
+				// the recursion is triggered by the type-check
+				productHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(ppHelperInitCodeLines)));
 				productHandler.isCapturingDependencies = false
 				ctx.echo(ctx.enclosingPosition, s"product parser helper after init check for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -165,7 +164,7 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- parserHandlersMap
 						if productHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
+					} yield handler.oExpression.get.in(ctx.mirror);
 
 				q"""
 import _root_.jsfacile.macros.CoproductParserHelper.{CpHelperLazy, cpHelpersBuffer};

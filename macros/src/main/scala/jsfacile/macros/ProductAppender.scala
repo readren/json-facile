@@ -127,10 +127,9 @@ if (proxy.isEmpty) {
 	});
 }""";
 
-				productHandler.oExpression = Some(productAppenderExpression);
-
 				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
-				ctx.typecheck(productAppenderExpression);
+				// the recursion is triggered by the type-check
+				productHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(productAppenderExpression)));
 				productHandler.isCapturingDependencies = false
 				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
@@ -147,7 +146,7 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- appenderHandlersMap
 						if productHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
+					} yield handler.oExpression.get.in(ctx.mirror);
 
 				q"""
 import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
