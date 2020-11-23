@@ -216,7 +216,8 @@ if (proxy.isEmpty) {
 
 				ctx.echo(ctx.enclosingPosition, s"coproduct parser helper unchecked init for ${show(coproductType)} : ${show(cpHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 				// the recursion is triggered by the type-check
-				coproductHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(cpHelperInitCodeLines)));
+        ctx.typecheck(cpHelperInitCodeLines.duplicate)
+				coproductHandler.oExpression = Some(ctx.Expr[Unit](cpHelperInitCodeLines))
 				coproductHandler.isCapturingDependencies = false
 				ctx.echo(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -261,11 +262,9 @@ import _root_.jsfacile.macros.CoproductParserHelper;
 CoproductParserHelper.cpHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.echo(ctx.enclosingPosition, s"coproduct parser helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-		val checkedBody = ctx.typecheck(body);
-		ctx.echo(ctx.enclosingPosition, s"coproduct parser helper after body check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+		ctx.echo(ctx.enclosingPosition, s"coproduct parser helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}")
 
-		ctx.Expr[CoproductParserHelper[C]](checkedBody);
+		ctx.Expr[CoproductParserHelper[C]](body);
 	}
 }
 

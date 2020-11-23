@@ -129,7 +129,8 @@ if (proxy.isEmpty) {
 
 				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				// the recursion is triggered by the type-check
-				productHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(productAppenderExpression)));
+        ctx.typecheck(productAppenderExpression)
+				productHandler.oExpression = Some(ctx.Expr[Unit](productAppenderExpression))
 				productHandler.isCapturingDependencies = false
 				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
@@ -174,9 +175,7 @@ productsAppendersBuffer(${productHandler.typeIndex}).get[$productType]"""
 			}
 
 		ctx.info(ctx.enclosingPosition, s"product appender unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
-		val checkedBody = ctx.typecheck(body);
-		ctx.info(ctx.enclosingPosition, s"product appender after body check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
-		ctx.Expr[Appender[P]](checkedBody);
+		ctx.Expr[Appender[P]](body)
 	}
 }

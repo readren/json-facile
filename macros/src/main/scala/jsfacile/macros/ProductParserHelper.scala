@@ -146,7 +146,8 @@ if (proxy.isEmpty) {
 }""";
 				ctx.echo(ctx.enclosingPosition, s"product parser helper unchecked init for ${show(productType)}: ${show(ppHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 				// the recursion is triggered by the type-check
-				productHandler.oExpression = Some(ctx.Expr[Unit](ctx.typecheck(ppHelperInitCodeLines)));
+        ctx.typecheck(ppHelperInitCodeLines.duplicate)
+				productHandler.oExpression = Some(ctx.Expr[Unit](ppHelperInitCodeLines))
 				productHandler.isCapturingDependencies = false
 				ctx.echo(ctx.enclosingPosition, s"product parser helper after init check for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -193,11 +194,9 @@ import ProductParserHelper.ppHelpersBuffer;
 ppHelpersBuffer(${productHandler.typeIndex}).get[$productType]"""
 			}
 
-		ctx.echo(ctx.enclosingPosition, s"product parser helper unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-		val checkedBody = ctx.typecheck(body);
-		ctx.echo(ctx.enclosingPosition, s"product parser helper after body check for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+		ctx.echo(ctx.enclosingPosition, s"product parser helper unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}")
 
-		ctx.Expr[ProductParserHelper[P]](checkedBody);
+		ctx.Expr[ProductParserHelper[P]](body)
 
 	}
 }

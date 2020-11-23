@@ -14,6 +14,6 @@ object EnumParserMacro {
 		val enumModuleSymbol = enumType.termSymbol.asModule;
 		val body = q"""new _root_.jsfacile.read.EnumParser[${enumModuleSymbol}](${enumModuleSymbol})""";
 
-		ctx.Expr[Parser[E#Value]](ctx.typecheck(body));
+		ctx.Expr[Parser[E#Value]](body)
 	}
 }

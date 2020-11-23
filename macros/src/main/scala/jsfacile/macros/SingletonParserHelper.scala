@@ -29,7 +29,7 @@ new SingletonParserHelper[$singletonType] {
 }"""
 			// ctx.info(ctx.enclosingPosition, "sph helper: " + show(helper), false)
 
-			ctx.Expr[SingletonParserHelper[S]](ctx.typecheck(helper));
+			ctx.Expr[SingletonParserHelper[S]](helper)
 		} else {
 			ctx.abort(ctx.enclosingPosition, s"$singletonSymbol is not a module class")
 		}

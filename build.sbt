@@ -10,15 +10,21 @@ lazy val commonSettings = Seq(
 
 lazy val core = (project in file("core")).dependsOn(macros, comun)
 	.settings(
-		commonSettings
+		commonSettings,
 		// other settings
+    scalacOptions ++= Seq(
+      "-language:experimental.macros"
+    )
 	)
 
 lazy val macros = (project in file("macros")).dependsOn(comun)
 	.settings(
-		commonSettings
+		commonSettings,
 		// other settings
-  	)
+    scalacOptions ++= Seq(
+      "-language:experimental.macros"
+    )
+  )
 
 lazy val comun = (project in file("comun"))
 
