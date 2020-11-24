@@ -68,14 +68,6 @@ object CoproductAppenderHelper {
 		diff
 	}
 
-	/** Sealed traits and abstract classes for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
-	val traitsForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
-		classOf[scala.Option[Any]].getName, // by jpOption
-		classOf[scala.collection.Iterable[Any]].getName, // by jpIterable
-		classOf[scala.collection.Map[Any, Any]].getName, // by jpUnsortedMap
-		classOf[scala.collection.SortedMap[_, Any]].getName // by jpSortedMap
-	);
-
 	class CaHelper[C <: CoproductUpperBound](val fullName: String, val productsInfo: Array[CahProductInfo[C]]) extends CoproductAppenderHelper[C]
 
 	class CaHelperLazy extends CoproductAppenderHelper[CoproductUpperBound] with Lazy {
@@ -93,10 +85,6 @@ object CoproductAppenderHelper {
 
 	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
 		import ctx.universe._
-
-		def doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol: ClassSymbol): Boolean = {
-			classSymbol.baseClasses.exists(bc => traitsForWhichTheWritePackageProvidesAnImplicitAppender.contains(bc.fullName))
-		}
 
 		case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
 			var isAmbiguous = false;
@@ -212,9 +200,6 @@ object CoproductAppenderHelper {
 		val coproductClassSymbol = coproductSymbol.asClass;
 		if (!coproductClassSymbol.isSealed) {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed")
-		}
-		if (doesTheWritePackageProvideAnImplicitAppenderFor(coproductClassSymbol)) {
-			ctx.abort(ctx.enclosingPosition, s"""An appender for $coproductSymbol is already provided in the "jsfacile.write" package.""")
 		}
 
 		ctx.info(ctx.enclosingPosition, s"coproduct appender helper start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);

@@ -87,6 +87,8 @@ package object macros {
 		}
 	}
 
+	////////
+
 	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
 		val macros = ctx.openMacros.map { ctx =>
 			if (true) s"\n\thashCode: ${ctx.hashCode}, macroApp: ${ctx.macroApplication}"
@@ -103,7 +105,7 @@ package object macros {
 			}
 		}.mkString
 		val implicits = ctx.openImplicits.map { ic =>
-			if (true) s"\n\t${ic.sym.fullName} <- ${ic.tree}"
+			if (false) s"\n\t${ic.sym.fullName} <- ${ic.tree}"
 			else
 				s"""|
 				|ImplicitCandidate(

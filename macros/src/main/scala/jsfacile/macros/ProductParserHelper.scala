@@ -23,14 +23,6 @@ object ProductParserHelper {
 	/** Compares two [[PphFieldInfo]] based solely on their names. */
 	val fieldInfoComparator: Comparator[PphFieldInfo[_]] = { (a, b) => a.name.compare(b.name) }
 
-	/** Concrete classes for which the [[jsfacile.read]] package provides an implicit [[Parser]]. */
-	val concreteClassesForWhichTheReadPackageProvidesAnImplicitParser: Set[String] = Set(
-		classOf[java.lang.String].getName, // by jpString
-		classOf[scala.math.BigDecimal].getName, // by jpBigDecimal
-		classOf[scala.math.BigInt].getName, // by jpBigInt
-		classOf[scala.Some[Any]].getName // by jpSome
-	);
-
 	final class PpHelperLazy extends ProductParserHelper[ProductUpperBound] with Lazy {
 		@volatile private var instance: ProductParserHelper[ProductUpperBound] = _;
 		def set[P](helper: ProductParserHelper[P]): Unit = this.instance = helper.asInstanceOf[ProductParserHelper[ProductUpperBound]];
@@ -49,21 +41,11 @@ object ProductParserHelper {
 	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[ProductParserHelper[P]] = {
 		import ctx.universe._
 
-		/** Used by the [[ProductParserHelper.materialize]] macro to avoid generating parsers for types that are already provided by this package. */
-		def doesTheReadPackageProvideAnImplicitParserFor(classSymbol: ClassSymbol): Boolean = {
-			classSymbol.baseClasses.exists(bc => concreteClassesForWhichTheReadPackageProvidesAnImplicitParser.contains(bc.fullName))
-		}
-
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
 		val productSymbol: Symbol = productType.typeSymbol;
 		if (!productSymbol.isClass || productSymbol.isAbstract || productSymbol.isModuleClass) {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete non module class")
 		}
-		val classSymbol = productSymbol.asClass;
-		if (doesTheReadPackageProvideAnImplicitParserFor(classSymbol)) {
-			ctx.abort(ctx.enclosingPosition, s"""A parser for "$productSymbol" is already provided in the "jsfacile.read" package.""")
-		}
-
 		ctx.echo(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
 		val productTypeKey = new TypeKey(productType);
@@ -75,9 +57,8 @@ object ProductParserHelper {
 				registerParserDependency(productHandler);
 				parserHandlersMap.put(productTypeKey, productHandler);
 
-				val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
-
 				val addFieldInfoSnippetsBuilder = List.newBuilder[Tree];
+				val paramsList = productSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 				var argIndex = -1;
 				val ctorArgumentSnippets =
 					for (params <- paramsList) yield {

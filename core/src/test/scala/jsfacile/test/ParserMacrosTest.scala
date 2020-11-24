@@ -136,6 +136,18 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			assertResult(Right(treeOriginal))(treeParsed)
 		}
 
+		def `for Option and Either`(): Unit = {
+			assertResult(Right(None))("null".fromJson[None.type])
+			assertResult(Right(None))("null".fromJson[Option[Simple]])
+			assertResult(Right(Some(simpleOriginal)))(simpleJson.fromJson[Some[Simple]])
+			assertResult(Right(Some(simpleOriginal)))(simpleJson.fromJson[Option[Simple]])
+
+			assertResult(Right(Left(simpleOriginal)))(simpleJson.fromJson[Left[Simple, Nest]])
+			assertResult(Right(Left(simpleOriginal)))(simpleJson.fromJson[Either[Simple, Nest]])
+			assertResult(Right(Right(nestOriginal)))(nestJson.fromJson[Right[Simple, Nest]])
+			assertResult(Right(Right(nestOriginal)))(nestJson.fromJson[Either[Simple, Nest]])
+		}
+
 		def `for simple ADTs with a coproduct`(): Unit = {
 			import spray.json.enrichAny;
 

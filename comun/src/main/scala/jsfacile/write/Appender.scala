@@ -5,7 +5,6 @@ object Appender {
 	def apply[A](implicit appender: Appender[A]): Appender[A] = appender;
 }
 
-
 trait Appender[A] {
 	def append(record: Record, a: A): Record;
 

@@ -1,12 +1,10 @@
 package jsfacile
 
-import jsfacile.api.{IterableUpperBound, MapUpperBound, Parser}
-import jsfacile.macros.{CoproductAppenderHelper, CoproductUpperBound, EnumParserMacro, ProductAppender, ProductUpperBound}
-import jsfacile.write.MapAppender.MapFormatDecider
+import jsfacile.macros.NothingMacros
 
 /** It is not necessary to import any implicit defined in this package object. The compiler finds them anyway because the [[Appender]] trait is defined in the same package.
  * Also, it is not recommended to import any of them so that they have lower precedence than any [[Appender]] accesible without prefix (imported or declared in the block scope). */
-package object write {
+package object write extends PriorityMediumAppenders {
 
 	////////////////////////////////////////////
 	//// JSON appenders for primitive types ////
@@ -36,6 +34,8 @@ package object write {
 		encodeStringChar(r, char).append('"')
 	}
 
+	implicit def jaNothing: Appender[Nothing] = macro NothingMacros.materializeNothingAppenderImpl
+
 	////////////////////////////////////////
 	//// JSON appenders for basic types ////
 
@@ -50,7 +50,7 @@ package object write {
 
 	implicit val jaBigDecimal: Appender[BigDecimal] = { (r, bigDec) => r.append(bigDec.toString()) }
 
-	// TODO add a implicit parameter which decides how would the enums be identified, by name or by id.
+	// TODO add an implicit parameter which decides how would the enums be identified, by name or by id.
 	implicit def jaEnumeration[E <: scala.Enumeration]: Appender[E#Value] =
 		(r, enum) => jaCharSequence.append(r, enum.toString)
 
@@ -62,38 +62,14 @@ package object write {
 	implicit def jaSome[A](implicit appenderA: Appender[A]): Appender[Some[A]] = (r, sa) => appenderA.append(r, sa.get)
 	implicit val jaNone: Appender[None.type] = (r, _) => r.append("null");
 
-	///////////////////////////////////////////////////////////////
-	//// JSON appenders for standard collections library types ////
-
-	@inline implicit def jaIterable[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
-		IterableAppender.apply[E, IC](elemAppender)
-
-	@inline implicit def jaMap[K, V, MC[k, v] <: MapUpperBound[k, v]](
-		implicit
-		ka: Appender[K],
-		va: Appender[V],
-		mfd: MapFormatDecider[K, V, MC]
-	): Appender[MC[K, V]] =
-		MapAppender.apply[K, V, MC](ka, va, mfd)
-
-	/////////////////////////////////////////////
-	//// JSON appenders for concrete classes ////
-
-	implicit def jpEnumeration[E <: scala.Enumeration]: Parser[E#Value] = macro EnumParserMacro.materializeImpl[E]
-
-	implicit def jaProduct[P <: ProductUpperBound]: Appender[P] = macro ProductAppender.materializeImpl[P]
-
-	///////////////////////////////////////////////////////////////////////
-	//// Json appenders for sealed traits and sealed abstract classes  ////
-
-//	private val jaCoproductCache = mutable.WeakHashMap.empty[String, CoproductAppender[_ <: CoproductUpperBound]]
-
-	implicit def jaCoproduct[C <: CoproductUpperBound](implicit helper: CoproductAppenderHelper[C]): CoproductAppender[C] = {
-//		jaCoproductCache.getOrElseUpdate(
-//			helper.fullName,
-			new CoproductAppender(helper)
-//		).asInstanceOf[CoproductAppender[C]]
-	};
+	implicit def jaEither[L, R](implicit appenderL: Appender[L], appenderR: Appender[R]): Appender[Either[L, R]] = { (rec, e) =>
+		e match {
+			case Right(r) => appenderR.append(rec, r);
+			case Left(l) => appenderL.append(rec, l);
+		}
+	}
+	implicit def jaRight[R](implicit appenderR: Appender[R]): Appender[Right[Nothing, R]] = (rec, r) => appenderR.append(rec, r.value)
+	implicit def jaLeft[L](implicit appenderL: Appender[L]): Appender[Left[L, Nothing]] = (rec, l) => appenderL.append(rec, l.value)
 
 	//////////////////////////////
 	//// JSON string enconders ////

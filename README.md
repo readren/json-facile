@@ -235,8 +235,12 @@ You can add support to any other collection with a single line provided it has a
 3. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time is significantly increased.
 This problem can be easily mittigated moving the involved ADTs to a separate SBT project. 
 
+## Credits
+1. To [Dymitro Mitin] who helped me innumerable times with his astonushing good answers in stackoverflow.com
+
 ###To be continued...
 
   [JSON]: http://json.org
   [spray]: https://github.com/spray/spray-json
   [circe]: https://circe.github.io/circe/
+  [Dymitro Mitin]: https://stackoverflow.com/users/5249621/dmytro-mitin

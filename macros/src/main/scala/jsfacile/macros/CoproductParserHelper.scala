@@ -28,14 +28,6 @@ object CoproductParserHelper {
 	 * @param constructor            a function that creates an instance of the product this instance represents calling the primary constructor of said product. */
 	final case class CphProductInfo[+P](name: ProductName, numberOfRequiredFields: Int, fields: Array[CphFieldInfo], constructor: Seq[Any] => P) extends Named;
 
-	/** Traits for which the [[jsfacile.read]] package provides an implicit [[Parser]]. */
-	val traitsForWhichTheReadPackageProvidesAnImplicitParser: Set[String] = Set(
-		classOf[scala.Option[Any]].getName, // by jpOption
-		classOf[scala.collection.Iterable[Any]].getName, // by jpIterable
-		classOf[scala.collection.Map[Any, Any]].getName, // by jpUnsortedMap
-		classOf[scala.collection.SortedMap[_, Any]].getName // by jpSortedMap
-	);
-
 	final class CpHelper[C <: CoproductUpperBound](val fullName: String, val discriminator: FieldName, val productsInfo: ArraySeq[CphProductInfo[_ <: C]], val fieldsParsers: Array[CphFieldParser]) extends CoproductParserHelper[C]
 
 	final class CpHelperLazy extends CoproductParserHelper[CoproductUpperBound] with Lazy {
@@ -56,11 +48,6 @@ object CoproductParserHelper {
 
 	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductParserHelper[C]] = {
 		import ctx.universe._
-
-		/** Tell for which types is a [[Parser]] already provided in the [[jsfacile.read]] package, in order to avid letting the [[jsfacile.read.jpCoproduct]] generate another and cause ambiguity error. */
-		def doesTheReadPackageProvideAnImplicitParserFor(classSymbol: ClassSymbol): Boolean = {
-			classSymbol.baseClasses.exists(bc => traitsForWhichTheReadPackageProvidesAnImplicitParser.contains(bc.fullName))
-		}
 
 		/** Adds to the `productsSnippetBuilder` a snippet for each product that extends the specified trait (or abstract class). */
 		def addProductsBelongingTo(
@@ -171,10 +158,6 @@ productFieldsBuilder.clear();"""
 		val coproductClassSymbol = coproductSymbol.asClass;
 		if (!coproductClassSymbol.isSealed) {
 			ctx.abort(ctx.enclosingPosition, s"$coproductClassSymbol is not sealed")
-		}
-		// Avoid generating parsers that are already provided in the [[jsfacile.read]] package. They have the same precedence than [[jsfacile.read.jpCoproduct]] and would cause ambiguity error.
-		if (doesTheReadPackageProvideAnImplicitParserFor(coproductClassSymbol)) {
-			ctx.abort(ctx.enclosingPosition, s"""A parser for $coproductClassSymbol is already provided in the "jsfacile.read" package.""")
 		}
 
 		ctx.echo(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}")

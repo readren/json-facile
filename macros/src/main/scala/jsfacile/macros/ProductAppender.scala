@@ -7,16 +7,17 @@ import jsfacile.write.{Appender, Record}
 
 object ProductAppender {
 
-	/** Concrete classes (including singleton) for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
-	val concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
-		classOf[java.lang.String].getName, // by jaString
-		classOf[scala.BigInt].getName, // by jaBigInt
-		classOf[scala.BigDecimal].getName, // by jaBigDecimal
-		classOf[scala.Option[Any]].getName, // by jaSome and by jaNone
-		classOf[scala.collection.Iterable[Any]].getName, // by jaIterable
-		classOf[scala.collection.Map[Any, Any]].getName, // by jaUnsortedMap
-		classOf[scala.collection.SortedMap[_, Any]].getName // by jaSortedMap
-	);
+//	/** Concrete classes (including singleton) for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
+//	val concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
+//		classOf[java.lang.String].getName, // by jaString
+//		classOf[scala.BigInt].getName, // by jaBigInt
+//		classOf[scala.BigDecimal].getName, // by jaBigDecimal
+//		classOf[scala.Option[Any]].getName, // by jaSome and by jaNone
+//		classOf[scala.Either[Any, Any]].getName, // by jaLeft and JaRight
+//		classOf[scala.collection.Iterable[Any]].getName, // by jaIterable and extensions
+//		classOf[scala.collection.Map[Any, Any]].getName, // by jaUnsortedMap and extensions
+//		classOf[scala.collection.SortedMap[_, Any]].getName // by jaSortedMap and extensions
+//	);
 
 
 	class PaLazy extends Appender[ProductUpperBound] with Lazy {
@@ -32,9 +33,9 @@ object ProductAppender {
 	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
 
-		def doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol: ClassSymbol): Boolean = {
-			classSymbol.baseClasses.exists(bc => concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender.contains(bc.fullName))
-		}
+//		def doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol: ClassSymbol): Boolean = {
+//			classSymbol.baseClasses.exists(bc => concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender.contains(bc.fullName))
+//		}
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
 		val productSymbol: Symbol = productType.typeSymbol;
@@ -42,9 +43,9 @@ object ProductAppender {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
 		}
 		val classSymbol = productSymbol.asClass;
-		if (doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol)) {
-			ctx.abort(ctx.enclosingPosition, s"""An appender for $classSymbol is already provided in the "jsfacile.write" package.""")
-		}
+//		if (doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol)) {
+//			ctx.abort(ctx.enclosingPosition, s"""An appender for $classSymbol is already provided in the "jsfacile.write" package.""")
+//		}
 
 		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 

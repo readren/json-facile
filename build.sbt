@@ -10,7 +10,7 @@ lazy val commonSettings = Seq(
 
 lazy val core = (project in file("core")).dependsOn(macros, comun)
 	.settings(
-		commonSettings
+		commonSettings,
 		// other settings
 	)
 
@@ -27,12 +27,10 @@ ThisBuild / libraryDependencies ++= Seq(
 	"org.scalatest" %% "scalatest" % "3.2.2" % Test,
 	"org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test
 )
-
 core / libraryDependencies ++= Seq(
 	// spray json used for testing
 	"com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % Test
 )
-
 macros / libraryDependencies ++= Seq(
 	// scala reflection required for macros
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value
@@ -40,7 +38,13 @@ macros / libraryDependencies ++= Seq(
 
 ThisBuild / scalacOptions ++= Seq(
 	"-deprecation",
-	"-feature"/*,
+	"-feature",
+	"-language:higherKinds"/*,
 	"-Ymacro-debug-lite",
 	"-Xlog-implicits"*/
 )
+core / scalacOptions += "-language:experimental.macros"
+macros / scalacOptions += "-language:experimental.macros"
+
+
+

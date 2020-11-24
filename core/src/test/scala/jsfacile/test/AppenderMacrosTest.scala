@@ -13,7 +13,9 @@ object AppenderMacrosTest {
 	case class Tree[N, A](height: Int, nests: List[N], mapa: Map[Simple[A], N])
 
 	val simpleOriginal: Simple[Int] = Simple("hola", 7)
+	val simpleJson = """{"text":"hola","number":7}""";
 	val nestOriginal: Nest[Int] = Nest("chau", simpleOriginal)
+	val nestJson = """{"name":"chau","simple":{"text":"hola","number":7}}"""
 	val treeOriginal: Tree[Nest[Int], Int] = Tree(7, List(nestOriginal), Map(simpleOriginal -> nestOriginal))
 
 
@@ -26,13 +28,23 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 	object `The appender should work ...` {
 
 		def `for a single plain class`(): Unit = {
-			val simpleJson = simpleOriginal.toJson
-			assert(simpleJson == """{"text":"hola","number":7}""")
+			assert(simpleJson == simpleOriginal.toJson)
 		}
 
 		def `with nested classes with type parameters`(): Unit = {
-			val nestJson = nestOriginal.toJson
-			assert(nestJson == """{"name":"chau","simple":{"text":"hola","number":7}}""")
+			assert(nestJson == nestOriginal.toJson)
+		}
+
+		def `with option and either`(): Unit = {
+			assertResult("null")(None.toJson)
+			assertResult("null")((None: Option[Simple[Int]]).toJson)
+			assertResult(simpleJson)(Some(simpleOriginal).toJson)
+			assertResult(simpleJson)((Some(simpleOriginal) : Option[Simple[Int]]).toJson)
+
+			assertResult(simpleJson)(Left(simpleOriginal).toJson)
+			assertResult(simpleJson)((Left(simpleOriginal): Either[Simple[Int], Char]).toJson)
+			assertResult(simpleJson)(Right(simpleOriginal).toJson)
+			assertResult(simpleJson)((Right(simpleOriginal) : Either[Char, Simple[Int]]).toJson)
 		}
 
 		def `with iterators and maps`(): Unit = {
