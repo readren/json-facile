@@ -39,6 +39,7 @@ macros / libraryDependencies ++= Seq(
 ThisBuild / scalacOptions ++= Seq(
 	"-deprecation",
 	"-feature",
+	"-opt:l:method", // Enables intra-method optimizations: unreachable-code,simplify-jumps,compact-locals,copy-propagation,redundant-casts,box-unbox,nullness-tracking,closure-invocations,allow-skip-core-module-init,assume-modules-non-null,allow-skip-class-loading.
 	"-language:higherKinds"/*,
 	"-Ymacro-debug-lite",
 	"-Xlog-implicits"*/

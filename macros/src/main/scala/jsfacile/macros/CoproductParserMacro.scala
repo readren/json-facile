@@ -1,24 +1,12 @@
 package jsfacile.macros
 
 import scala.collection.mutable
-import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
 import jsfacile.joint.{ReflectTools, discriminatorField}
-import jsfacile.read.{CoproductParser, Cursor, Parser}
+import jsfacile.read.Parser
 
 object CoproductParserMacro {
-
-	final class CpLazy extends Parser[CoproductUpperBound] with Lazy {
-		@volatile private var instance: CoproductParser[CoproductUpperBound] = _
-		def set[C <: CoproductUpperBound](parser: CoproductParser[C]): Unit = this.instance = parser.asInstanceOf[CoproductParser[CoproductUpperBound]];
-		def get[C <: CoproductUpperBound]: Parser[C] = this.asInstanceOf[Parser[C]];
-		override def isEmpty: Boolean = this.instance == null;
-		/** The implementation should never call another [[Parser]] instance passing the cursor in failed or missed state. And therefore, can asume that the received cursor is {{{cursor.ok == true}}}. */
-		override def parse(cursor: Cursor): CoproductUpperBound = this.instance.parse(cursor);
-	}
-
-	val cpBuffer: mutable.ArrayBuffer[CpLazy] = mutable.ArrayBuffer.empty;
 
 	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Parser[C]] = {
@@ -84,10 +72,8 @@ productsInfoBuilder.addOne(CphProductInfo(
 														case Some(paramHandler) =>
 															superHandler.addDependency(paramHandler);
 
-															if (!paramTypeSymbol.isAbstract) {
-																q"""ppBuffer(${paramHandler.typeIndex}).get"""
-															} else if (paramTypeSymbol.asClass.isSealed) {
-																q"""cpBuffer(${paramHandler.typeIndex}).get"""
+															if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
+																q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 															} else {
 																ctx.abort(ctx.enclosingPosition, "Unreachable")
 															}
@@ -151,38 +137,36 @@ productFieldsBuilder.clear();"""
 				val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
 				addProductsBelongingTo(coproductClassSymbol, coproductType, coproductHandler, productsSnippetsBuilder);
 
-				val cpHelperInitCodeLines =
+				val createParserCodeLines =
 					q"""
 import _root_.scala.collection.immutable.ArraySeq;
 import _root_.scala.collection.mutable.ArrayBuffer;
 import _root_.scala.math.Ordering;
 import _root_.jsfacile.read.Parser;
-import _root_.jsfacile.macros.CoproductParserMacro.cpBuffer;
-import _root_.jsfacile.macros.ProductParserMacro.ppBuffer;
-import _root_.jsfacile.macros.namedOrdering;
+import _root_.jsfacile.macros.{LazyParser, namedOrdering};
 import _root_.jsfacile.read.CoproductParser;
 import CoproductParser.{CphProductInfo, CphFieldInfo, CphFieldParser};
 
-val proxy = cpBuffer($cpTypeIndex);
-if (proxy.isEmpty) {
+val createParser: Array[LazyParser] => CoproductParser[$coproductType] = parsersBuffer => {
 	val productsInfoBuilder = ArraySeq.newBuilder[CphProductInfo[_ <: $coproductType]];
 	val fieldsParsersBuilder = ArrayBuffer[CphFieldParser]();
 	val productFieldsBuilder = ArrayBuffer[CphFieldInfo]();
 
 	..${productsSnippetsBuilder.result()}
 
-	proxy.set(new CoproductParser[$coproductType](
+	new CoproductParser[$coproductType](
 		${coproductType.toString},
 		$discriminatorFieldName,
 		productsInfoBuilder.result(),
 		fieldsParsersBuilder.sortInPlace()(namedOrdering.asInstanceOf[Ordering[CphFieldParser]]).toArray
-	));
-}""";
+	)
+};
+createParser""";
 
-				coproductHandler.oExpression = Some(cpHelperInitCodeLines);
+				coproductHandler.oExpression = Some(createParserCodeLines);
 
-				ctx.echo(ctx.enclosingPosition, s"coproduct parser unchecked init for ${show(coproductType)} : ${show(cpHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-				ctx.typecheck(cpHelperInitCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
+				ctx.echo(ctx.enclosingPosition, s"coproduct parser unchecked init for ${show(coproductType)} : ${show(createParserCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.typecheck(createParserCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
 				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.echo(ctx.enclosingPosition, s"coproduct parser after init check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -199,28 +183,20 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- parserHandlersMap
 						if coproductHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
+					} yield {
+						val createParserCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
+						q"""parsersBuffer(${handler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
+					}
 
 				q"""
-import _root_.jsfacile.macros.CoproductParserMacro.{CpLazy, cpBuffer};
-import _root_.jsfacile.macros.ProductParserMacro.{PpLazy, ppBuffer};
-import _root_.jsfacile.macros.parsersBufferSemaphore;
+import _root_.jsfacile.macros.LazyParser;
 
-if (cpBuffer.size < ${parserHandlersMap.size}) {
-	parsersBufferSemaphore.synchronized {
-		while(ppBuffer.size < ${parserHandlersMap.size}) {
-			ppBuffer.addOne(new PpLazy);
-		}
-		while(cpBuffer.size < ${parserHandlersMap.size}) {
-			cpBuffer.addOne(new CpLazy);
-		}
-	}
-}
+val parsersBuffer = _root_.scala.Array.fill(${parserHandlersMap.size})(new LazyParser);
 {..$inits}
-cpBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
+parsersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 
 			} else {
-				q"""_root_.jsfacile.macros.CoproductParserMacro.cpBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
+				q"""parsersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
 		ctx.echo(ctx.enclosingPosition, s"coproduct parser body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");

@@ -1,12 +1,11 @@
 package jsfacile
 
-import java.util.Comparator
-
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
-//import scala.reflect.api.Trees#Symbol
 
+import jsfacile.read.{Cursor, Parser}
+import jsfacile.write.{Appender, Record}
 
 package object macros {
 
@@ -18,14 +17,28 @@ package object macros {
 	}
 	val namedOrdering: Ordering[Named] = Ordering.by(_.name)
 
-	trait Lazy {
-		def isEmpty: Boolean;
-	};
+
+	abstract class Lazy[Op[_]] {
+		protected var instance: Op[Any] = _;
+		def isEmpty: Boolean = instance == null;
+		def set[P](op: Op[P]): Unit = this.instance = op.asInstanceOf[Op[Any]];
+		def get[P]: Op[P] = this.asInstanceOf[Op[P]];
+
+	}
+
+	final class LazyParser extends Lazy[Parser] with Parser[Any] {
+		override def parse(cursor: Cursor): Any = this.instance.parse(cursor)
+	}
+
+	final class LazyAppender extends Lazy[Appender] with Appender[Any] {
+		def append(record: Record, a: Any): Record = this.instance.append(record, a);
+	}
+
 
 	/** Wraps a [[whitebox.Context.Type]] in order to be usable as a map key.
 	 *
 	 * @param tpe a dealiased type */
-	class TypeKey(val tpe: whitebox.Context#Type) {
+	final class TypeKey(val tpe: whitebox.Context#Type) {
 		override val toString: String = tpe.toString
 
 		override def equals(other: Any): Boolean = other match {
@@ -51,12 +64,10 @@ package object macros {
 	@inline def showParserHandlers: String = Handler.show(parserHandlersMap);
 	@inline def showAppenderHandlers: String = Handler.show(appenderHandlersMap);
 
-	val appendersBufferSemaphore = new Object;
-	val parsersBufferSemaphore = new Object;
-
 	//////////////////
 
 	/** Checks if there is no macro call under the top of the macro call stack that satisfies the received predicate on the called macro full name.
+	 *
 	 * @return true if no macro call in the macro stack (excluding the top one) satisfies the predicate */
 	private def isOuterMacroInvocation(ctx: whitebox.Context)(predicate: String => Boolean): Boolean = {
 		import ctx.universe._;
@@ -77,12 +88,12 @@ package object macros {
 		loop(ctx.enclosingMacros.head, ctx.enclosingMacros.tail)
 	}
 	def isOuterParserMacroInvocation(ctx: whitebox.Context): Boolean = {
-		this.isOuterMacroInvocation(ctx){ methodFullName =>
+		this.isOuterMacroInvocation(ctx) { methodFullName =>
 			methodFullName == "jsfacile.read.PriorityLowParsers.jpProduct" || methodFullName == "jsfacile.read.PriorityLowParsers.jpCoproduct"
 		}
 	}
 	def isOuterAppenderMacroInvocation(ctx: whitebox.Context): Boolean = {
-		this.isOuterMacroInvocation(ctx){ methodFullName =>
+		this.isOuterMacroInvocation(ctx) { methodFullName =>
 			methodFullName == "jsfacile.write.PriorityLowAppenders.jaProduct" || methodFullName == "jsfacile.write.PriorityLowAppenders.jaCoproduct"
 		}
 	}

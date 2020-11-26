@@ -7,8 +7,9 @@ object SpeedTest {
 
 	def main(args: Array[String]): Unit = {
 
-
-		for ( j <- 1 to 10) {
+		var totalJsFacileDuration: Float = 0;
+		var totalSprayDuration: Float = 0;
+		for ( j <- 0 to 10) {
 
 			System.gc();
 			val jsFacileDuration = {
@@ -26,6 +27,7 @@ object SpeedTest {
 				println("\njsfacile:\t" + duration);
 				duration
 			}
+			if(j > 0) totalJsFacileDuration += jsFacileDuration
 
 			System.gc();
 			val sprayDuration = {
@@ -40,7 +42,16 @@ object SpeedTest {
 				println("spray:\t\t" + duration);
 				duration
 			}
-			println(s"difference: ${100*(sprayDuration - jsFacileDuration)/jsFacileDuration}%");
+			if(j > 0) totalSprayDuration += sprayDuration;
+
+			val difference = 100*(sprayDuration - jsFacileDuration)/jsFacileDuration
+			println(s"difference: $difference%");
+
 		}
+
+		println("-------------")
+		println(s"total jsFacile duration	: $totalJsFacileDuration")
+		println(s"total spray duration		: $totalSprayDuration")
+		println(s"total difference			: jsfacile is ${100*(totalSprayDuration - totalJsFacileDuration)/totalJsFacileDuration}% faster than spray")
 	}
 }

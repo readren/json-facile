@@ -89,11 +89,4 @@ package object api {
 	case class ParseFailure(jsonDoc: String, pos: Parser.Pos, cause: AnyRef) extends ParseError {
 		override def toString = s"The parsing failed at position $pos. Cause: $cause"
 	}
-
-	///////////////
-	//// Tools ////
-
-	/** Removes the `Appender[T]` instance that where stored in the derived appenders buffer.
-	 * This is needed to recreate the appender after a circumstance from which it depends has changed. For example, when a new [[MapFormatDecider]] enters into implicit scope after the [[Appender]] creation. */
-	@inline def clearAppenderBufferOf[T](): Unit = jsfacile.macros.Tools.clearAppenderBufferOf[T]();
 }

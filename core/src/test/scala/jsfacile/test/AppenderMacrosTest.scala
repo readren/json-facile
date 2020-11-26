@@ -1,6 +1,5 @@
 package jsfacile.test
 
-import jsfacile.macros.Tools
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -54,8 +53,6 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 			}
 			{
 				implicit val mfd: MapFormatDecider[Simple[Int], Any, Any] = new MapFormatDecider[Simple[Int], Any, Any] {override val useObject: Boolean = true};
-				Tools.clearAppenderBufferOf[Tree[Nest[Int], Int]]();
-
 				val mapAsObjects: String = treeOriginal.toJson;
 				assert(mapAsObjects == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
 			}

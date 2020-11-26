@@ -2,7 +2,7 @@
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
 * Converts between scala algebraic data types and String JSON documents directly, without any intermediate representation.
-* An efficient JSON parser. Considerably faster (around 33%) than [spray]. If the JSON contains ignored fields, _jsson-facile_ is even faster.
+* An efficient JSON parser. Considerably faster than [spray] (around 40% when optimized bytecode is enabled, 30% if not). If the JSON contains ignored fields the difference is even greater.
 * Type-class based conversion (no runtime reflection, no intrusion).
 * Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
 * The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`. The fields names and its types are extracted from the primary constructor.
@@ -77,10 +77,7 @@ By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `C
 	```json
 	{"{\"id\":1,\"value\":false}":"one","{\"id\":2,\"value\":true}":"two"}
 	```
-	Note that the key values are JSON enconded in the JSON object's field names.
-
-	CAUTION: Derived appenders (and parser) are buffered to improve speed and reduce the proyect size. Therefore, all appenders that were buffered before the declaration of the implicit instances of `MapFormatDecider` are not affected.
-	To overcome this problem use the `clearAppenderBufferOf` method on the types that contains the target maps.
+	Note that the keys are JSON enconded in the JSON object's field names.
 
 ## More examples
 

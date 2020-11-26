@@ -1,26 +1,15 @@
 package jsfacile.macros
 
-import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
 import jsfacile.read.ProductParser.PpFieldInfo
-import jsfacile.read.{Cursor, Parser, ProductParser}
+import jsfacile.read.Parser
 
 
 object ProductParserMacro {
 
-	final class PpLazy extends Parser[ProductUpperBound] with Lazy {
-		@volatile private var instance: ProductParser[ProductUpperBound] = _;
-		def set[P](parser: ProductParser[P]): Unit = this.instance = parser.asInstanceOf[ProductParser[ProductUpperBound]];
-		def get[P]: Parser[P] = this.asInstanceOf[Parser[P]];
-		override def isEmpty: Boolean = instance == null;
-		override def parse(cursor: Cursor): ProductUpperBound = this.instance.parse(cursor)
-	}
-
 	val fieldsOrdering: Ordering[PpFieldInfo] = Ordering.by(_.name);
-
-	val ppBuffer: mutable.ArrayBuffer[PpLazy] = mutable.ArrayBuffer.empty;
 
 	/** Macro implicit materializer of [[ProductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Parser[P]] = {
@@ -64,10 +53,8 @@ object ProductParserMacro {
 										case Some(paramHandler) =>
 											productHandler.addDependency(paramHandler);
 
-											if (!paramTypeSymbol.isAbstract) {
-												q"""ppBuffer(${paramHandler.typeIndex}).get"""
-											} else if (paramTypeSymbol.asClass.isSealed) {
-												q"""cpBuffer(${paramHandler.typeIndex}).get"""
+											if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
+												q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 											} else {
 												ctx.abort(ctx.enclosingPosition, "Unreachable")
 											}
@@ -85,7 +72,7 @@ object ProductParserMacro {
 							q"args($argIndex).asInstanceOf[$paramType]";
 						}
 					}
-				val ppHelperInitCodeLines =
+				val createParserCodeLines =
 					q"""
 import _root_.scala.Array;
 import _root_.scala.collection.mutable.ArrayBuffer;
@@ -93,11 +80,10 @@ import _root_.scala.collection.immutable.Seq;
 
 import _root_.jsfacile.read.{Parser, ProductParser};
 import ProductParser.{PpFieldInfo, PpHelper};
-import _root_.jsfacile.macros.CoproductParserMacro.cpBuffer;
-import _root_.jsfacile.macros.ProductParserMacro.{ppBuffer, fieldsOrdering};
+import _root_.jsfacile.macros.LazyParser;
+import _root_.jsfacile.macros.ProductParserMacro.fieldsOrdering;
 
-val proxy = ppBuffer($ppHelperIndex);
-if (proxy.isEmpty) {
+val createParser: Array[LazyParser] => ProductParser[$productType] = parsersBuffer => {
 	val builder = ArrayBuffer[PpFieldInfo]();
 	..${addFieldInfoSnippetsBuilder.result()}
 
@@ -107,13 +93,15 @@ if (proxy.isEmpty) {
 		override val fieldsInfo: Array[PpFieldInfo] = builder.sortInPlace()(fieldsOrdering).toArray;
 
 		override def createProduct(args: Seq[Any]):$productType = new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
-	};
- 	proxy.set(new ProductParser[$productType](helper));
-}""";
-				productHandler.oExpression = Some(ppHelperInitCodeLines);
+	}
+	new ProductParser[$productType](helper)
+};
+createParser""";
 
-				ctx.echo(ctx.enclosingPosition, s"product parser unchecked init for ${show(productType)}: ${show(ppHelperInitCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
-				ctx.typecheck(ppHelperInitCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
+				productHandler.oExpression = Some(createParserCodeLines);
+
+				ctx.echo(ctx.enclosingPosition, s"product parser unchecked init for ${show(productType)}: ${show(createParserCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.typecheck(createParserCodeLines); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 				ctx.echo(ctx.enclosingPosition, s"product parser after init check for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
@@ -131,28 +119,20 @@ if (proxy.isEmpty) {
 					for {
 						(_, handler) <- parserHandlersMap
 						if productHandler.doesDependOn(handler.typeIndex)
-					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
+					} yield {
+						val createParserCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
+						q"""parsersBuffer(${handler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
 
+					}
 				q"""
-import _root_.jsfacile.macros.CoproductParserMacro.{CpLazy, cpBuffer};
-import _root_.jsfacile.macros.ProductParserMacro.{PpLazy, ppBuffer}
-import _root_.jsfacile.macros.parsersBufferSemaphore;
+import _root_.jsfacile.macros.LazyParser;
 
-if (ppBuffer.size < ${parserHandlersMap.size}) {
-	parsersBufferSemaphore.synchronized {
-		while(cpBuffer.size < ${parserHandlersMap.size}) {
-			cpBuffer.addOne(new CpLazy);
-		}
-		while(ppBuffer.size < ${parserHandlersMap.size}) {
-			ppBuffer.addOne(new PpLazy);
-		}
-	}
-}
+val parsersBuffer = _root_.scala.Array.fill(${parserHandlersMap.size})(new LazyParser);
 {..$inits}
-ppBuffer(${productHandler.typeIndex}).get[$productType]"""
+parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 
 			} else {
-				q"""_root_.jsfacile.macros.ProductParserMacro.ppBuffer(${productHandler.typeIndex}).get[$productType]"""
+				q"""parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 			}
 
 		ctx.echo(ctx.enclosingPosition, s"product parser unchecked body for ${show(productType)}:\n${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
