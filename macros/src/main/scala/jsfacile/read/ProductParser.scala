@@ -2,14 +2,26 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
-import jsfacile.macros.{ProductParserHelper, ProductUpperBound}
-import jsfacile.macros.ProductParserHelper.PphFieldInfo
+import jsfacile.macros.ProductUpperBound
 import jsfacile.read.Parser._
+import jsfacile.read.ProductParser.{PpFieldInfo, PpHelper}
 import jsfacile.util.BinarySearch
 
-class ProductParser[P <: ProductUpperBound](helper: ProductParserHelper[P]) extends Parser[P] {
+object ProductParser {
 
-	assert(helper != null); // Fails here when the macro expansion of ProductParserHelper fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
+	final case class PpFieldInfo(name: String, valueParser: Parser[_], oDefaultValue: Option[Any], ctorArgIndex: Int)
+
+	trait PpHelper[P <: ProductUpperBound] {
+		def fullName: String;
+		def fieldsInfo: Array[PpFieldInfo];
+		def createProduct(args: Seq[Any]): P
+	}
+
+}
+
+class ProductParser[P <: ProductUpperBound](helper: PpHelper[P]) extends Parser[P] {
+
+	assert(helper != null); // Fails here when the macro expansion of CoproductParserMacro fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
 
 	override def parse(cursor: Cursor): P = {
 
@@ -23,12 +35,12 @@ class ProductParser[P <: ProductUpperBound](helper: ProductParserHelper[P]) exte
 				var have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
 					have = false;
-					val fieldName = jpString.parse(cursor);
+					val fieldName = BasicParsers.jpString.parse(cursor);
 					if (cursor.consumeWhitespaces() &&
 						cursor.consumeChar(':') &&
 						cursor.consumeWhitespaces()
 					) {
-						val fieldInfo = BinarySearch.find[PphFieldInfo[_]](helper.fieldsInfo) {_.name.compare(fieldName)}
+						val fieldInfo = BinarySearch.find[PpFieldInfo](helper.fieldsInfo) {_.name.compare(fieldName)}
 						if (fieldInfo == null) {
 							Skip.jsValue(cursor);
 						} else {

@@ -7,35 +7,18 @@ import jsfacile.write.{Appender, Record}
 
 object ProductAppender {
 
-//	/** Concrete classes (including singleton) for which the [[jsfacile.write]] package provides an implicit [[Appender]]. */
-//	val concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender: Set[String] = Set(
-//		classOf[java.lang.String].getName, // by jaString
-//		classOf[scala.BigInt].getName, // by jaBigInt
-//		classOf[scala.BigDecimal].getName, // by jaBigDecimal
-//		classOf[scala.Option[Any]].getName, // by jaSome and by jaNone
-//		classOf[scala.Either[Any, Any]].getName, // by jaLeft and JaRight
-//		classOf[scala.collection.Iterable[Any]].getName, // by jaIterable and extensions
-//		classOf[scala.collection.Map[Any, Any]].getName, // by jaUnsortedMap and extensions
-//		classOf[scala.collection.SortedMap[_, Any]].getName // by jaSortedMap and extensions
-//	);
-
-
 	class PaLazy extends Appender[ProductUpperBound] with Lazy {
 		@volatile private var instance: Appender[ProductUpperBound] = _;
 		def set[P <: ProductUpperBound](appender: Appender[P]): Unit = this.instance = appender.asInstanceOf[Appender[ProductUpperBound]];
-		def get[P <: ProductUpperBound]: Appender[P] = this.instance.asInstanceOf[Appender[P]];
+		def get[P <: ProductUpperBound]: Appender[P] = this.asInstanceOf[Appender[P]];
 		override def isEmpty: Boolean = this.instance == null;
 		override def append(record: Record, a: ProductUpperBound): Record = this.instance.append(record, a);
 	}
 
-	val productsAppendersBuffer: mutable.ArrayBuffer[PaLazy] = mutable.ArrayBuffer.empty;
+	val paBuffer: mutable.ArrayBuffer[PaLazy] = mutable.ArrayBuffer.empty;
 
 	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._
-
-//		def doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol: ClassSymbol): Boolean = {
-//			classSymbol.baseClasses.exists(bc => concreteClassesForWhichTheWritePackageProvidesAnImplicitAppender.contains(bc.fullName))
-//		}
 
 		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
 		val productSymbol: Symbol = productType.typeSymbol;
@@ -43,9 +26,6 @@ object ProductAppender {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
 		}
 		val classSymbol = productSymbol.asClass;
-//		if (doesTheWritePackageProvideAnImplicitAppenderFor(classSymbol)) {
-//			ctx.abort(ctx.enclosingPosition, s"""An appender for $classSymbol is already provided in the "jsfacile.write" package.""")
-//		}
 
 		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
@@ -53,8 +33,8 @@ object ProductAppender {
 		val productHandler = appenderHandlersMap.get(productTypeKey) match {
 
 			case None =>
-				val productTypeIndex = appenderHandlersMap.size;
-				val productHandler = new Handler(productTypeIndex);
+				val paTypeIndex = appenderHandlersMap.size;
+				val productHandler = new Handler(paTypeIndex);
 				registerAppenderDependency(productHandler);
 				appenderHandlersMap.put(productTypeKey, productHandler);
 
@@ -85,11 +65,11 @@ object ProductAppender {
 										productHandler.addDependency(paramHandler);
 
 										if (!paramTypeSymbol.isAbstract) { // if the field type is a concrete class, including module classes (scala objects)
-											Some(q"productsAppendersBuffer(${paramHandler.typeIndex}).get[$paramType]")
+											Some(q"paBuffer(${paramHandler.typeIndex}).get[$paramType]")
 
 										} else if (paramTypeSymbol.asClass.isSealed) { // if the field type is a trait or abstract class
 											Some(
-												q"""new _root_.jsfacile.write.CoproductAppender[$paramType](caHelpersBuffer(${paramHandler.typeIndex}).get[$paramType])""")
+												q"""caBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 										} else {
 											ctx.abort(ctx.enclosingPosition, "Unreachable")
 										}
@@ -113,11 +93,11 @@ object ProductAppender {
 
 				val productAppenderExpression =
 					q"""
-import _root_.jsfacile.macros.CoproductAppenderHelper.caHelpersBuffer;
-import _root_.jsfacile.macros.ProductAppender.productsAppendersBuffer;
+import _root_.jsfacile.macros.CoproductAppenderMacro.caBuffer;
+import _root_.jsfacile.macros.ProductAppender.paBuffer;
 import _root_.jsfacile.write.{Appender, Record};
 
-val proxy = productsAppendersBuffer($productTypeIndex);
+val proxy = paBuffer($paTypeIndex);
 if (proxy.isEmpty) {
 	proxy.set(new Appender[$productType] {
 		override def append(r: Record, p: $productType): Record = {
@@ -128,11 +108,11 @@ if (proxy.isEmpty) {
 	});
 }""";
 
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				productHandler.oExpression = Some(productAppenderExpression);
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(productAppenderExpression)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(productAppenderExpression);
-				productHandler.isCapturingDependencies = false
+				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 				productHandler
@@ -151,34 +131,31 @@ if (proxy.isEmpty) {
 					} yield handler.oExpression.get.asInstanceOf[ctx.Tree];
 
 				q"""
-import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
-import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
+import _root_.jsfacile.write.CoproductAppender;
+import _root_.jsfacile.macros.ProductAppender.{PaLazy, paBuffer};
+import _root_.jsfacile.macros.CoproductAppenderMacro.{CaLazy, caBuffer};
 import _root_.jsfacile.macros.appendersBufferSemaphore;
 
-if (productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
+if (paBuffer.size < ${appenderHandlersMap.size}) {
 	appendersBufferSemaphore.synchronized {
-		while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
-			caHelpersBuffer.addOne(new CaHelperLazy);
+		while(caBuffer.size < ${appenderHandlersMap.size}) {
+			caBuffer.addOne(new CaLazy);
 		}
-		while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
-			productsAppendersBuffer.addOne(new PaLazy);
+		while(paBuffer.size < ${appenderHandlersMap.size}) {
+			paBuffer.addOne(new PaLazy);
 		}
 	}
 }
 {..$inits}
-productsAppendersBuffer(${productHandler.typeIndex}).get[$productType]""";
+paBuffer(${productHandler.typeIndex}).get[$productType]""";
 
 			} else {
-				q"""
-import _root_.jsfacile.macros.ProductAppender.productsAppendersBuffer;
-productsAppendersBuffer(${productHandler.typeIndex}).get[$productType]"""
+				q"""_root_.jsfacile.macros.ProductAppender.paBuffer(${productHandler.typeIndex}).get[$productType]"""
 
 			}
 
-		ctx.info(ctx.enclosingPosition, s"product appender unchecked body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
-		val checkedBody = ctx.typecheck(body);
-		ctx.info(ctx.enclosingPosition, s"product appender after body check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
+		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
-		ctx.Expr[Appender[P]](checkedBody);
+		ctx.Expr[Appender[P]](body);
 	}
 }

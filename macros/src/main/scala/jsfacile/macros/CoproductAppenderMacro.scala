@@ -7,15 +7,9 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
 import jsfacile.joint.{ReflectTools, discriminatorField}
-import jsfacile.macros.CoproductAppenderHelper.CahProductInfo
-import jsfacile.write.Appender
+import jsfacile.write.{Appender, CoproductAppender, Record}
 
-trait CoproductAppenderHelper[C <: CoproductUpperBound] {
-	def fullName: String;
-	def productsInfo: Array[CahProductInfo[C]]
-}
-
-object CoproductAppenderHelper {
+object CoproductAppenderMacro {
 
 	case class CahProductInfo[P](name: String, appender: Appender[P])
 
@@ -68,22 +62,17 @@ object CoproductAppenderHelper {
 		diff
 	}
 
-	class CaHelper[C <: CoproductUpperBound](val fullName: String, val productsInfo: Array[CahProductInfo[C]]) extends CoproductAppenderHelper[C]
-
-	class CaHelperLazy extends CoproductAppenderHelper[CoproductUpperBound] with Lazy {
-		@volatile private var instance: CoproductAppenderHelper[CoproductUpperBound] = _;
+	class CaLazy extends Appender[CoproductUpperBound] with Lazy {
+		@volatile private var instance: CoproductAppender[CoproductUpperBound] = _;
 		override def isEmpty: Boolean = this.instance == null;
-		def set[C <: CoproductUpperBound](helper: CoproductAppenderHelper[C]): Unit = this.instance = helper.asInstanceOf[CoproductAppenderHelper[CoproductUpperBound]];
-		def get[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = this.instance.asInstanceOf[CoproductAppenderHelper[C]];
-		override def fullName: String = this.instance.fullName
-		override def productsInfo: Array[CahProductInfo[CoproductUpperBound]] = this.instance.productsInfo;
+		def set[C <: CoproductUpperBound](appender: CoproductAppender[C]): Unit = this.instance = appender.asInstanceOf[CoproductAppender[CoproductUpperBound]];
+		def get[C <: CoproductUpperBound]: Appender[C] = this.asInstanceOf[Appender[C]];
+		override def append(r: Record, c: CoproductUpperBound): Record = this.instance.append(r, c)
 	}
 
-	val caHelpersBuffer: mutable.ArrayBuffer[CaHelperLazy] = mutable.ArrayBuffer.empty;
+	val caBuffer: mutable.ArrayBuffer[CaLazy] = mutable.ArrayBuffer.empty;
 
-	implicit def materialize[C <: CoproductUpperBound]: CoproductAppenderHelper[C] = macro materializeImpl[C];
-
-	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[CoproductAppenderHelper[C]] = {
+	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[C]] = {
 		import ctx.universe._
 
 		case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
@@ -150,9 +139,9 @@ object CoproductAppenderHelper {
 														superHandler.addDependency(paramHandler);
 
 														if (!paramTypeSymbol.isAbstract) {
-															Some(q"productsAppendersBuffer(${paramHandler.typeIndex}).get[$paramType]")
+															Some(q"paBuffer(${paramHandler.typeIndex}).get[$paramType]")
 														} else if (paramTypeSymbol.asClass.isSealed) {
-															Some(q"""new _root_.jsfacile.write.CoproductAppender[$paramType](caHelpersBuffer(${paramHandler.typeIndex}).get[$paramType])""")
+															Some(q"""caBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 														} else {
 															ctx.abort(ctx.enclosingPosition, "Unreachable")
 														}
@@ -202,14 +191,14 @@ object CoproductAppenderHelper {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed")
 		}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductHandler = appenderHandlersMap.get(coproductTypeKey) match {
 
 			case None =>
-				val caHelperIndex = appenderHandlersMap.size;
-				val coproductHandler = new Handler(caHelperIndex)
+				val caTypeIndex = appenderHandlersMap.size;
+				val coproductHandler = new Handler(caTypeIndex)
 				registerAppenderDependency(coproductHandler);
 				appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
@@ -269,27 +258,28 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 				val caHelperInitCodeLines =
 					q"""
 import _root_.scala.Array;
-import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelper, caHelpersBuffer, CahProductInfo, productInfoComparator};
-import _root_.jsfacile.macros.ProductAppender.productsAppendersBuffer;
+import _root_.scala.collection.mutable.ArrayBuffer;
+import _root_.jsfacile.write.CoproductAppender;
+import _root_.jsfacile.macros.CoproductAppenderMacro.{caBuffer, CahProductInfo, productInfoComparator};
+import _root_.jsfacile.macros.ProductAppender.paBuffer;
 
-val proxy = caHelpersBuffer($caHelperIndex);
+val proxy = caBuffer($caTypeIndex);
 if (proxy.isEmpty) {
-	val productsInfoBuilder = Array.newBuilder[CahProductInfo[_ <: $coproductType]];
+	val productsInfoBuilder = ArrayBuffer[CahProductInfo[_ <: $coproductType]]();
 
 	..$addProductInfo_codeLines
 
-	val productsArray = productsInfoBuilder.result().asInstanceOf[Array[CahProductInfo[$coproductType]]];
+	val productsArray = productsInfoBuilder.toArray.asInstanceOf[Array[CahProductInfo[$coproductType]]];
 	_root_.java.util.Arrays.sort(productsArray, productInfoComparator);
-
-	proxy.set(new CaHelper[$coproductType](${coproductType.toString}, productsArray));
+	proxy.set(new CoproductAppender(${coproductType.toString}, productsArray));
 }""";
 
 				coproductHandler.oExpression = Some(caHelperInitCodeLines);
 
-				ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked init for ${show(coproductType)} : ${show(caHelperInitCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(caHelperInitCodeLines);
-				coproductHandler.isCapturingDependencies = false
-				ctx.info(ctx.enclosingPosition, s"coproduct appender helper after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
+				ctx.info(ctx.enclosingPosition, s"coproduct appender after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 				coproductHandler
 
@@ -308,34 +298,33 @@ if (proxy.isEmpty) {
 					} yield handler.oExpression.get.asInstanceOf[ctx.Tree]
 
 				q"""
-import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
-import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
+import _root_.jsfacile.write.CoproductAppender;
+import _root_.jsfacile.macros.CoproductAppenderMacro.{CaLazy, caBuffer};
+import _root_.jsfacile.macros.ProductAppender.{PaLazy, paBuffer};
 import _root_.jsfacile.macros.appendersBufferSemaphore;
 
-if (caHelpersBuffer.size < ${appenderHandlersMap.size}) {
+if (caBuffer.size < ${appenderHandlersMap.size}) {
 	appendersBufferSemaphore.synchronized {
-		while(productsAppendersBuffer.size < ${appenderHandlersMap.size}) {
-			productsAppendersBuffer.addOne(new PaLazy);
+		while(paBuffer.size < ${appenderHandlersMap.size}) {
+			paBuffer.addOne(new PaLazy);
 		}
-		while(caHelpersBuffer.size < ${appenderHandlersMap.size}) {
-			caHelpersBuffer.addOne(new CaHelperLazy);
+		while(caBuffer.size < ${appenderHandlersMap.size}) {
+			caBuffer.addOne(new CaLazy);
 		}
 	}
 }
 {..$inits}
-caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
+caBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 
 			} else {
 				q"""
-import _root_.jsfacile.macros.CoproductAppenderHelper.caHelpersBuffer;
-caHelpersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
+import _root_.jsfacile.macros.CoproductAppenderMacro.caBuffer;
+caBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
-		val checkedBody = ctx.typecheck(body);
-		ctx.info(ctx.enclosingPosition, s"coproduct appender helper after body check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
-		ctx.Expr[CoproductAppenderHelper[C]](checkedBody);
+		ctx.Expr[Appender[C]](body);
 	}
 }
 

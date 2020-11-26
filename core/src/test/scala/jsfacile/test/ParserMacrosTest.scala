@@ -1,8 +1,7 @@
 package jsfacile.test
 
-import jsfacile.macros.ProductParserHelper
-import jsfacile.read.{Parser, ProductParser}
-import SampleADT._
+import jsfacile.read.Parser
+import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatest.{Outcome, Retries, Succeeded}
@@ -107,14 +106,11 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `Implicit resolution of the interpreters should work`(): Unit = {
 			import jsfacile.api.CursorStr
 
-			val simpleHelper = ProductParserHelper.materialize[Simple];
-			assert(simpleHelper != null && simpleHelper.fieldsInfo.nonEmpty && simpleHelper.fieldsInfo.forall(_.valueParser != null))
-
-			val productParser = new ProductParser[Simple](simpleHelper)
+			val productParser = Parser[Simple]
 			assert(productParser != null && productParser.parse(new CursorStr(simpleJson)) == simpleOriginal)
 
 			val simpleParser = Parser.apply[Simple]
-			assert(simpleParser.isInstanceOf[ProductParser[Simple]])
+			assert(simpleParser.isInstanceOf[Parser[Simple]])
 		}
 	}
 
@@ -225,7 +221,6 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		case class A2[L, F](load: L, free: F) extends A[L]
 
 		def `parsing a type constructed by a type constructor that has a subclass with a free type parameter`(): Unit = {
-			import jsfacile.api._
 			"""val aParsed = "?".fromJson[A[Double]]""" shouldNot typeCheck
 		}
 	}

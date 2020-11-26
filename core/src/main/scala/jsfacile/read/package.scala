@@ -1,7 +1,7 @@
 package jsfacile
 
 import jsfacile.api.{IterableUpperBound, MapUpperBound, SortedMapUpperBound}
-import jsfacile.macros.{CoproductParserHelper, CoproductUpperBound, EnumParserMacro, ProductParserHelper, ProductUpperBound, SingletonParserHelper}
+import jsfacile.macros.{CoproductParserMacro, CoproductUpperBound, EnumParserMacro, ProductParserMacro, ProductUpperBound, SingletonParserMacro}
 import jsfacile.util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMapFactory, NonVariantHolderOfAnIterableFactory}
 
 

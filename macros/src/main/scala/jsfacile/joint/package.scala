@@ -7,8 +7,8 @@ package object joint {
 	val defaultDiscriminatorFieldName = "?"
 
 	/** An annotation for sealed traits or abstract classes that:
-	 * (1) instructs the [[jsfacile.macros.CoproductAppenderHelper]] (which is the responsible to translate values declared with an abstract type to json representation) to append an extra field in the json representation of each instance of the annotated type, in order to specify the concrete type of the instance. The type is specified with the instance type's simple name.
-	 * (2) informs the [[jsfacile.macros.CoproductParserHelper]] (which is the responsible to translate values from json representation to instances of abstract data types) which is the name of the extra field that disambiguates between concrete candidates whose required fields have the same name.
+	 * (1) instructs the [[jsfacile.macros.CoproductAppenderMacro]] (which is the responsible to translate values declared with an abstract type to json representation) to append an extra field in the json representation of each instance of the annotated type, in order to specify the concrete type of the instance. The type is specified with the instance type's simple name.
+	 * (2) informs the [[jsfacile.macros.CoproductParserMacro]] (which is the responsible to translate values from json representation to instances of abstract data types) which is the name of the extra field that disambiguates between concrete candidates whose required fields have the same name.
 	 *
 	 * @param value the name of the extra field in the json representation, that specifies the type of the represented instance. */
 	class discriminatorField(value: String, required: Boolean = true) extends scala.annotation.StaticAnnotation

@@ -15,14 +15,14 @@ object Tools {
 			case Some(handler) =>
 				val typeIndex = handler.typeIndex;
 				q"""
-import _root_.jsfacile.macros.ProductAppender.{PaLazy, productsAppendersBuffer};
-import _root_.jsfacile.macros.CoproductAppenderHelper.{CaHelperLazy, caHelpersBuffer};
+import _root_.jsfacile.macros.ProductAppender.{PaLazy, paBuffer};
+import _root_.jsfacile.macros.CoproductAppenderMacro.{CaLazy, caBuffer};
 import _root_.jsfacile.macros.appendersBufferSemaphore;
 
 appendersBufferSemaphore.synchronized {
-	if ($typeIndex < caHelpersBuffer.size) {
-		caHelpersBuffer.update($typeIndex, new CaHelperLazy);
-		productsAppendersBuffer.update($typeIndex, new PaLazy);
+	if ($typeIndex < caBuffer.size) {
+		caBuffer.update($typeIndex, new CaLazy);
+		paBuffer.update($typeIndex, new PaLazy);
 	}
 }
 """;

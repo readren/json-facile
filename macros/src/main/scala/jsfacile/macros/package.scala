@@ -78,12 +78,12 @@ package object macros {
 	}
 	def isOuterParserMacroInvocation(ctx: whitebox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx){ methodFullName =>
-			methodFullName == "jsfacile.macros.ProductParserHelper.materialize" || methodFullName == "jsfacile.macros.CoproductParserHelper.materialize"
+			methodFullName == "jsfacile.read.PriorityLowParsers.jpProduct" || methodFullName == "jsfacile.read.PriorityLowParsers.jpCoproduct"
 		}
 	}
 	def isOuterAppenderMacroInvocation(ctx: whitebox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx){ methodFullName =>
-			methodFullName == "jsfacile.write.jaProduct" || methodFullName == "jsfacile.macros.CoproductAppenderHelper.materialize"
+			methodFullName == "jsfacile.write.PriorityLowAppenders.jaProduct" || methodFullName == "jsfacile.write.PriorityLowAppenders.jaCoproduct"
 		}
 	}
 
@@ -115,6 +115,6 @@ package object macros {
 					|	tree: ${ic.tree}
 					|)""".stripMargin
 		}.mkString
-		s"openMacros:$macros\nopenImplicits:$implicits\n"
+		s"\nopenMacros:$macros\n\nopenImplicits:$implicits\n"
 	}
 }
