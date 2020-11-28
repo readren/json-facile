@@ -5,83 +5,87 @@ import jsfacile.read.Parser._
 object BasicParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
+	private val THRESHOLD = 40; // length of the string chunk above which it is faster to create an append a string than to append the contained characters one by one. TODO calculate the THRESHOLD
 
 	/** A [[Parser]] of JSON strings.
 	 * Used to parse the JSON field names and string values. */
 	object jpString extends Parser[String] {
 		override def parse(cursor: Cursor): String = {
-			if (cursor.have && cursor.pointedElem == '"') {
-				if (!cursor.advance()) {
-					cursor.fail("unclosed string");
-					return ignored[String]
-				}
-				val sb = new java.lang.StringBuilder();
-
-				var pe = cursor.pointedElem;
-				while (pe != '"') {
-					if (pe == '\\') {
-						if (!cursor.advance()) {
-							cursor.fail("unfinished string escape");
-							return ignored[String]
-						}
-						cursor.pointedElem match {
-							case '"' => sb.append('"')
-							case '\\' => sb.append('\\')
-							case '/' => sb.append('/')
-							case 'b' => sb.append('\b')
-							case 'f' => sb.append('\f')
-							case 'n' => sb.append('\n')
-							case 'r' => sb.append('\r')
-							case 't' => sb.append('\t')
-							case 'u' =>
-								var counter = 4;
-								var hexCode: Int = 0;
-								do {
-									if (!cursor.advance()) {
-										cursor.fail("unfinished string hex code escape");
-										return ignored[String]
-									}
-									hexCode *= 16;
-									pe = cursor.pointedElem;
-									if ('0' <= pe & pe <= '9') {
-										hexCode += pe - '0'
-									} else if ('a' <= pe && pe <= 'f') {
-										hexCode += pe - 'a' + 10
-									} else if ('A' <= pe && pe <= 'F') {
-										hexCode += pe - 'A' + 10
-									} else {
-										cursor.fail("invalid hex code");
-										return ignored[String]
-									}
-									counter -= 1;
-								} while (counter > 0)
-								sb.appendCodePoint(hexCode)
-						}
-					} else if (pe >= Character.MIN_HIGH_SURROGATE) {
-						if (!cursor.advance()) {
-							cursor.fail("unfinished string in middle of surrogate pair");
-							return ignored[String]
-						}
-						val ls = cursor.pointedElem;
-						if (!ls.isLowSurrogate) {
-							cursor.fail("invalid surrogate pair");
-							return ignored[String]
-						}
-						sb.append(ls).append(pe)
-
+			if (cursor.have) {
+				val nextSingularityPos = cursor.posOfNextEscapeOrClosingQuote;
+				if (nextSingularityPos == 0) { // nextPos == 0 <=> cursor.pointedElem != '"'
+					cursor.miss();
+					ignored[String];
+				} else if (cursor.isPointing) {
+					if (cursor.pointedElem == '"') {
+						cursor.consumeStringUntil(nextSingularityPos)
 					} else {
-						sb.append(pe)
+						// reaches here if at the `nextSingularityPos` is an escape '\' char
+						val distance = nextSingularityPos - cursor.pos;
+						val sb = new java.lang.StringBuilder(distance + 16)
+						if (distance > THRESHOLD) {
+							sb.append(cursor.consumeStringTo(nextSingularityPos))
+							// here the pointedElem should be an escape char '\'.
+						}
+						var pe = cursor.pointedElem;
+						while (pe != '"') {
+							if (pe == '\\') {
+								if (!cursor.advance()) {
+									cursor.fail("unfinished string escape");
+									return ignored[String]
+								}
+								cursor.pointedElem match {
+									case '"' => sb.append('"')
+									case '\\' => sb.append('\\')
+									case '/' => sb.append('/')
+									case 'b' => sb.append('\b')
+									case 'f' => sb.append('\f')
+									case 'n' => sb.append('\n')
+									case 'r' => sb.append('\r')
+									case 't' => sb.append('\t')
+									case 'u' =>
+										var counter = 4;
+										var hexCode: Int = 0;
+										do {
+											if (!cursor.advance()) {
+												cursor.fail("unfinished string hex code escape");
+												return ignored[String]
+											}
+											hexCode *= 16;
+											pe = cursor.pointedElem;
+											if ('0' <= pe & pe <= '9') {
+												hexCode += pe - '0'
+											} else if ('a' <= pe && pe <= 'f') {
+												hexCode += pe - 'a' + 10
+											} else if ('A' <= pe && pe <= 'F') {
+												hexCode += pe - 'A' + 10
+											} else {
+												cursor.fail("invalid hex code");
+												return ignored[String]
+											}
+											counter -= 1;
+										} while (counter > 0)
+										sb.appendCodePoint(hexCode)
+								}
+							} else {
+								sb.append(pe)
+							}
+
+							if (!cursor.advance()) {
+								cursor.fail("unclosed string");
+								return ignored[String]
+							}
+							pe = cursor.pointedElem
+						}
+						cursor.advance() // consume closing quote char
+						sb.toString
 					}
 
-					if (!cursor.advance()) {
-						cursor.fail("unclosed string");
-						return ignored[String]
-					}
-					pe = cursor.pointedElem
+
+				} else {
+					cursor.fail("unclosed string")
+					ignored[String]
 				}
-				cursor.advance() // consume closing quote char
-				sb.toString
-
 			} else {
 				cursor.miss()
 				ignored[String]

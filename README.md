@@ -2,7 +2,7 @@
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
 * Converts between scala algebraic data types and String JSON documents directly, without any intermediate representation.
-* An efficient JSON parser. Considerably faster than [spray] (around 40% when optimized bytecode is enabled, 30% if not). If the JSON contains ignored fields the difference is even greater.
+* An efficient JSON parser. Considerably faster than [spray] (around 47%), although considerably slower than [jsoniter] (around 45%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
 * Type-class based conversion (no runtime reflection, no intrusion).
 * Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
 * The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`. The fields names and its types are extracted from the primary constructor.
@@ -10,7 +10,7 @@ Abstract types must be sealed and have at least one concrete implementation.
 * No external dependencies.
 * Scala map-like collections can be represented as either JSON objects or JSON arrays of pairs.
 * Map keys can be of any type, even when represented as a JSON object. In that case the keys are encoded in the JSON object field names.
-* When parsing an abstract type, a discriminator field to distinguish between different concrete implementations of said abstract type is needed only for those that are ambiguous: have the same amount of required fields and all of them have the same names.
+* When parsing an abstract type, no discriminator field is needed to distinguish between different concrete implementations of said abstract type, unless two of those implementations have the same amount of required fields and all of them have the same names. In that case, only the ambiguous implementations require a discriminator field.
 
 _json-facile_ allows you to convert between
  * instances of arbitrary Scala data types, including parameterized and recursive algebraic data types. 
@@ -240,4 +240,5 @@ This problem can be easily mittigated moving the involved ADTs to a separate SBT
   [JSON]: http://json.org
   [spray]: https://github.com/spray/spray-json
   [circe]: https://circe.github.io/circe/
+  [jsoniter]: https://github.com/plokhotnyuk/jsoniter-scala
   [Dymitro Mitin]: https://stackoverflow.com/users/5249621/dmytro-mitin

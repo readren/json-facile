@@ -25,7 +25,9 @@ lazy val comun = (project in file("comun"))
 ThisBuild / libraryDependencies ++= Seq(
 	// test
 	"org.scalatest" %% "scalatest" % "3.2.2" % Test,
-	"org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test
+	"org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test,
+	"com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"   % "2.6.2" % Test,
+  	"com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.6.2" % Test
 )
 core / libraryDependencies ++= Seq(
 	// spray json used for testing

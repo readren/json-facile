@@ -29,7 +29,7 @@ class CursorStr(content: String) extends AbstractCursor {
 	};
 
 	@inline override def advance(steps: Int): Boolean = {
-		//		assert(ok && cantPasos >= 0)
+		//		assert(ok)
 		this.cursorPos += steps;
 		cursorPos < content.length;
 	}
@@ -57,5 +57,25 @@ class CursorStr(content: String) extends AbstractCursor {
 				content.substring(startingPos, cursorPos)
 			}
 		}
+	}
+
+	override def posOfNextEscapeOrClosingQuote: Pos = {
+		var cp = this.cursorPos;
+		if (this.content.charAt(cp) == '"') {
+			do cp += 1
+			while ( cp < this.content.length && { val pe = this.content.charAt(cp); pe != '"' && pe != '\\'});
+			cp
+		} else 0
+	}
+
+	override def consumeStringUntil(pos: Pos): String = {
+		val s = this.content.substring(this.cursorPos + 1, pos);
+		this.cursorPos = pos + 1;
+		s
+	}
+	override def consumeStringTo(pos: Pos): String = {
+		val s = this.consumeStringUntil(pos);
+		this.cursorPos -= 1;
+		s
 	}
 }

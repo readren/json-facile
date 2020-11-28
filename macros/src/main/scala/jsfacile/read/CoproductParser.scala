@@ -11,9 +11,9 @@ object CoproductParser {
 
 	final case class CphFieldInfo(name: String, argIndex: Int, oDefaultValue: Option[Any]) extends Named;
 
-	/**@param name                   the product name
+	/** @param name                  the product name
 	 * @param numberOfRequiredFields the number of required fields of the product this instance represents.
-	 * @param fields            the info of the fields of the product this instance represents, sorted by the [[CphFieldInfo.name]].
+	 * @param fields                 the info of the fields of the product this instance represents, sorted by the [[CphFieldInfo.name]].
 	 * @param constructor            a function that creates an instance of the product this instance represents calling the primary constructor of said product. */
 	final case class CphProductInfo[+P](name: String, numberOfRequiredFields: Int, fields: Array[CphFieldInfo], constructor: Seq[Any] => P) extends Named;
 
@@ -22,7 +22,6 @@ object CoproductParser {
 	private case class Field[+V](name: String, value: V) extends Named;
 
 	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.map {_.name} mkString ", ";
-
 }
 
 
@@ -47,7 +46,13 @@ class CoproductParser[C <: CoproductUpperBound](
 			if (cursor.pointedElem == '{') {
 				cursor.advance();
 
-				val managers = productsInfo.map(new Manager(_));
+				// create a manager for each product
+				var mi = productsInfo.length
+				val managers = new Array[Manager](mi);
+				while (mi > 0) {
+					mi -= 1;
+					managers(mi) = new Manager(productsInfo(mi));
+				}
 				val parsedFields = new ArrayBuffer[Field[Any]](math.min(ArrayBuffer.DefaultInitialSize, fieldsParsers.length));
 
 				var have = cursor.consumeWhitespaces();
@@ -61,7 +66,11 @@ class CoproductParser[C <: CoproductUpperBound](
 						if (fieldName == discriminator) {
 							val productName = BasicParsers.jpString.parse(cursor);
 							if (cursor.consumeWhitespaces()) {
-								managers.foreach { m =>
+								// make all the managers not viable except the one whose name equals the discriminator value
+								mi = managers.length;
+								while (mi > 0) {
+									mi -= 1;
+									val m = managers(mi);
 									if (m.productInfo.name != productName)
 										m.isViable = false;
 								}
@@ -71,10 +80,11 @@ class CoproductParser[C <: CoproductUpperBound](
 						} else {
 							val fieldParser = BinarySearch.find(fieldsParsers)(_.name.compareTo(fieldName));
 							if (fieldParser != null) {
-								// as side effect, actualize the product's managers
-								var managerIndex = managers.size - 1;
-								while (managerIndex >= 0) {
-									val manager = managers(managerIndex);
+								// as side effect, actualize all the viable product's managers: mark as not vialbe those that don't have a field named `fieldName`; and actualize the `missingRequiredFields` counter.
+								mi = managers.length;
+								while (mi > 0) {
+									mi -= 1;
+									val manager = managers(mi);
 									if (manager.isViable) {
 										val fieldInfo = BinarySearch.find(manager.productInfo.fields)(_.name.compareTo(fieldName));
 										if (fieldInfo == null) {
@@ -83,7 +93,6 @@ class CoproductParser[C <: CoproductUpperBound](
 											manager.missingRequiredFieldsCounter -= 1
 										}
 									}
-									managerIndex -= 1;
 								}
 								// parse the field value
 								val fieldValue = fieldParser.parser.parse(cursor);
@@ -107,7 +116,12 @@ class CoproductParser[C <: CoproductUpperBound](
 
 					var chosenManager: Manager = null;
 					var isAmbiguous: Boolean = false;
-					managers.foreach { manager =>
+
+					// search the managers that are viable
+					mi = managers.length;
+					while (mi > 0) {
+						mi -= 1;
+						val manager = managers(mi);
 						if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
 							if (chosenManager != null) {
 								isAmbiguous = true;
@@ -116,11 +130,11 @@ class CoproductParser[C <: CoproductUpperBound](
 							}
 						}
 					}
-					if (chosenManager == null) {
+					if (chosenManager == null) { // if none is viable
 						cursor.miss(s"There is no product extending $fullName with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}. Note that only the fields that are defined in at least one of said products are considered.")
-					} else if (isAmbiguous) {
+					} else if (isAmbiguous) { // if more than one is viable
 						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "$fullName" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
-					} else {
+					} else { // if only one is viable.
 						// build the arguments lists of the product's primary constructor
 						val chosenProductFields = chosenManager.productInfo.fields;
 						val ctorArgsValues: Array[Any] = new Array(chosenProductFields.length);
@@ -159,5 +173,4 @@ class CoproductParser[C <: CoproductUpperBound](
 		}
 		ignored[C]
 	}
-
 }
