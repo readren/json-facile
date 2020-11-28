@@ -1,11 +1,10 @@
 package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.ArrayBuffer
 
 import jsfacile.macros.{CoproductUpperBound, Named}
 import jsfacile.read.CoproductParser.{CphFieldParser, CphProductInfo}
-import jsfacile.util.BinarySearch
+import jsfacile.util.{BinarySearch, Pool}
 
 object CoproductParser {
 
@@ -19,9 +18,20 @@ object CoproductParser {
 
 	final case class CphFieldParser(name: String, parser: Parser[_]) extends Named;
 
-	private case class Field[+V](name: String, value: V) extends Named;
+	/** Maintains the parsing state of a considered field. Also knows the [[CphFieldParser]] of the associated field. */
+	private class Field(val fieldParser: CphFieldParser) extends Named {
+		override def name: String = fieldParser.name;
+		var wasParsed: Boolean = _;
+		var value: Any = _;
 
-	private def definedFieldsNamesIn(fields: Iterable[Field[Any]]): String = fields.map {_.name} mkString ", ";
+		@inline def init(): Unit = {
+			wasParsed = false
+			value = null;
+		}
+	}
+
+	private def definedFieldsNamesIn(fields: Array[Field]): String = fields.collect { case f if f.wasParsed => f.name } mkString ", ";
+
 }
 
 
@@ -34,11 +44,49 @@ class CoproductParser[C <: CoproductUpperBound](
 	import CoproductParser._
 	import Parser._;
 
-	/** Used by this parser to maintains the state of a product and known it's [[CphProductInfo]]. */
+	/** Used by this parser to maintain the parsing state of a product. Also knows the [[CphProductInfo]] of the associated product. */
 	private class Manager(val productInfo: CphProductInfo[C]) {
-		var missingRequiredFieldsCounter: Int = productInfo.numberOfRequiredFields;
-		var isViable: Boolean = true;
+		var missingRequiredFieldsCounter: Int = _;
+		var isViable: Boolean = _;
+		val fieldsValues: Array[Any] = new Array(productInfo.fields.length);
+		val foundFields: Array[Boolean] = new Array(fieldsValues.length);
+
+		@inline def init(): Unit = {
+			missingRequiredFieldsCounter = productInfo.numberOfRequiredFields;
+			this.isViable = true;
+
+			var i = fieldsValues.length;
+			while (i > 0) {
+				i -= 1;
+				fieldsValues(i) = null;
+				foundFields(i) = false;
+			}
+		}
 	}
+
+	/** Contains all the local variables of a [[parse]] method execution.
+	 * The local variables are reused to minimize transient object creation and garbage generation */
+	private class Workplace {
+		// create a manager for each CphProductInfo contained in the productsInfo array.
+		val managers: Array[Manager] = {
+			var mi = productsInfo.length
+			val managers = new Array[Manager](mi)
+			while (mi > 0) {
+				mi -= 1;
+				managers(mi) = new Manager(productsInfo(mi));
+			}
+			managers;
+		};
+		// create a considered field for each CphFieldParser contained in the fieldParsers array.
+		val consideredFields: Array[Field] = Array.tabulate[Field](fieldsParsers.length) { i => new Field(fieldsParsers(i)) };
+	}
+
+	private val workplacesPool: Pool[Workplace] = new Pool();
+
+	private implicit val workplaceAllocator: workplacesPool.Allocator = new workplacesPool.Allocator {
+		override def alloc: Workplace = new Workplace
+	}
+
 
 	override def parse(cursor: Cursor): C = {
 
@@ -46,14 +94,21 @@ class CoproductParser[C <: CoproductUpperBound](
 			if (cursor.pointedElem == '{') {
 				cursor.advance();
 
-				// create a manager for each product
-				var mi = productsInfo.length
-				val managers = new Array[Manager](mi);
+				val userId = workplacesPool.registerUser();
+				val wp = workplacesPool.borrow(userId)
+
+				// initialize the manager instances
+				var mi = wp.managers.length
 				while (mi > 0) {
 					mi -= 1;
-					managers(mi) = new Manager(productsInfo(mi));
+					wp.managers(mi).init();
 				}
-				val parsedFields = new ArrayBuffer[Field[Any]](math.min(ArrayBuffer.DefaultInitialSize, fieldsParsers.length));
+				// initialize the considered field instances
+				mi = wp.consideredFields.length;
+				while (mi > 0) {
+					mi -= 1;
+					wp.consideredFields(mi).init();
+				}
 
 				var have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
@@ -67,10 +122,10 @@ class CoproductParser[C <: CoproductUpperBound](
 							val productName = BasicParsers.jpString.parse(cursor);
 							if (cursor.consumeWhitespaces()) {
 								// make all the managers not viable except the one whose name equals the discriminator value
-								mi = managers.length;
+								mi = wp.managers.length;
 								while (mi > 0) {
 									mi -= 1;
-									val m = managers(mi);
+									val m = wp.managers(mi);
 									if (m.productInfo.name != productName)
 										m.isViable = false;
 								}
@@ -78,13 +133,13 @@ class CoproductParser[C <: CoproductUpperBound](
 							}
 
 						} else {
-							val fieldParser = BinarySearch.find(fieldsParsers)(_.name.compareTo(fieldName));
-							if (fieldParser != null) {
+							val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldName));
+							if (consideredField != null) {
 								// as side effect, actualize all the viable product's managers: mark as not vialbe those that don't have a field named `fieldName`; and actualize the `missingRequiredFields` counter.
-								mi = managers.length;
+								mi = wp.managers.length;
 								while (mi > 0) {
 									mi -= 1;
-									val manager = managers(mi);
+									val manager = wp.managers(mi);
 									if (manager.isViable) {
 										val fieldInfo = BinarySearch.find(manager.productInfo.fields)(_.name.compareTo(fieldName));
 										if (fieldInfo == null) {
@@ -95,9 +150,10 @@ class CoproductParser[C <: CoproductUpperBound](
 									}
 								}
 								// parse the field value
-								val fieldValue = fieldParser.parser.parse(cursor);
+								val fieldValue = consideredField.fieldParser.parser.parse(cursor);
 								if (cursor.consumeWhitespaces()) {
-									parsedFields.addOne(Field(fieldName, fieldValue))
+									consideredField.value = fieldValue;
+									consideredField.wasParsed = true;
 									have = true
 								}
 
@@ -118,10 +174,10 @@ class CoproductParser[C <: CoproductUpperBound](
 					var isAmbiguous: Boolean = false;
 
 					// search the managers that are viable
-					mi = managers.length;
+					mi = wp.managers.length;
 					while (mi > 0) {
 						mi -= 1;
-						val manager = managers(mi);
+						val manager = wp.managers(mi);
 						if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
 							if (chosenManager != null) {
 								isAmbiguous = true;
@@ -131,40 +187,36 @@ class CoproductParser[C <: CoproductUpperBound](
 						}
 					}
 					if (chosenManager == null) { // if none is viable
-						cursor.miss(s"There is no product extending $fullName with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}. Note that only the fields that are defined in at least one of said products are considered.")
+						cursor.miss(s"There is no product extending $fullName with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}. Note that only the fields that are defined in at least one of said products are considered.")
 					} else if (isAmbiguous) { // if more than one is viable
-						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "$fullName" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(parsedFields)}; and the viable products are: ${managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
+						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "$fullName" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}; and the viable products are: ${wp.managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
 					} else { // if only one is viable.
 						// build the arguments lists of the product's primary constructor
 						val chosenProductFields = chosenManager.productInfo.fields;
-						val ctorArgsValues: Array[Any] = new Array(chosenProductFields.length);
-						val ctorArgsFound: Array[Boolean] = new Array(chosenProductFields.length);
 
-						// fill the chosen product's constructor arguments with the values found in the JSON document
-						var parsedFieldIndex = parsedFields.size - 1;
-						while (parsedFieldIndex >= 0) {
-							val parsedField = parsedFields(parsedFieldIndex);
-							val fieldInfo = BinarySearch.find(chosenProductFields)(_.name.compareTo(parsedField.name));
-							ctorArgsValues.update(fieldInfo.argIndex, parsedField.value);
-							ctorArgsFound.update(fieldInfo.argIndex, true);
-							parsedFieldIndex -= 1;
-						}
-						// use default value for fields that are missing in the JSON document.
-						var fieldInfoIndex = chosenProductFields.length - 1;
-						while (fieldInfoIndex >= 0) {
-							if (!ctorArgsFound(fieldInfoIndex)) {
-								val fieldInfo = chosenProductFields(fieldInfoIndex);
-								ctorArgsValues.update(fieldInfoIndex, fieldInfo.oDefaultValue.get);
-							}
+
+						var fieldInfoIndex = chosenProductFields.length;
+						while (fieldInfoIndex > 0) {
 							fieldInfoIndex -= 1;
+							val fieldInfo = chosenProductFields(fieldInfoIndex);
+							val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldInfo.name))
+							chosenManager.fieldsValues(fieldInfo.argIndex) =
+								if (consideredField != null && consideredField.wasParsed) {
+									consideredField.value;
+								} else {
+									fieldInfo.oDefaultValue.get
+								}
 						}
 
-						return chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(ctorArgsValues));
+						this.workplacesPool.unregisterUser(userId);
+						return chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(chosenManager.fieldsValues));
 					}
 
 				} else {
 					cursor.fail(s"Invalid syntax for an object while parsing a $fullName");
 				}
+				this.workplacesPool.unregisterUser(userId);
+
 			} else {
 				cursor.miss(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a $fullName")
 			}

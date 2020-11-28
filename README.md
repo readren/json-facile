@@ -2,7 +2,7 @@
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
 * Converts between scala algebraic data types and String JSON documents directly, without any intermediate representation.
-* An efficient JSON parser. Considerably faster than [spray] (around 47%), although considerably slower than [jsoniter] (around 45%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
+* An efficient JSON parser. Considerably faster than [spray] (around 61%), although substantially slower than [jsoniter] (around 40%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
 * Type-class based conversion (no runtime reflection, no intrusion).
 * Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
 * The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`. The fields names and its types are extracted from the primary constructor.
