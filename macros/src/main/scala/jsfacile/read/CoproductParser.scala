@@ -64,8 +64,9 @@ class CoproductParser[C <: CoproductUpperBound](
 		}
 	}
 
-	/** Contains all the local variables of a [[parse]] method execution.
-	 * The local variables are reused to minimize transient object creation and garbage generation */
+	/** Contains all the local variables, of a [[parse]] method execution, that reference objects whose life ends at the end of the execution.
+	 * Keeping a workplace allows to reuse said transient objects, minimizing object creation and garbage generation.
+	 * Note that the introduction of the [[Workplace]] makes the [[CoproductParser]] loose it thread safety */
 	private class Workplace {
 		// create a manager for each CphProductInfo contained in the productsInfo array.
 		val managers: Array[Manager] = {
@@ -81,6 +82,7 @@ class CoproductParser[C <: CoproductUpperBound](
 		val consideredFields: Array[Field] = Array.tabulate[Field](fieldsParsers.length) { i => new Field(fieldsParsers(i)) };
 	}
 
+	/** The workplace alone would be enough when the involved data type hierarchy is not recursive. The pool exists to support recursion. */
 	private val workplacesPool: Pool[Workplace] = new Pool();
 
 	private implicit val workplaceAllocator: workplacesPool.Allocator = new workplacesPool.Allocator {
@@ -94,135 +96,137 @@ class CoproductParser[C <: CoproductUpperBound](
 			if (cursor.pointedElem == '{') {
 				cursor.advance();
 
-				val userId = workplacesPool.registerUser();
-				val wp = workplacesPool.borrow(userId)
+				workplacesPool.borrowInsideOf { wp =>
 
-				// initialize the manager instances
-				var mi = wp.managers.length
-				while (mi > 0) {
-					mi -= 1;
-					wp.managers(mi).init();
-				}
-				// initialize the considered field instances
-				mi = wp.consideredFields.length;
-				while (mi > 0) {
-					mi -= 1;
-					wp.consideredFields(mi).init();
-				}
+					// initialize the manager instances
+					var mi = wp.managers.length
+					while (mi > 0) {
+						mi -= 1;
+						wp.managers(mi).init();
+					}
+					// initialize the considered field instances
+					mi = wp.consideredFields.length;
+					while (mi > 0) {
+						mi -= 1;
+						wp.consideredFields(mi).init();
+					}
 
-				var have = cursor.consumeWhitespaces();
-				while (have && cursor.pointedElem != '}') {
-					have = false;
-					val fieldName = BasicParsers.jpString.parse(cursor);
-					if (cursor.consumeWhitespaces() &&
-						cursor.consumeChar(':') &&
-						cursor.consumeWhitespaces()
-					) {
-						if (fieldName == discriminator) {
-							val productName = BasicParsers.jpString.parse(cursor);
-							if (cursor.consumeWhitespaces()) {
-								// make all the managers not viable except the one whose name equals the discriminator value
-								mi = wp.managers.length;
-								while (mi > 0) {
-									mi -= 1;
-									val m = wp.managers(mi);
-									if (m.productInfo.name != productName)
-										m.isViable = false;
-								}
-								have = true
-							}
-
-						} else {
-							val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldName));
-							if (consideredField != null) {
-								// as side effect, actualize all the viable product's managers: mark as not vialbe those that don't have a field named `fieldName`; and actualize the `missingRequiredFields` counter.
-								mi = wp.managers.length;
-								while (mi > 0) {
-									mi -= 1;
-									val manager = wp.managers(mi);
-									if (manager.isViable) {
-										val fieldInfo = BinarySearch.find(manager.productInfo.fields)(_.name.compareTo(fieldName));
-										if (fieldInfo == null) {
-											manager.isViable = false;
-										} else if (fieldInfo.oDefaultValue.isEmpty) {
-											manager.missingRequiredFieldsCounter -= 1
-										}
-									}
-								}
-								// parse the field value
-								val fieldValue = consideredField.fieldParser.parser.parse(cursor);
+					var have = cursor.consumeWhitespaces();
+					while (have && cursor.pointedElem != '}') {
+						have = false;
+						val fieldName = BasicParsers.jpString.parse(cursor);
+						if (cursor.consumeWhitespaces() &&
+							cursor.consumeChar(':') &&
+							cursor.consumeWhitespaces()
+						) {
+							if (fieldName == discriminator) {
+								val productName = BasicParsers.jpString.parse(cursor);
 								if (cursor.consumeWhitespaces()) {
-									consideredField.value = fieldValue;
-									consideredField.wasParsed = true;
+									// make all the managers not viable except the one whose name equals the discriminator value
+									mi = wp.managers.length;
+									while (mi > 0) {
+										mi -= 1;
+										val m = wp.managers(mi);
+										if (m.productInfo.name != productName)
+											m.isViable = false;
+									}
 									have = true
 								}
 
 							} else {
-								Skip.jsValue(cursor)
-								have = cursor.consumeWhitespaces()
+								val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldName));
+								if (consideredField != null) {
+									// as side effect, actualize all the viable product's managers: mark as not vialbe those that don't have a field named `fieldName`; and actualize the `missingRequiredFields` counter.
+									mi = wp.managers.length;
+									while (mi > 0) {
+										mi -= 1;
+										val manager = wp.managers(mi);
+										if (manager.isViable) {
+											val fieldInfo = BinarySearch.find(manager.productInfo.fields)(_.name.compareTo(fieldName)); // TODO let the `CphFieldParser` have a BitSet of the products that contain it in order to avoid the search commanded by this line.
+											if (fieldInfo == null) {
+												manager.isViable = false;
+											} else if (fieldInfo.oDefaultValue.isEmpty) {
+												manager.missingRequiredFieldsCounter -= 1
+											}
+										}
+									}
+									// parse the field value
+									val fieldValue = consideredField.fieldParser.parser.parse(cursor);
+									if (cursor.consumeWhitespaces()) {
+										consideredField.value = fieldValue;
+										consideredField.wasParsed = true;
+										have = true
+									}
 
-							}
-						}
-						have &&= cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
-					}
-				}
-				// At this point all fields had been parsed. What continues determines to which product them belong, then uses the field values to build the arguments lists of the product's primary constructor, and finally calls said constructor to create the product instance.
-				if (have) {
-					cursor.advance();
-
-					var chosenManager: Manager = null;
-					var isAmbiguous: Boolean = false;
-
-					// search the managers that are viable
-					mi = wp.managers.length;
-					while (mi > 0) {
-						mi -= 1;
-						val manager = wp.managers(mi);
-						if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
-							if (chosenManager != null) {
-								isAmbiguous = true;
-							} else {
-								chosenManager = manager;
-							}
-						}
-					}
-					if (chosenManager == null) { // if none is viable
-						cursor.miss(s"There is no product extending $fullName with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}. Note that only the fields that are defined in at least one of said products are considered.")
-					} else if (isAmbiguous) { // if more than one is viable
-						cursor.fail(s"""Ambiguous products: more than one product of the coproduct "$fullName" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}; and the viable products are: ${wp.managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
-					} else { // if only one is viable.
-						// build the arguments lists of the product's primary constructor
-						val chosenProductFields = chosenManager.productInfo.fields;
-
-
-						var fieldInfoIndex = chosenProductFields.length;
-						while (fieldInfoIndex > 0) {
-							fieldInfoIndex -= 1;
-							val fieldInfo = chosenProductFields(fieldInfoIndex);
-							val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldInfo.name))
-							chosenManager.fieldsValues(fieldInfo.argIndex) =
-								if (consideredField != null && consideredField.wasParsed) {
-									consideredField.value;
 								} else {
-									fieldInfo.oDefaultValue.get
+									Skip.jsValue(cursor)
+									have = cursor.consumeWhitespaces()
+
 								}
+							}
+							have &&= cursor.pointedElem == '}' || (cursor.consumeChar(',') && cursor.consumeWhitespaces())
+						}
+					}
+					// At this point all fields had been parsed. What continues determines to which product them belong, then uses the field values to build the arguments lists of the product's primary constructor, and finally calls said constructor to create the product instance.
+					if (have) {
+						cursor.advance();
+
+						var chosenManager: Manager = null;
+						var isAmbiguous: Boolean = false;
+
+						// search the managers that are viable
+						mi = wp.managers.length;
+						while (mi > 0) {
+							mi -= 1;
+							val manager = wp.managers(mi);
+							if (manager.isViable && manager.missingRequiredFieldsCounter == 0) {
+								if (chosenManager != null) {
+									isAmbiguous = true;
+								} else {
+									chosenManager = manager;
+								}
+							}
+						}
+						if (chosenManager == null) { // if none is viable
+							cursor.miss(s"There is no product extending $fullName with all the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}. Note that only the fields that are defined in at least one of said products are considered.")
+							ignored[C]
+						} else if (isAmbiguous) { // if more than one is viable
+							cursor.fail(s"""Ambiguous products: more than one product of the coproduct "$fullName" has the fields contained in the json object being parsed. The contained fields are: ${definedFieldsNamesIn(wp.consideredFields)}; and the viable products are: ${wp.managers.iterator.filter(m => m.isViable && m.missingRequiredFieldsCounter == 0).map(_.productInfo.name).mkString(", ")}.""");
+							ignored[C]
+						} else { // if only one is viable.
+							// build the arguments lists of the product's primary constructor
+							val chosenProductFields = chosenManager.productInfo.fields;
+
+
+							var fieldInfoIndex = chosenProductFields.length;
+							while (fieldInfoIndex > 0) {
+								fieldInfoIndex -= 1;
+								val fieldInfo = chosenProductFields(fieldInfoIndex);
+								val consideredField = BinarySearch.find(wp.consideredFields)(_.name.compareTo(fieldInfo.name))
+								chosenManager.fieldsValues(fieldInfo.argIndex) =
+									if (consideredField != null && consideredField.wasParsed) {
+										consideredField.value;
+									} else {
+										fieldInfo.oDefaultValue.get
+									}
+							}
+
+							chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(chosenManager.fieldsValues));
 						}
 
-						this.workplacesPool.unregisterUser(userId);
-						return chosenManager.productInfo.constructor(ArraySeq.unsafeWrapArray(chosenManager.fieldsValues));
+					} else {
+						cursor.fail(s"Invalid syntax for an object while parsing a $fullName");
+						ignored[C]
 					}
-
-				} else {
-					cursor.fail(s"Invalid syntax for an object while parsing a $fullName");
 				}
-				this.workplacesPool.unregisterUser(userId);
 
 			} else {
 				cursor.miss(s"A '{' was expected but '${cursor.pointedElem}' was found when trying to parse a $fullName")
+				ignored[C]
 			}
 		} else {
 			cursor.miss(s"A '{' expected but the end of the content was reached when trying to parse a $fullName")
+			ignored[C]
 		}
-		ignored[C]
 	}
 }

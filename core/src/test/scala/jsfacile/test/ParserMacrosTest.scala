@@ -1,5 +1,7 @@
 package jsfacile.test
 
+import scala.annotation.tailrec
+
 import jsfacile.read.Parser
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
@@ -227,10 +229,11 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 
 
 	override def withFixture(test: NoArgTest) = {
-		withFixture(test, 9)
+		withFixture(test, 9999)
 	}
 
-	def withFixture(test: NoArgTest, count: Int): Outcome = {
+	@tailrec
+	private def withFixture(test: NoArgTest, count: Int): Outcome = {
 		val outcome = super.withFixture(test)
 		outcome match {
 			case Succeeded if count > 0 =>

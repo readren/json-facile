@@ -3,7 +3,9 @@ package jsfacile.read
 import jsfacile.read.Parser.{Elem, Pos}
 
 /** A [[Cursor]] whose content is all contained in a single [[String]]. */
-class CursorStr(content: String) extends AbstractCursor {
+class CursorStr(content: Array[Char]) extends AbstractCursor {
+
+	def this(content: String) = this(content.toCharArray);
 
 	protected var cursorPos: Int = 0;
 
@@ -13,20 +15,26 @@ class CursorStr(content: String) extends AbstractCursor {
 
 
 	@inline override def pointedElem: Elem = {
-		content.charAt(cursorPos)
+		content(cursorPos)
 	};
 
 	override def comes(expected: String): Boolean = {
 		//		assert(ok)
 		val el = expected.length
-		if (content.regionMatches(cursorPos, expected, 0, el)) {
+		var i = 0;
+		var j = this.cursorPos;
+		while (i < el && j < content.length && content(j) == expected.charAt(i)) {
+			i += 1;
+			j += 1;
+		}
+
+		if (i == el) {
 			this.cursorPos += el;
 			true
 		} else {
 			false
 		}
-
-	};
+	}
 
 	@inline override def advance(steps: Int): Boolean = {
 		//		assert(ok)
@@ -54,22 +62,23 @@ class CursorStr(content: String) extends AbstractCursor {
 				this.cursorPos = startingPos;
 				null
 			} else {
-				content.substring(startingPos, cursorPos)
+				new String(content, startingPos, cursorPos - startingPos)
 			}
 		}
 	}
 
 	override def posOfNextEscapeOrClosingQuote: Pos = {
 		var cp = this.cursorPos;
-		if (this.content.charAt(cp) == '"') {
+		if (this.content(cp) == '"') {
 			do cp += 1
-			while ( cp < this.content.length && { val pe = this.content.charAt(cp); pe != '"' && pe != '\\'});
+			while (cp < this.content.length && {val pe = this.content(cp); pe != '"' && pe != '\\'});
 			cp
 		} else 0
 	}
 
 	override def consumeStringUntil(pos: Pos): String = {
-		val s = this.content.substring(this.cursorPos + 1, pos);
+		val start = this.cursorPos + 1;
+		val s = new String(this.content, start, pos - start);
 		this.cursorPos = pos + 1;
 		s
 	}
