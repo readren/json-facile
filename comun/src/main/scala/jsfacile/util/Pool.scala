@@ -49,20 +49,23 @@ class Pool[T <: AnyRef] {
 
 	/** Moves the last non garbage collected [[overseer]] of the [[overseersBuffer]] to the specified index, and adjust the [[overseersBufferSize]]. */
 	private def moveLastOverseerToIndex(newIndex: Int): Overseer = {
-		var overseer: Overseer = null;
+		var lastOverseer: Overseer = null;
 
-		do this.overseersBufferSize -= 1
-		while (this.overseersBufferSize > newIndex && {
-			overseer = this.overseersBuffer(this.overseersBufferSize).get;
-			this.overseersBuffer(this.overseersBufferSize) = null;
-			if (overseer == null) {
+		var i = this.overseersBufferSize;
+		do i -= 1
+		while (i > newIndex && {
+			this.overseersBufferSize = i;
+			lastOverseer = this.overseersBuffer(i).get;
+			if (lastOverseer == null) {
+				this.overseersBuffer(i) = null;
 				true // continue the search
 			} else {
-				this.overseersBuffer.update(newIndex, this.overseersBuffer(this.overseersBufferSize))
+				this.overseersBuffer.update(newIndex, this.overseersBuffer(i))
+				this.overseersBuffer(i) = null;
 				false
 			}
 		})
-		overseer
+		lastOverseer
 	}
 
 	def borrow(userId: UserId)(implicit allocator: Allocator): Overseer = {
