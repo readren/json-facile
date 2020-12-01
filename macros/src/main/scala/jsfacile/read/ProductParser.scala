@@ -29,6 +29,7 @@ class ProductParser[P <: ProductUpperBound](helper: PpHelper[P]) extends Parser[
 			if (cursor.pointedElem == '{') {
 				cursor.advance();
 				val fieldsCount = helper.fieldsInfo.length;
+				// Efficiency comment: Apparently, this two arrays are stored in the stack thanks to the compiler escape analysis. Using the pool here has given no benefit.
 				val ctorArgs = new Array[Any](fieldsCount);
 				val fieldsFound = new Array[Boolean](fieldsCount);
 

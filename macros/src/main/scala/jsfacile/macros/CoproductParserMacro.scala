@@ -1,46 +1,61 @@
 package jsfacile.macros
 
+import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
 import jsfacile.joint.{ReflectTools, discriminatorField}
 import jsfacile.read.Parser
+import jsfacile.util.BitSet
+import jsfacile.util.BitSet.BitSlot
 
 object CoproductParserMacro {
+
 
 	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Parser[C]] = {
 		import ctx.universe._
 
+		/** @param fieldType the type of the field
+		 * @param firstOwner the TypeSymbol of the first product that contains a field named as the key specifies.
+		 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
+		 * @param bitSlot the [[BitSlot]] assigned to this considered field*/
+		case class ConsideredField(fieldType: Type, firstOwner: ClassSymbol, consideredFieldIndex: Int, bitSlot: BitSlot)
+
 		/** Adds to the `productsSnippetBuilder` a snippet for each product that extends the specified trait (or abstract class). */
 		def addProductsBelongingTo(
-			coproductClassSymbol: ClassSymbol,
-			coproductType: Type,
-			superHandler: Handler,
-			productsSnippetsBuilder: mutable.Builder[Tree, Seq[Tree]]
-		): Unit = {
+			coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
+			coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
+			rootType: Type, // the starting coproduct type
+			rootHandler: Handler, // the handler of the starting coproduct. This parameter may be mutated
+			startingBitSlot: BitSlot, // The bit slot that will be assigned to the next field that be added to the considered fields set.
+			consideredFields: mutable.Map[String, ConsideredField], // a map that memorizes info about the the fields that were already added to the `consideredFieldsBuilder`.
+			productsSnippetsBuilder: mutable.Builder[Tree, Seq[Tree]] // the Seq builder where the code snippets are collected.
+		): BitSlot = {
+			var nextBitSlot = startingBitSlot;
 			for {
 				productSymbol <- coproductClassSymbol.knownDirectSubclasses
 			} {
 				val productClassSymbol = productSymbol.asClass;
 				ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productClassSymbol.toTypeConstructor) match {
 					case Right(productType) =>
-						if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This is and edge case that occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and, therefore, not considered added to the products info set.
+						if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This is and edge case that occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and, therefore, not added to the products info set.
 
 							if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields nor constructor.
 								productsSnippetsBuilder.addOne(
 									q"""
-productsInfoBuilder.addOne(CphProductInfo(
+productsInfoBuilder.addOne(CpProductInfo(
 	${productClassSymbol.name.toString},
+	BitSet.empty(),
 	0,
-	Array.empty[CphFieldInfo],
+	Array.empty[CpFieldInfo],
 	(args: Seq[Any]) => ${productClassSymbol.module}
 ));"""
 								)
 
 							} else if (productClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
 								if (productClassSymbol.isSealed) {
-									addProductsBelongingTo(productClassSymbol, productType, superHandler, productsSnippetsBuilder)
+									nextBitSlot = addProductsBelongingTo(productClassSymbol, productType, rootType, rootHandler, nextBitSlot, consideredFields, productsSnippetsBuilder)
 								} else {
 									ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
 								}
@@ -48,7 +63,8 @@ productsInfoBuilder.addOne(CphProductInfo(
 							} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose constructor is its primary one, and its fields are its primary constructor parameters.
 								val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).paramLists
 
-								val forEachFieldSnippet = Seq.newBuilder[ctx.Tree];
+								val addProductFieldSnippetSeqBuilder = Seq.newBuilder[ctx.Tree];
+								var requiredFieldsAccum: BitSet = BitSet.empty(startingBitSlot.shardIndex + 1);
 								var requiredFieldsCounter: Int = 0;
 								var argIndex = -1;
 								val ctorArgumentsTrees =
@@ -58,36 +74,68 @@ productsInfoBuilder.addOne(CphProductInfo(
 											val paramTypeSymbol = paramType.typeSymbol;
 											argIndex += 1;
 
-											val oDefaultValue =
+											val (isRequired, defaultValue_expression) =
 												if (paramTypeSymbol.fullName == "scala.Option") {
-													q"Some(None)"
-												} else {
+													(false, q"Some(None)")
+
+												} else { // TODO add support of scala parameter default value
 													requiredFieldsCounter += 1;
-													q"None"
+													(true, q"None")
 												}
 
-											val paramParserExpression: ctx.Tree =
-												if (paramTypeSymbol.isClass) {
-													parserHandlersMap.get(new TypeKey(paramType)) match {
-														case Some(paramHandler) =>
-															superHandler.addDependency(paramHandler);
+											val fieldName = param.name.toString;
+											val addProductField_snippet =
+												consideredFields.get(fieldName) match {
+													case Some(ConsideredField(fieldType, firstOwner, consideredFieldIndex, consideredFieldBitSlot)) =>
 
-															if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
-																q"""parsersBuffer(${paramHandler.typeIndex}).get"""
+														if (isRequired) {
+															requiredFieldsAccum = requiredFieldsAccum.add(consideredFieldBitSlot);
+														}
+
+														if (fieldType =:= paramType) {
+															q"""productFieldsBuilder.addOne(CpFieldInfo($fieldName, $consideredFieldIndex, $argIndex, $defaultValue_expression));"""
+														} else {
+															ctx.abort(ctx.enclosingPosition, s"""Unsupported situation While building a `Parser[$rootType]`: two implementations, $productSymbol and $firstOwner, have a field with the same name ("$fieldName") but different type.""")
+														}
+
+													case None =>
+
+														val consideredFieldBitSlot = nextBitSlot;
+														nextBitSlot = nextBitSlot.shifted;
+
+														if (isRequired) {
+															requiredFieldsAccum = requiredFieldsAccum.add(consideredFieldBitSlot);
+														}
+
+														val consideredFieldIndex = consideredFields.size;
+														consideredFields.put(fieldName, ConsideredField(paramType, productClassSymbol, consideredFieldIndex, consideredFieldBitSlot))
+
+														val paramParserExpression: ctx.Tree =
+															if (paramTypeSymbol.isClass) {
+																parserHandlersMap.get(new TypeKey(paramType)) match {
+																	case Some(paramHandler) =>
+																		rootHandler.addDependency(paramHandler);
+
+																		if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
+																			q"""parsersBuffer(${paramHandler.typeIndex}).get"""
+																		} else {
+																			ctx.abort(ctx.enclosingPosition, "Unreachable")
+																		}
+																	case None =>
+																		q"Parser[$paramType]"
+																}
 															} else {
-																ctx.abort(ctx.enclosingPosition, "Unreachable")
+																q"Parser[$paramType]"
 															}
-														case None =>
-															q"Parser[$paramType]"
-													}
-												} else {
-													q"Parser[$paramType]"
-												}
 
-											forEachFieldSnippet.addOne(
-												q"""
-fieldsParsersBuilder.addOne(CphFieldParser(${param.name.toString}, $paramParserExpression));
-productFieldsBuilder.addOne(CphFieldInfo(${param.name.toString}, $argIndex, $oDefaultValue));""");
+
+
+														q"""
+productFieldsBuilder.addOne(CpFieldInfo($fieldName, $consideredFieldIndex, $argIndex, $defaultValue_expression));
+consideredFieldsBuilder.addOne(CpConsideredField($fieldName, $consideredFieldIndex, BitSet.BitSlot(${consideredFieldBitSlot.shardMask}, ${consideredFieldBitSlot.shardIndex}), $paramParserExpression));"""
+												}
+											addProductFieldSnippetSeqBuilder.addOne(addProductField_snippet);
+
 											q"args($argIndex).asInstanceOf[$paramType]";
 										}
 									}
@@ -95,9 +143,15 @@ productFieldsBuilder.addOne(CphFieldInfo(${param.name.toString}, $argIndex, $oDe
 
 								productsSnippetsBuilder.addOne(
 									q"""
-..${forEachFieldSnippet.result()}
-val productFieldsArray = productFieldsBuilder.sortInPlace()(namedOrdering.asInstanceOf[Ordering[CphFieldInfo]]).toArray;
-productsInfoBuilder.addOne(CphProductInfo(${productClassSymbol.name.toString}, $requiredFieldsCounter, productFieldsArray, $ctorFunction));
+..${addProductFieldSnippetSeqBuilder.result()}
+val productFieldsArray = productFieldsBuilder.sortInPlace()(namedOrdering[CpFieldInfo]).toArray;
+productsInfoBuilder.addOne(CpProductInfo(
+	${productClassSymbol.name.toString},
+	new BitSet(Array(..${new ArraySeq.ofLong(requiredFieldsAccum.shards)})),
+	$requiredFieldsCounter,
+	productFieldsArray,
+	$ctorFunction
+));
 productFieldsBuilder.clear();"""
 								)
 							}
@@ -107,6 +161,7 @@ productFieldsBuilder.clear();"""
 						ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
 				}
 			}
+			nextBitSlot
 		}
 
 		//// the body of this method starts here ////
@@ -135,30 +190,31 @@ productFieldsBuilder.clear();"""
 				val discriminatorFieldName: String = discriminatorField.parse(ctx.universe)(coproductClassSymbol)._1;
 
 				val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
-				addProductsBelongingTo(coproductClassSymbol, coproductType, coproductHandler, productsSnippetsBuilder);
+				val lastConsideredFieldBit = addProductsBelongingTo(coproductClassSymbol, coproductType, coproductType, coproductHandler, BitSet.FIRST_BIT, mutable.Map.empty[String, ConsideredField], productsSnippetsBuilder);
 
 				val createParserCodeLines =
 					q"""
 import _root_.scala.collection.immutable.ArraySeq;
 import _root_.scala.collection.mutable.ArrayBuffer;
 import _root_.scala.math.Ordering;
-import _root_.jsfacile.read.Parser;
 import _root_.jsfacile.macros.{LazyParser, namedOrdering};
-import _root_.jsfacile.read.CoproductParser;
-import CoproductParser.{CphProductInfo, CphFieldInfo, CphFieldParser};
+import _root_.jsfacile.read.{Parser, CoproductParser};
+import _root_.jsfacile.util.BitSet;
+import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 
 val createParser: Array[LazyParser] => CoproductParser[$coproductType] = parsersBuffer => {
-	val productsInfoBuilder = ArraySeq.newBuilder[CphProductInfo[_ <: $coproductType]];
-	val fieldsParsersBuilder = ArrayBuffer[CphFieldParser]();
-	val productFieldsBuilder = ArrayBuffer[CphFieldInfo]();
+	val productsInfoBuilder = ArrayBuffer[CpProductInfo[_ <: $coproductType]]();
+	val consideredFieldsBuilder = ArrayBuffer[CpConsideredField]();
+	val productFieldsBuilder = ArrayBuffer[CpFieldInfo]();
 
 	..${productsSnippetsBuilder.result()}
 
 	new CoproductParser[$coproductType](
 		${coproductType.toString},
 		$discriminatorFieldName,
-		productsInfoBuilder.result(),
-		fieldsParsersBuilder.sortInPlace()(namedOrdering.asInstanceOf[Ordering[CphFieldParser]]).toArray
+		productsInfoBuilder.sortInPlace()(namedOrdering[CpProductInfo[$coproductType]]).toArray,
+		consideredFieldsBuilder.sortInPlace()(namedOrdering[CpConsideredField]).toArray,
+		${lastConsideredFieldBit.shardIndex + 1}
 	)
 };
 createParser""";
@@ -167,7 +223,7 @@ createParser""";
 
 				ctx.echo(ctx.enclosingPosition, s"coproduct parser unchecked init for ${show(coproductType)} : ${show(createParserCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 				ctx.typecheck(createParserCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
-				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
+				coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 				ctx.echo(ctx.enclosingPosition, s"coproduct parser after init check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
 
 				coproductHandler

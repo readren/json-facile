@@ -15,8 +15,8 @@ package object macros {
 	trait Named {
 		def name: String;
 	}
-	val namedOrdering: Ordering[Named] = Ordering.by(_.name)
 
+	@inline def namedOrdering[T <: Named]: Ordering[T] = Ordering.by[T, String](_.name)
 
 	abstract class Lazy[Op[_]] {
 		protected var instance: Op[Any] = _;

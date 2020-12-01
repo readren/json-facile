@@ -30,6 +30,22 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 	case class Rama[V](a: Arbol[V], b: Arbol[V]) extends Arbol[V];
 	case class Hoja[V](v: V) extends Arbol[V];
 
+	/////////////////////////////////////////////////////////
+	// data type hierarchy with directly nested coproducts //
+
+	sealed trait A[L] {def load: L};
+	case class A1[L](load: L) extends A[L]
+	case object A2 extends A[Int] {def load = 3}
+
+	sealed trait B[L] extends A[L]
+	case class B1[L](load: L, extra: Long) extends B[L]
+	case object B2 extends B[Float] {def load = 1.2f}
+
+	sealed trait C[L] extends B[L]
+	case class C1[L](load: L) extends C[L]
+	case object C2 extends C[String] {def load = "fixed"}
+
+
 	///////////////////////
 	// Spray boilerplate //
 
@@ -189,19 +205,6 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			val arbolParsed = json.fromJson[Arbol[Int]]
 			assertResult(Right(arbol))(arbolParsed)
 		}
-
-
-		sealed trait A[L] {def load: L};
-		case class A1[L](load: L) extends A[L]
-		case object A2 extends A[Int] {def load = 3}
-
-		sealed trait B[L] extends A[L]
-		case class B1[L](load: L, extra: Long) extends B[L]
-		case object B2 extends B[Float] {def load = 1.2f}
-
-		sealed trait C[L] extends B[L]
-		case class C1[L](load: L) extends C[L]
-		case object C2 extends C[String] {def load = "fixed"}
 
 
 		def `when traits and/or abstract classes are nested directly (no intermediate product)`(): Unit = {
