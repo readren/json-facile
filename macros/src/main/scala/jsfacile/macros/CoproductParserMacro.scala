@@ -4,7 +4,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
-import jsfacile.joint.{ReflectTools, discriminatorField}
+import jsfacile.joint.{CoproductUpperBound, discriminatorField}
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot
@@ -190,7 +190,7 @@ productFieldsBuilder.clear();"""
 				val discriminatorFieldName: String = discriminatorField.parse(ctx.universe)(coproductClassSymbol)._1;
 
 				val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
-				val lastConsideredFieldBit = addProductsBelongingTo(coproductClassSymbol, coproductType, coproductType, coproductHandler, BitSet.FIRST_BIT, mutable.Map.empty[String, ConsideredField], productsSnippetsBuilder);
+				val lastConsideredFieldBit = addProductsBelongingTo(coproductClassSymbol, coproductType, coproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty[String, ConsideredField], productsSnippetsBuilder);
 
 				val createParserCodeLines =
 					q"""

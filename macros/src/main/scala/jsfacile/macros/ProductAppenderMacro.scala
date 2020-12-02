@@ -2,6 +2,7 @@ package jsfacile.macros
 
 import scala.reflect.macros.whitebox
 
+import jsfacile.joint.ProductUpperBound
 import jsfacile.write.Appender
 
 object ProductAppenderMacro {

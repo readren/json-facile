@@ -233,6 +233,9 @@ You can add support to any other collection with a single line provided it has a
 3. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time is significantly increased.
 This problem can be easily mittigated moving the involved ADTs to a separate SBT project. 
 
+## Any question or idea?
+Fell free to ask question in [chat](https://gitter.im/json-facile/community#), open issues, or contribute by creating pull requests.
+
 ## Credits
 1. To [Dymitro Mitin] who helped me innumerable times with his astonushing good answers in stackoverflow.com
 

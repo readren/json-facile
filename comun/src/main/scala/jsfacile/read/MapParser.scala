@@ -2,22 +2,13 @@ package jsfacile.read
 
 import scala.collection.mutable
 
-import jsfacile.api.MapUpperBound
+import jsfacile.joint.MapUpperBound
 import jsfacile.read.Parser._
-
-object MapParser {
-
-	def apply[M <: MapUpperBound[K, V], K, V](
-		parserK: Parser[K],
-		parserV: Parser[V],
-		builderCtor: () => mutable.Builder[(K, V), M]
-	): MapParser[M, K, V] =
-		new MapParser(parserK, parserV, builderCtor)
-}
 
 class MapParser[M <: MapUpperBound[K, V], K, V](
 	parserK: Parser[K],
 	parserV: Parser[V],
+	parserString: Parser[String],
 	builderCtor: () => mutable.Builder[(K, V), M]
 ) extends Parser[M] {
 	override def parse(cursor: Cursor): M = {
@@ -55,10 +46,10 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 				have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
 					have = false;
-					val keyStr = jpString.parse(cursor);
+					val keyStr = parserString.parse(cursor);
 					if(cursor.ok) {
 						val key =
-							if (parserK == jpString) {
+							if (parserK == parserString) {
 								keyStr.asInstanceOf[K]
 							} else {
 								val keyCursor = new CursorStr(keyStr);

@@ -1,6 +1,6 @@
 package jsfacile.write
 
-import jsfacile.api.IterableUpperBound
+import jsfacile.joint.IterableUpperBound
 
 object IterableAppender {
 

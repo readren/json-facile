@@ -3,6 +3,7 @@ package jsfacile.macros
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
+import jsfacile.joint.ProductUpperBound
 import jsfacile.read.ProductParser.PpFieldInfo
 import jsfacile.read.Parser
 

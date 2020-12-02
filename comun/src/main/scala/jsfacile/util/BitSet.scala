@@ -1,7 +1,5 @@
 package jsfacile.util
 
-import java.util
-
 import jsfacile.util.BitSet.{BitSlot, Shard}
 
 object BitSet {
@@ -15,7 +13,7 @@ object BitSet {
 		}
 	}
 
-	val FIRST_BIT: BitSlot = BitSlot(1L, 0);
+	val FIRST_BIT_SLOT: BitSlot = BitSlot(1L, 0);
 
 	def empty(capacity: Int = 0) = new BitSet(new Array(capacity));
 }

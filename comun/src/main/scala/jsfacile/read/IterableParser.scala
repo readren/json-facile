@@ -1,27 +1,11 @@
 package jsfacile.read
 
-import jsfacile.api.IterableUpperBound
+import jsfacile.joint.IterableUpperBound
 import jsfacile.read.Parser._
 import jsfacile.util.NonVariantHolderOfAnIterableFactory
 
-object IterableParser {
-
-//	private val cache: mutable.WeakHashMap[(Parser[_], String), Parser[_]] = mutable.WeakHashMap.empty;
-
-	/** @tparam IC iterator type constructor
-	 * @tparam E   element's type */
-	def apply[IC[e] <: IterableUpperBound[e], E](
-		implicit
-		parserE: Parser[E],
-		factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.
-	): Parser[IC[E]] = {
-//		cache.getOrElseUpdate(
-//			(parserE, factoryHolder.id),
-			new IterableParser(parserE, factoryHolder)
-//		).asInstanceOf[Parser[IC[E]]]
-	}
-}
-
+/** @tparam IC iterator type constructor
+ * @tparam E   element's type */
 class IterableParser[IC[e] <: IterableUpperBound[e], E](
 	parserE: Parser[E],
 	factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.

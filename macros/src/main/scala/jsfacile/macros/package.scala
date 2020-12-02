@@ -4,17 +4,11 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
 
+import jsfacile.joint.Named
 import jsfacile.read.{Cursor, Parser}
 import jsfacile.write.{Appender, Record}
 
 package object macros {
-
-	type CoproductUpperBound = Any;
-	type ProductUpperBound = Any;
-
-	trait Named {
-		def name: String;
-	}
 
 	@inline def namedOrdering[T <: Named]: Ordering[T] = Ordering.by[T, String](_.name)
 

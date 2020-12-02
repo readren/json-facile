@@ -2,7 +2,7 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
-import jsfacile.macros.{CoproductUpperBound, Named}
+import jsfacile.joint.{CoproductUpperBound, Named}
 import jsfacile.read.CoproductParser.{CpConsideredField, CpProductInfo}
 import jsfacile.util.BitSet.{BitSlot, Shard}
 import jsfacile.util.Pool.Allocator

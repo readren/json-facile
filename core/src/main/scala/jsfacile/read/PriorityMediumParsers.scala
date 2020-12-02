@@ -15,23 +15,25 @@ trait PriorityMediumParsers extends PriorityLowParsers {
 		parserE: Parser[E],
 		factoryHolder: NonVariantHolderOfAnIterableFactory[IC] // Asking for the IterableFactory directly would fail because it is Covariant which causes the compiler to pick the most specialized instance. And here we want the compiler to pick the instance of the specified type. So we wrap IterableFactory with a non variant holder.
 	): Parser[IC[E]] =
-		IterableParser.apply[IC, E](parserE, factoryHolder)
+		new IterableParser[IC, E](parserE, factoryHolder)
 
 
 	implicit def jpUnsortedMap[UMC[k, v] <: MapUpperBound[k, v], K, V](
 		implicit
 		parserK: Parser[K],
 		parserV: Parser[V],
+		parserString: Parser[String],
 		factoryHolder: NonVariantHolderOfAMapFactory[UMC]
 	): Parser[UMC[K, V]] =
-		MapParser.apply(parserK, parserV, () => factoryHolder.factory.newBuilder)
+		new MapParser(parserK, parserV, parserString, () => factoryHolder.factory.newBuilder)
 
 	implicit def jpSortedMap[SMC[k, v] <: SortedMapUpperBound[k, v], K, V](
 		implicit
 		parserK: Parser[K],
 		parserV: Parser[V],
+		parserString: Parser[String],
 		factoryHolder: NonVariantHolderOfASortedMapFactory[SMC],
 		orderingK: Ordering[K]
 	): Parser[SMC[K, V]] =
-		MapParser.apply(parserK, parserV, () => factoryHolder.factory.newBuilder(orderingK))
+		new MapParser(parserK, parserV, parserString, () => factoryHolder.factory.newBuilder(orderingK))
 }

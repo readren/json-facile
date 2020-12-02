@@ -2,7 +2,7 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
-import jsfacile.macros.ProductUpperBound
+import jsfacile.joint.ProductUpperBound
 import jsfacile.read.Parser._
 import jsfacile.read.ProductParser.{PpFieldInfo, PpHelper}
 import jsfacile.util.BinarySearch

@@ -1,8 +1,6 @@
 package jsfacile
 
-import jsfacile.api.{IterableUpperBound, MapUpperBound, SortedMapUpperBound}
-import jsfacile.macros.{CoproductParserMacro, CoproductUpperBound, EnumParserMacro, ProductParserMacro, ProductUpperBound, SingletonParserMacro}
-import jsfacile.util.{NonVariantHolderOfAMapFactory, NonVariantHolderOfASortedMapFactory, NonVariantHolderOfAnIterableFactory}
+import jsfacile.macros.{EnumParserMacro, NothingMacros}
 
 
 /** It is not necessary to import any implicit defined in this package object. The compiler finds them anyway because the [[Parser]] trait is defined in the same package. Remember that implicits defined in a package object are part of the implicit scope of a type prefixed by that package.
@@ -25,6 +23,8 @@ package object read extends PriorityMediumParsers {
 	implicit val jpDouble: Parser[Double] = BasicParsers.jpDouble;
 
 	implicit val jpFloat: Parser[Float] = BasicParsers.jpFloat;
+
+	implicit def jpNothing: Parser[Nothing] = macro NothingMacros.materializeNothingParserImpl
 
 	//////////////////////////////////////
 	//// Json parsers for basic types ////

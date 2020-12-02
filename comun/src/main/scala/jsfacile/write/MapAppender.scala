@@ -4,16 +4,15 @@ import java.lang
 
 import scala.reflect.runtime.{universe => ru}
 
-import jsfacile.api.MapUpperBound
-
+import jsfacile.joint.MapUpperBound
 
 object MapAppender {
 
 	/** Put an instance of this trait into implicit scope to determine the JSON format of scala map collections: JSON object o JSON array.
 	 *
-	 * @tparam K the type of the map keys.
-	 * @tparam V the type of the map values. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map values's type is irrelevant, which uses to be.  For example: {{{implicit val mfd: MapFormatDecider[Foo, Any, SortedMap] = ??? }}} would determine the map format for all maps that extend {{{immutable.SortedMap[Foo, Any]}}}
-	 * @tparam MC the map's type constructor. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map collection's type is irrelevant, which uses to be.*/
+	 * @tparam K  the type of the map keys.
+	 * @tparam V  the type of the map values. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map values's type is irrelevant, which uses to be.  For example: {{{implicit val mfd: MapFormatDecider[Foo, Any, SortedMap] = ??? }}} would determine the map format for all maps that extend {{{immutable.SortedMap[Foo, Any]}}}
+	 * @tparam MC the map's type constructor. It was decided to make [[MapFormatDecider]] be contravariant on this type parameter to allow providing an implicit value with a `val` instead of a `def` when the map collection's type is irrelevant, which uses to be. */
 	trait MapFormatDecider[K, -V, -MC[_, _]] {
 		/** Advice: When possible, implement this method with a `val` to improve speed efficiency.
 		 *
@@ -31,13 +30,14 @@ object MapAppender {
 		implicit
 		ka: Appender[K],
 		va: Appender[V],
+		charSeqAppender: Appender[CharSequence],
 		mfd: MapFormatDecider[K, V, MC]
 	): Appender[MC[K, V]] = { (record, map) =>
 		var isFirst = true;
 		if (mfd.useObject) {
 			record.append('{')
 
-			if (ka == jsfacile.write.jaCharSequence) {
+			if (ka == charSeqAppender) {
 				map.foreach { e =>
 					if (isFirst) {
 						isFirst = false;
@@ -59,7 +59,7 @@ object MapAppender {
 					keyRecord.sb.setLength(0);
 					keyRecord.appendSummoned[K](e._1)(ka);
 
-					jsfacile.write.jaCharSequence.append(record, keyRecord.sb);
+					charSeqAppender.append(record, keyRecord.sb);
 					record.append(':')
 						.appendSummoned[V](e._2)(va)
 				}

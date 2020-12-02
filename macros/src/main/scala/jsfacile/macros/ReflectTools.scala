@@ -1,4 +1,4 @@
-package jsfacile.joint
+package jsfacile.macros
 
 import scala.reflect.{api => sra}
 
@@ -10,7 +10,7 @@ object ReflectTools {
 	 *
 	 * @param baseType                      a type resulting of the instantiation of a type constructor. For example: {{{typeOf[Option[Int]]}}}
 	 * @param directSubclassTypeConstructor the type constructor we want to instantiate such that it is assignable to `baseType`. For example: {{{typeOf[Some[_]].typeConstructor}}}
-	 * @return if all the type parameters of the `directSubclassTypeConstructor` depend on the base type constructor (has no free type parameters), the type constructed by applying the type constructor `directSubclassTypeConstructor` to the type arguments of `baseType` as seen from said type constructor; for example: {{{typeOf[Some[Int]]}}}. Otherwise, returns a list with the subclass free type parameters.  */
+	 * @return if all the type parameters of the `directSubclassTypeConstructor` depend on the base type constructor (has no free type parameters), the type constructed by applying the type constructor `directSubclassTypeConstructor` to the type arguments of `baseType` as seen from said type constructor; for example: {{{typeOf[Some[Int]]}}}. Otherwise, returns a list with the subclass free type parameters. */
 	def applySubclassTypeConstructor[U <: sra.Universe](universe: U)(baseType: universe.Type, directSubclassTypeConstructor: universe.Type): Either[List[universe.Symbol], universe.Type] = {
 		val directSubclassTypeParams = directSubclassTypeConstructor.typeParams
 		if (directSubclassTypeParams.isEmpty) {
@@ -29,15 +29,15 @@ object ReflectTools {
 
 			val directSubclassTypeArgumentsBuilder = List.newBuilder[universe.Type]
 			var subclassFreeTypeParams: List[universe.Symbol] = Nil
-				for (subclassTypeParam <- directSubclassTypeParams) {
-					subclassTypeParamsToBaseTypeArgumentsRelationship.find { r =>
-						r._1.typeSymbol.name == subclassTypeParam.name
-					} match {
-						case Some((_, baseTypeArgument)) => directSubclassTypeArgumentsBuilder.addOne(baseTypeArgument)
-						case None => subclassFreeTypeParams = subclassTypeParam :: subclassFreeTypeParams
-					}
+			for (subclassTypeParam <- directSubclassTypeParams) {
+				subclassTypeParamsToBaseTypeArgumentsRelationship.find { r =>
+					r._1.typeSymbol.name == subclassTypeParam.name
+				} match {
+					case Some((_, baseTypeArgument)) => directSubclassTypeArgumentsBuilder.addOne(baseTypeArgument)
+					case None => subclassFreeTypeParams = subclassTypeParam :: subclassFreeTypeParams
 				}
-			if(subclassFreeTypeParams.isEmpty) {
+			}
+			if (subclassFreeTypeParams.isEmpty) {
 				Right(universe.appliedType(directSubclassTypeConstructor, directSubclassTypeArgumentsBuilder.result()).ensuring(_ <:< baseType))
 			} else {
 				Left(subclassFreeTypeParams)

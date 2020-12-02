@@ -17,8 +17,9 @@ trait PriorityMediumAppenders extends PriorityLowAppenders {
 		implicit
 		ka: Appender[K],
 		va: Appender[V],
+		charSeqAppender: Appender[CharSequence],
 		mfd: MapFormatDecider[K, V, MC]
 	): Appender[MC[K, V]] =
-		MapAppender.apply[K, V, MC](ka, va, mfd)
+		MapAppender.apply[K, V, MC](ka, va, charSeqAppender, mfd)
 
 }

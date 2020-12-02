@@ -37,6 +37,10 @@ macros / libraryDependencies ++= Seq(
 	// scala reflection required for macros
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value
 )
+comun / libraryDependencies ++= Seq(
+	// scala reflection required for annotations
+	"org.scala-lang" % "scala-reflect" % scalaVersion.value
+)
 
 ThisBuild / scalacOptions ++= Seq(
 	"-deprecation",

@@ -54,7 +54,7 @@ object SpeedTest {
 				val differenceVsOld = 100 * (jsFacileDuration - jsFacileNewDuration) / jsFacileNewDuration
 				println(s"difference vs old: $differenceVsOld%");
 
-			} else if(true) {
+			} else if(false) {
 
 				System.gc();
 				val sprayDuration = {
