@@ -4,7 +4,7 @@ import scala.reflect.macros.whitebox
 
 import jsfacile.write.Appender
 
-object ProductAppender {
+object ProductAppenderMacro {
 
 	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
 		import ctx.universe._

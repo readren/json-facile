@@ -4,19 +4,19 @@ import java.lang.ref.WeakReference
 
 import scala.collection.mutable
 
-import jsfacile.util.Pool.{NO_ONE, UserId}
+import jsfacile.util.Pool.{Allocator, NO_ONE, UserId}
 
 object Pool {
 	type UserId = Int
 	val NO_ONE: UserId = 0; // should be even;
+
+	trait Allocator[T] {
+		def alloc: T
+	}
 }
 
 /** CAUTION: not thread safe */
 class Pool[T <: AnyRef] {
-
-	trait Allocator {
-		def alloc: T
-	}
 
 	class Overseer(val elem: T) {
 		var takenBy: UserId = 0;
@@ -47,7 +47,7 @@ class Pool[T <: AnyRef] {
 	/** The size of the [[overseersBuffer]]. Used instead of [[overseersBuffer.size]] because the [[mutable.ArrayBuffer]] has no efficient way to reduce its size. And I didn't find a better mutable indexed collection. */
 	private var overseersBufferSize: Int = 0;
 
-	/** Moves the last non garbage collected [[overseer]] of the [[overseersBuffer]] to the specified index, and adjust the [[overseersBufferSize]]. */
+	/** Moves the last non garbage collected [[Overseer]] of the [[overseersBuffer]] to the specified index, and adjust the [[overseersBufferSize]]. */
 	private def moveLastOverseerToIndex(newIndex: Int): Overseer = {
 		var lastOverseer: Overseer = null;
 
@@ -68,7 +68,7 @@ class Pool[T <: AnyRef] {
 		lastOverseer
 	}
 
-	def borrow(userId: UserId)(implicit allocator: Allocator): Overseer = {
+	def borrow(userId: UserId)(implicit allocator: Allocator[T]): Overseer = {
 		var overseer: Overseer = null;
 		var found: Boolean = false;
 
@@ -102,7 +102,7 @@ class Pool[T <: AnyRef] {
 		overseer.takenBy = NO_ONE
 	}
 
-	def borrowInsideOf[R](body: T => R)(implicit allocator: Allocator): R = {
+	def borrowInsideOf[R](body: T => R)(implicit allocator: Allocator[T]): R = {
 		val userId = registerUser();
 		val overseer = borrow(userId)
 		val r = body(overseer.elem);
