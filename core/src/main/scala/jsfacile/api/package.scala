@@ -19,6 +19,7 @@ package object api {
 	type Record = jsfacile.write.Record;
 	type RecordStr = jsfacile.write.RecordStr;
 
+	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
 	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapAppender.MapFormatDecider[K, V, MC];
 
 	///////////////////

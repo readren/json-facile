@@ -59,7 +59,6 @@ object CoproductAppender {
 		diff
 	}
 
-
 	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
 }
 

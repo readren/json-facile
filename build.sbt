@@ -8,6 +8,9 @@ lazy val commonSettings = Seq(
 //   target := { baseDirectory.value / "target2" }
 )
 
+lazy val jsfacile = (project in file("."))
+	.aggregate(core, macros, comun)
+
 lazy val core = (project in file("core")).dependsOn(macros, comun)
 	.settings(
 		commonSettings,

@@ -187,7 +187,13 @@ productFieldsBuilder.clear();"""
 				parserHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val discriminatorFieldName: String = discriminatorField.parse(ctx.universe)(coproductClassSymbol)._1;
+				val discriminatorFieldName: Tree = {
+					discriminatorField.parse(ctx.universe)(coproductClassSymbol) match {
+						case Some((fieldName, _)) => q"$fieldName"
+
+						case None => q"DiscriminatorDecider[$coproductType].fieldName"
+					}
+				};
 
 				val productsSnippetsBuilder = Seq.newBuilder[ctx.universe.Tree];
 				val lastConsideredFieldBit = addProductsBelongingTo(coproductClassSymbol, coproductType, coproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty[String, ConsideredField], productsSnippetsBuilder);
@@ -197,6 +203,8 @@ productFieldsBuilder.clear();"""
 import _root_.scala.collection.immutable.ArraySeq;
 import _root_.scala.collection.mutable.ArrayBuffer;
 import _root_.scala.math.Ordering;
+
+import _root_.jsfacile.joint.DiscriminatorDecider;
 import _root_.jsfacile.macros.{LazyParser, namedOrdering};
 import _root_.jsfacile.read.{Parser, CoproductParser};
 import _root_.jsfacile.util.BitSet;

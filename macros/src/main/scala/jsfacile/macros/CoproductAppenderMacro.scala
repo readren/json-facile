@@ -137,14 +137,15 @@ object CoproductAppenderMacro {
 				appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val (discriminatorFieldName, discriminatorIsRequired) = discriminatorField.parse(ctx.universe)(coproductClassSymbol)
+				val oDiscriminatorAnnotation = discriminatorField.parse(ctx.universe)(coproductClassSymbol);
 
 				val productsInfoBuilder = IndexedSeq.newBuilder[ProductInfo]
 				addProductsBelongingTo(coproductClassSymbol, coproductType, coproductHandler, productsInfoBuilder);
 				val productsInfo = productsInfoBuilder.result();
 
-				// Set the `isAmbiguous` flag to every product whose required field names match those of another product.
-				if (!discriminatorIsRequired) {
+				// If the discriminator annotation is absent or its `required` field value is false, then mark ambiguous products. Remember that the [[discriminatorField]] annotation has precedence over the [[DiscriminatorDecider]].
+				if (oDiscriminatorAnnotation.fold(true)(!_._2)) {
+					// sets the `isAmbiguous` flag to every product whose required field names match those of another product.
 					var i = productsInfo.size - 1;
 					while (i > 0) {
 						val pi = productsInfo(i);
@@ -168,13 +169,27 @@ object CoproductAppenderMacro {
 					for {
 						productInfo <- productsInfo
 					} yield {
-						val appendDiscriminator_codeLine =
-							if (discriminatorIsRequired || productInfo.isAmbiguous) {
-								val discriminatorField = s""""$discriminatorFieldName":"${productInfo.simpleName}"${if (productInfo.appendField_codeLines.isEmpty) "" else ","}"""
-								q"r.append($discriminatorField)"
-							} else {
-								q""
-							}
+						val discriminatorFieldValue =
+							if(productInfo.appendField_codeLines.isEmpty) s"""":"${productInfo.simpleName}"""";
+							else s"""":"${productInfo.simpleName}",""";
+
+						val appendDiscriminator_codeLine = oDiscriminatorAnnotation match {
+							case Some(discriminatorAnnotation) =>
+								if (productInfo.isAmbiguous || discriminatorAnnotation._2) {
+									val discriminatorField = s""""${discriminatorAnnotation._1}$discriminatorFieldValue""";
+									q"r.append($discriminatorField)";
+								} else {
+									q"";
+								}
+
+							case None =>
+								if (productInfo.isAmbiguous) {
+									q"""r.append('"').append(discrimDecider.fieldName).append(${discriminatorFieldValue})"""
+								} else {
+									q"""if (discrimDecider.required) { r.append('"').append(discrimDecider.fieldName).append(${discriminatorFieldValue}) }"""
+								}
+						}
+
 						val productClassNameAtRuntime = productInfo.tpe.erasure.typeSymbol.fullName;
 						q"""
 val productAppender: _root_.jsfacile.write.Appender[${productInfo.tpe}] = { (r, p) =>
@@ -188,16 +203,27 @@ val productAppender: _root_.jsfacile.write.Appender[${productInfo.tpe}] = { (r, 
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
 					}
+				val discriminatorDecider_valsCodeLines =
+					if (oDiscriminatorAnnotation.isEmpty) {
+						q"""val discrimDecider = DiscriminatorDecider[$coproductType]"""
+					} else {
+						q""
+					}
+
 
 				val createAppenderCodeLines =
 					q"""
 import _root_.scala.Array;
 import _root_.scala.collection.mutable.ArrayBuffer;
+import _root_.jsfacile.joint.DiscriminatorDecider;
 import _root_.jsfacile.write.CoproductAppender;
 import CoproductAppender.{CahProductInfo, productInfoComparator};
 import _root_.jsfacile.macros.LazyAppender;
 
 val createAppender: Array[LazyAppender] => CoproductAppender[$coproductType] = appendersBuffer => {
+
+	$discriminatorDecider_valsCodeLines
+
 	val productsInfoBuilder = ArrayBuffer[CahProductInfo[_ <: $coproductType]]();
 
 	..$addProductInfo_codeLines

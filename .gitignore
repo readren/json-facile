@@ -21,6 +21,11 @@
 /.cache-tests
 /.worksheet/
 
+.metals/
+.bloop/
+.ammonite/
+metals.sbt
+
 botofono.iml
 
 # IDE - VSCode
