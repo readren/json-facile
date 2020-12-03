@@ -51,8 +51,62 @@ and do one or more of the following:
 
 	assert(Right(foos) == foosParsed) // OK
 	```
+3. Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.
+By default the discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`). 
+	```scala
+	import jsfacile.api._
 
-3. Choose how scala maps are represented in JSON.
+	sealed trait Accessory {
+		def description: String
+	}
+	case class Mouse(description: String, wireless: Boolean) extends Accessory
+	case class Keyboard(description: String, wireless: Boolean, hasNumPad: Boolean) extends Accessory
+
+	val accessories: List[Accessory] = List(
+		Mouse("small", wireless = false),
+		Keyboard("cheap", wireless = true, hasNumPad = false)
+	)
+
+	{
+		val json1 = accessories.toJson
+		println(json1);
+
+		val parsed1 = json1.fromJson[List[Accessory]]
+		assert(parsed1 == Right(accessories))
+	}
+	```
+	prints
+	```json
+	[{"description":"small","wireless":false},{"description":"cheap","wireless":true,"hasNumPad":false}]
+	```
+	There are two ways to change the default behaviour: having an instance of the `jsfacile.api.DiscriminatorDecider` type-class in the implicit scope; or annotating the abstract type with the `jsfacile.api.discriminatorField` annotation. The second has precedense over the first. The first is inherited and the second not.
+
+	```scala
+	implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory] {
+		override def fieldName: String = "type"
+		override def required: Boolean = true
+	}
+
+	val json2 = accessories.toJson
+	println(json2);
+
+	val parsed2 = json2.fromJson[List[Accessory]]
+	assert(parsed2 == Right(accessories))
+	```
+	prints
+	```json
+	[{"type":"Mouse","description":"small","wireless":false},{"type":"Keyboard","description":"cheap","wireless":true,"hasNumPad":false}]
+	```
+
+	The same result is acchieved with the annotation approach:
+
+	```scala
+	@discriminatorField("type", true) sealed trait Accessory {
+		def description: String
+	}
+	```
+
+4. Choose how scala maps are represented in JSON.
 By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `CharSequence` are represented with JSON objects; and with JSON arrays of pairs otherwise.
 	```scala
 	class Key[V](val id: Long, val value: V)
