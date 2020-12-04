@@ -21,7 +21,7 @@ object ProductParserMacro {
 		if (!productSymbol.isClass || productSymbol.isAbstract || productSymbol.isModuleClass) {
 			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete non module class")
 		}
-		ctx.echo(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+//		ctx.info(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}", force = false);
 
 		val productTypeKey = new TypeKey(productType);
 		val productHandler = parserHandlersMap.get(productTypeKey) match {
@@ -101,10 +101,10 @@ createParser""";
 
 				productHandler.oExpression = Some(createParserCodeLines);
 
-				ctx.echo(ctx.enclosingPosition, s"product parser unchecked init for ${show(productType)}: ${show(createParserCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(createParserCodeLines); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-				ctx.echo(ctx.enclosingPosition, s"product parser after init check for ${show(productType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
 
 				productHandler
 
@@ -136,7 +136,7 @@ parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 				q"""parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 			}
 
-		ctx.echo(ctx.enclosingPosition, s"product parser unchecked body for ${show(productType)}:\n${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+		ctx.info(ctx.enclosingPosition, s"product parser body for ${show(productType)}:\n${show(body)}\n------${showParserDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 		ctx.Expr[Parser[P]](body);
 	}
 }

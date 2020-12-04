@@ -125,7 +125,7 @@ object CoproductAppenderMacro {
 			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed")
 		}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+//		ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}", force = false);
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductHandler = appenderHandlersMap.get(coproductTypeKey) match {
@@ -184,9 +184,9 @@ object CoproductAppenderMacro {
 
 							case None =>
 								if (productInfo.isAmbiguous) {
-									q"""r.append('"').append(discrimDecider.fieldName).append(${discriminatorFieldValue})"""
+									q"""r.append(discrimPrefix).append($discriminatorFieldValue)"""
 								} else {
-									q"""if (discrimDecider.required) { r.append('"').append(discrimDecider.fieldName).append(${discriminatorFieldValue}) }"""
+									q"""if (discrimRequired) { r.append(discrimPrefix).append($discriminatorFieldValue) }"""
 								}
 						}
 
@@ -205,7 +205,11 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 					}
 				val discriminatorDecider_valsCodeLines =
 					if (oDiscriminatorAnnotation.isEmpty) {
-						q"""val discrimDecider = DiscriminatorDecider[$coproductType]"""
+						q"""
+val discrimDecider = DiscriminatorDecider[$coproductType];
+val discrimRequired = discrimDecider.required;
+val discrimPrefix = "\"" + discrimDecider.fieldName;
+"""
 					} else {
 						q""
 					}
@@ -222,7 +226,7 @@ import _root_.jsfacile.macros.LazyAppender;
 
 val createAppender: Array[LazyAppender] => CoproductAppender[$coproductType] = appendersBuffer => {
 
-	$discriminatorDecider_valsCodeLines
+	..${discriminatorDecider_valsCodeLines.children.take(3)}
 
 	val productsInfoBuilder = ArrayBuffer[CahProductInfo[_ <: $coproductType]]();
 
@@ -236,10 +240,10 @@ createAppender""";
 
 				coproductHandler.oExpression = Some(createAppenderCodeLines);
 
-				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked init for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(createAppenderCodeLines);
 				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
-				ctx.info(ctx.enclosingPosition, s"coproduct appender after init check for ${show(coproductType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
 
 				coproductHandler
 
@@ -271,7 +275,7 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 				q"""appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender body for ${show(coproductType)}: ${show(body)}\n------${showAppenderDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		ctx.Expr[Appender[C]](body);
 	}

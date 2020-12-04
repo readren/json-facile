@@ -81,6 +81,5 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 			  |	}
 			  |}""".stripMargin shouldNot typeCheck
 		}
-
 	}
 }

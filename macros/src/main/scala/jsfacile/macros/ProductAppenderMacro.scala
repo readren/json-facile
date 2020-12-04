@@ -17,7 +17,7 @@ object ProductAppenderMacro {
 		}
 		val classSymbol = productSymbol.asClass;
 
-		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
+//		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
 		val productTypeKey = new TypeKey(productType);
 		val productHandler = appenderHandlersMap.get(productTypeKey) match {
@@ -93,12 +93,12 @@ val createAppender: Array[LazyAppender] => Appender[$productType] = appendersBuf
 	}
 createAppender""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked init for ${show(productType)} : ${show(createAppenderCodeLines)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				productHandler.oExpression = Some(createAppenderCodeLines);
 
 				ctx.typecheck(createAppenderCodeLines);
 				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
-				ctx.info(ctx.enclosingPosition, s"product appender after init check for ${show(productType)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
 
 				productHandler
 
@@ -131,7 +131,7 @@ appendersBuffer(${productHandler.typeIndex}).get[$productType]""";
 
 			}
 
-		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------\nhandlers:$showAppenderHandlers\n${showOpenImplicitsAndMacros(ctx)}", force = false)
+		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------${showAppenderDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false)
 
 		ctx.Expr[Appender[P]](body);
 	}

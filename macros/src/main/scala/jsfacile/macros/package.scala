@@ -2,7 +2,7 @@ package jsfacile
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.{blackbox, whitebox}
 
 import jsfacile.joint.Named
 import jsfacile.read.{Cursor, Parser}
@@ -29,10 +29,10 @@ package object macros {
 	}
 
 
-	/** Wraps a [[whitebox.Context.Type]] in order to be usable as a map key.
+	/** Wraps a [[blackbox.Context.Type]] in order to be usable as a map key.
 	 *
 	 * @param tpe a dealiased type */
-	final class TypeKey(val tpe: whitebox.Context#Type) {
+	final class TypeKey(val tpe: blackbox.Context#Type) {
 		override val toString: String = tpe.toString
 
 		override def equals(other: Any): Boolean = other match {
@@ -55,19 +55,19 @@ package object macros {
 	/** Adds the received [[TypeIndex]] to the [[Handler.dependencies]] set of all the appender handlers that are capturing dependencies. */
 	@inline def registerAppenderDependency(to: Handler): Unit = Handler.registerDependency(to, appenderHandlersMap);
 
-	@inline def showParserHandlers: String = Handler.show(parserHandlersMap);
-	@inline def showAppenderHandlers: String = Handler.show(appenderHandlersMap);
+	@inline def showParserDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, parserHandlersMap)}";
+	@inline def showAppenderDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, appenderHandlersMap)}";
 
 	//////////////////
 
 	/** Checks if there is no macro call under the top of the macro call stack that satisfies the received predicate on the called macro full name.
 	 *
 	 * @return true if no macro call in the macro stack (excluding the top one) satisfies the predicate */
-	private def isOuterMacroInvocation(ctx: whitebox.Context)(predicate: String => Boolean): Boolean = {
+	private def isOuterMacroInvocation(ctx: blackbox.Context)(predicate: String => Boolean): Boolean = {
 		import ctx.universe._;
 
 		@tailrec
-		def loop(head: whitebox.Context, tail: List[whitebox.Context]): Boolean = {
+		def loop(head: blackbox.Context, tail: List[blackbox.Context]): Boolean = {
 			var next = tail;
 			// ignore immediate repetitions
 			while (next.nonEmpty && next.head == head) next = next.tail;
@@ -81,12 +81,12 @@ package object macros {
 		}
 		loop(ctx.enclosingMacros.head, ctx.enclosingMacros.tail)
 	}
-	def isOuterParserMacroInvocation(ctx: whitebox.Context): Boolean = {
+	def isOuterParserMacroInvocation(ctx: blackbox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx) { methodFullName =>
 			methodFullName == "jsfacile.read.PriorityLowParsers.jpProduct" || methodFullName == "jsfacile.read.PriorityLowParsers.jpCoproduct"
 		}
 	}
-	def isOuterAppenderMacroInvocation(ctx: whitebox.Context): Boolean = {
+	def isOuterAppenderMacroInvocation(ctx: blackbox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx) { methodFullName =>
 			methodFullName == "jsfacile.write.PriorityLowAppenders.jaProduct" || methodFullName == "jsfacile.write.PriorityLowAppenders.jaCoproduct"
 		}
@@ -94,32 +94,31 @@ package object macros {
 
 	////////
 
-	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
-		val macros = ctx.openMacros.map { ctx =>
-			if (true) s"\n\thashCode: ${ctx.hashCode}, macroApp: ${ctx.macroApplication}"
+	def showEnclosingMacros(ctx: blackbox.Context): String = {
+		ctx.enclosingMacros.map { ctx =>
+			if (true) s"application: ${ctx.macroApplication}, hashCode: ${ctx.hashCode}\n"
 			else {
 				import ctx.universe._
 				val q"$term[..$_](...$_)" = ctx.macroApplication
-				s"""
-				   |Context(
-				   |	macroApp:	${ctx.macroApplication} -> ${ctx.universe.showRaw(ctx.macroApplication)},
-				   |	actualType:	${ctx.prefix.actualType} -> ${ctx.universe.showRaw(ctx.prefix.actualType)},
-				   | 	prefix:		${ctx.prefix} -> ${ctx.universe.showRaw(ctx.prefix)},
-				   |  	hashCode:	${ctx.hashCode}
-				   |)""".stripMargin
+				s"""	application: ${ctx.macroApplication},
+				   |	actualType : ${ctx.prefix.actualType},
+				   | 	prefix     : ${ctx.prefix},
+				   |  	hashCode   : ${ctx.hashCode}
+				   |""".stripMargin
 			}
-		}.mkString
+		}.mkString("[{\n\t","},{\n\t","}]")
+	}
+
+	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
+		showEnclosingMacros(ctx)
 		val implicits = ctx.openImplicits.map { ic =>
-			if (false) s"\n\t${ic.sym.fullName} <- ${ic.tree}"
-			else
-				s"""|
-				|ImplicitCandidate(
-					|	pre: ${ic.pre},
-					|	sym: ${ic.sym}, // name:${ic.sym.fullName}
-					|	pt: ${ic.pt},
-					|	tree: ${ic.tree}
-					|)""".stripMargin
-		}.mkString
-		s"\nopenMacros:$macros\n\nopenImplicits:$implicits\n"
+			s"""|
+				|	provider prefix: ${ic.pre},
+				|	provider symbol: ${ic.sym.fullName},
+				|	invoked type   : ${ic.pt},
+				|	invoker code   : ${ic.tree}
+				|""".stripMargin
+		}.mkString("[{","},{","}]")
+		s"\nmacros stack trace: ${showEnclosingMacros(ctx)}\n\nimplicits stack trace: $implicits\n"
 	}
 }

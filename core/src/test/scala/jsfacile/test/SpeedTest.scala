@@ -22,7 +22,7 @@ object SpeedTest {
 				val ppd = parserOf[PresentationData]
 
 				val start = java.lang.System.nanoTime();
-				for (i <- 0 to 1000000) {
+				for (i <- 0 to 1000_000) {
 					val cursor = new CursorStr(presentationDataJson)
 					ppd.parse(cursor);
 				}
@@ -42,7 +42,7 @@ object SpeedTest {
 					val ppd = parserOf[PresentationData]
 
 					val start = java.lang.System.nanoTime();
-					for (i <- 0 to 1000000) {
+					for (i <- 0 to 1000_000) {
 						val cursor = new CursorStr(presentationDataJson)
 						ppd.parse(cursor);
 					}
@@ -62,7 +62,7 @@ object SpeedTest {
 
 					val presentationDataJson = presentationDataOriginal.toJson.compactPrint
 					val start = java.lang.System.nanoTime();
-					for (i <- 0 to 1000000) {
+					for (i <- 0 to 1000_000) {
 						presentationDataFormat.read(presentationDataJson.parseJson);
 					}
 					val duration = (java.lang.System.nanoTime() - start) / 1000000000f;
@@ -82,7 +82,7 @@ object SpeedTest {
 
 					val presentationDataJson = writeToString(presentationDataOriginal);
 					val start = java.lang.System.nanoTime();
-					for (i <- 0 to 1000000) {
+					for (i <- 0 to 1000_000) {
 						readFromString(presentationDataJson)
 					}
 					val duration = (java.lang.System.nanoTime() - start) / 1000000000f;

@@ -95,7 +95,9 @@ productsInfoBuilder.addOne(CpProductInfo(
 														if (fieldType =:= paramType) {
 															q"""productFieldsBuilder.addOne(CpFieldInfo($fieldName, $consideredFieldIndex, $argIndex, $defaultValue_expression));"""
 														} else {
-															ctx.abort(ctx.enclosingPosition, s"""Unsupported situation While building a `Parser[$rootType]`: two implementations, $productSymbol and $firstOwner, have a field with the same name ("$fieldName") but different type.""")
+															val msg = s"""Unsupported situation while building a `Parser[$rootType]`: two implementations, `$productSymbol` and `$firstOwner`, have a field with the same name ("$fieldName") but different type."""
+															ctx.info(ctx.enclosingPosition, msg, force = true)
+															ctx.abort(ctx.enclosingPosition, msg)
 														}
 
 													case None =>
@@ -176,7 +178,7 @@ productFieldsBuilder.clear();"""
 			ctx.abort(ctx.enclosingPosition, s"$coproductClassSymbol is not sealed")
 		}
 
-		ctx.echo(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}")
+//		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(coproductType)}", force = false)
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductHandler = parserHandlersMap.get(coproductTypeKey) match {
@@ -229,10 +231,10 @@ createParser""";
 
 				coproductHandler.oExpression = Some(createParserCodeLines);
 
-				ctx.echo(ctx.enclosingPosition, s"coproduct parser unchecked init for ${show(coproductType)} : ${show(createParserCodeLines)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(coproductType)} : ${show(createParserCodeLines)}\n------${showParserDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 				ctx.typecheck(createParserCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
 				coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-				ctx.echo(ctx.enclosingPosition, s"coproduct parser after init check for ${show(coproductType)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+				ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(coproductType)}", force = false);
 
 				coproductHandler
 
@@ -263,7 +265,7 @@ parsersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 				q"""parsersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.echo(ctx.enclosingPosition, s"coproduct parser body for ${show(coproductType)}: ${show(body)}\n------\nhandlers:$showParserHandlers\n${showOpenImplicitsAndMacros(ctx)}");
+		ctx.info(ctx.enclosingPosition, s"coproduct parser body for ${show(coproductType)}: ${show(body)}\n------${showParserDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		ctx.Expr[Parser[C]](body);
 	}
