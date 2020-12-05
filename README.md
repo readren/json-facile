@@ -31,7 +31,11 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
 		- [Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-ever-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
+		- [Implement a custom parser/appender pair.](#implement-a-custom-parserappender-pair)
+	- [Why?](#why)
 	- [More examples](#more-examples)
+	- [Edge cases](#edge-cases)
+		- [BigDecimal input limit](#bigdecimal-input-limit)
 	- [Any question or idea?](#any-question-or-idea)
 	- [Credits](#credits)
 
@@ -50,12 +54,12 @@ sealed trait Foo
 case class Bar(xs: Vector[String]) extends Foo
 case class Qux(i: Int, d: Option[Double]) extends Foo
 
-val foos = List[Foo](
+val foos: List[Foo] = List(
 	Bar(Vector("one", "two")),
 	Qux(3, Some(12.3))
 )
 
-val json = foos.toJson
+val json: String = foos.toJson
 println(json)
 ```
 prints
@@ -66,7 +70,7 @@ prints
 
 ### Convert a JSON string document back to an ADT instance.
 ```scala
-val foosParsed = json.fromJson[List[Foo]]
+val foosParsed: Either[ParseError, List[Foo]] = json.fromJson[List[Foo]]
 println(foosParsed); // out: Right(List(Bar(Vector(one, two)), Qux(3,Some(12.3))))
 
 assert(Right(foos) == foosParsed) // OK
@@ -89,10 +93,10 @@ val accessories: List[Accessory] = List(
 )
 
 {
-	val json1 = accessories.toJson
+	val json1: String = accessories.toJson
 	println(json1);
 
-	val parsed1 = json1.fromJson[List[Accessory]]
+	val parsed1: Either[ParseError, List[Accessory]] = json1.fromJson[List[Accessory]]
 	assert(parsed1 == Right(accessories))
 }
 ```
@@ -108,10 +112,10 @@ implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory]
 	override def required: Boolean = true
 }
 
-val json2 = accessories.toJson
+val json2: String = accessories.toJson
 println(json2);
 
-val parsed2 = json2.fromJson[List[Accessory]]
+val parsed2: Either[ParseError, List[Accessory]] = json2.fromJson[List[Accessory]]
 assert(parsed2 == Right(accessories))
 ```
 prints
@@ -155,10 +159,38 @@ prints
 ```
 Note that the keys are JSON enconded in the JSON object's field names.
 
-The fields order is ever determined by the primary constructor's parameters order. 
+The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
+
+### Implement a custom parser/appender pair.
+There is no date parsers/appenders bundled in the *json-facile* library. In my opinion the most convenient way to encode dates in JSON is domain dependent.
+So, suppouse the front end your scala service is communicating with is a single page application implemented with [angular](https://angular.io), and you don't need the dates be encoded in a human readable format. Then you can represent the date with the number of milliseconds since 1970 which is how the browsers represents it internally.
+```scala
+		implicit val instantAppender: Appender[Instant] =
+			(record, instant) => record.append(instant.toEpochMilli);
+
+		implicit val instantParser: Parser[Instant] =
+			Parser[Long] ^^ Instant.ofEpochMilli
+
+		val instant = java.time.Instant.now()
+		val json = instant.toJson
+		println(json);
+		val parsedInstant = json.fromJson[Instant]
+		assert(Right(instant) == parsedInstant)
+```
+
+## Why?
+If I had known about the existence of [jsoniter], this library would not have existed. And by the time I found out, its development was too advanced to abandon it. Also, I think there are some use cases where *json-facile* is more convenient.
+
+*json-facile* is significantly faster than all JSON libraries I know except [jsoniter] whose speed is unreachable. But they achieved that crazy speed at cost of weight and some inflexibility.
+If I am not wrong, [jsoniter] allows to encode to and/or decode from `Array[byte]`, `InputStream`, and `java.nio.ByteBuffer` easily. But it's difficult to use other kind of source/sink.
+
+With *Json-facile*, intead, it is easy to implement a custom source or sink. Just extend `jsfacile.read.AbstractCursor` for the source, and/or `jsfacile.write.Record` for the sink. The `Cursor` API was designed to minimize the amount of JSON data that needs to be holded in memory.
+
+Other good features found in *json-facile* are:
+1. Its flexibility to represent scala map-like collections. The keys may be of any type even when represented as a JSON object.
+2. The easy thing is to implement custom parsers using either the `jsfacile.read.Parser` combinators or the low-level `jsfacile.read.Cursor` API.
 
 ## More examples
-
 1. A good example of the support of parameterized ADTs (algebraic data types) is HList.
 	
 ```scala
@@ -315,6 +347,31 @@ This limitation is a consequence of a design decision: configuration simplicity 
 This problem can be easily mittigated moving the involved ADTs to a separate SBT project.
 
 4. Recursive data types are vulnerable to run-time stack overflow error when the recursion deph level of the data is high enough. This will be solved when I come up with a simple way to configure the limit.
+
+## Edge cases
+### BigDecimal input limit
+The `Parser[BigDecimal]` that is bundled in the `json-facile` library is not configurable. There is no need of such thing because it is possible to override it with no much effort.
+Suppouse you want to limit the size of the input number to protect your service against malicius attacks. You can achieve that with:
+```scala
+val BIG_DECIMAL_INPUT_MAX_LENGTH = 12
+
+implicit val bigDecimalCustomParser: Parser[BigDecimal] = cursor => {
+	val number = cursor.stringConsumedBy(Skip.jsNumber)
+	if (cursor.ok) {
+		if(number.length <= BIG_DECIMAL_INPUT_MAX_LENGTH) {
+			BigDecimal.exact(number)
+		} else {
+			cursor.fail("BigDecimal input length exceeded")
+			Parser.ignored[BigDecimal]
+		}
+	} else {
+		cursor.miss("A number was expected");
+		Parser.ignored[BigDecimal]
+	}
+}
+```
+
+
 
 ## Any question or idea?
 Fell free to ask question in [chat](https://gitter.im/json-facile/community#), open issues, or contribute by creating pull requests.
