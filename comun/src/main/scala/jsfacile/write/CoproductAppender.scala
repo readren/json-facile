@@ -2,7 +2,6 @@ package jsfacile.write
 
 import java.util.Comparator
 
-import jsfacile.joint.CoproductUpperBound
 import jsfacile.util.BinarySearch
 import jsfacile.write.CoproductAppender.{CahProductInfo, UnexpectedProductTypeException, productNameComparator}
 
@@ -62,7 +61,7 @@ object CoproductAppender {
 	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
 }
 
-class CoproductAppender[C <: CoproductUpperBound](fullName: String, productsInfo: Array[CahProductInfo[C]]) extends Appender[C] {
+class CoproductAppender[C](fullName: String, productsInfo: Array[CahProductInfo[C]]) extends Appender[C] {
 
 	override def append(record: Record, product: C): Record = {
 

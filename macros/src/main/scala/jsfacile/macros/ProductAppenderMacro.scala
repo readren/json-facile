@@ -1,21 +1,13 @@
 package jsfacile.macros
 
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
-import jsfacile.joint.ProductUpperBound
 import jsfacile.write.Appender
 
-object ProductAppenderMacro {
+class ProductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+	import ctx.universe._
 
-	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[P]] = {
-		import ctx.universe._
-
-		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
-		val productSymbol: Symbol = productType.typeSymbol;
-		if (!productSymbol.isClass || productSymbol.isAbstract) {
-			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete class")
-		}
-		val classSymbol = productSymbol.asClass;
+	def materializeImpl[P](productType: Type, productSymbol: ClassSymbol): ctx.Expr[Appender[P]] = {
 
 //		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
@@ -28,7 +20,7 @@ object ProductAppenderMacro {
 				registerAppenderDependency(productHandler);
 				appenderHandlersMap.put(productTypeKey, productHandler);
 
-				val paramsList = classSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+				val paramsList = productSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
 				var isFirstField = true;
 				val appendField_codeLines =
@@ -93,7 +85,7 @@ val createAppender: Array[LazyAppender] => Appender[$productType] = appendersBuf
 	}
 createAppender""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				productHandler.oExpression = Some(createAppenderCodeLines);
 
 				ctx.typecheck(createAppenderCodeLines);
@@ -131,7 +123,7 @@ appendersBuffer(${productHandler.typeIndex}).get[$productType]""";
 
 			}
 
-		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------${showAppenderDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false)
+		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false)
 
 		ctx.Expr[Appender[P]](body);
 	}

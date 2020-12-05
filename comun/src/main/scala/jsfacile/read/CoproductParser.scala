@@ -2,7 +2,7 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
-import jsfacile.joint.{CoproductUpperBound, Named}
+import jsfacile.joint.Named
 import jsfacile.read.CoproductParser.{CpConsideredField, CpProductInfo}
 import jsfacile.util.BitSet.{BitSlot, Shard}
 import jsfacile.util.Pool.Allocator
@@ -61,7 +61,7 @@ object CoproductParser {
  * @param productsInfo     a with the information this [[Parser]] needs about all known concrete implementation of `C`. It should be sorted by [[CpProductInfo.name]].
  * @param consideredFields an array with the information this [[Parser]] needs about all the fields from the JSON object that will be considered. It should be sorted by [[CpConsideredField.name]]. Any JSON object field whose name is not contained in this array would be ignored. The set of considered fields should be the union of the fields of the concrete implementations specified by the `productsInfo` parameter.
  * @param numberOfShards   number of [[Shard]] required to hold all the [[BitSlot]]s mentioned in the [[CpConsideredField]] instances contained by the `consideredFields` array. The necessity of this parameter is a consequence of the inability of the [[BitSet]] class to grow its shards array (because it is implemented with a value class). */
-class CoproductParser[C <: CoproductUpperBound](
+class CoproductParser[C](
 	fullName: String,
 	discriminator: String,
 	productsInfo: Array[CpProductInfo[C]], // should be sorted by name. Not mutated.

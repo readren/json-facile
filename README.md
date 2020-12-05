@@ -129,7 +129,7 @@ The same result is acchieved with the annotation approach:
 
 ### Choose how scala maps are represented in JSON.
 
-By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `CharSequence` are represented with JSON objects; and with JSON arrays of pairs otherwise.
+By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `CharSequence` are represented with JSON objects. Otherwise the map is represented with a JSON arrays of pairs.
 ```scala
 class Key[V](val id: Long, val value: V)
 
@@ -191,7 +191,7 @@ prints
 {"head":true,"tail":{"head":"text","tail":{"head":3,"tail":{}}}}
 ```
 	
-2. This examples show the support of recursive data types.
+2. This example shows the support of recursive data types.
 
 ```scala
 object example2 {

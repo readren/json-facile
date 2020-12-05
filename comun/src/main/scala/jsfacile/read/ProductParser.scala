@@ -2,7 +2,6 @@ package jsfacile.read
 
 import scala.collection.immutable.ArraySeq
 
-import jsfacile.joint.ProductUpperBound
 import jsfacile.read.Parser._
 import jsfacile.read.ProductParser.{PpFieldInfo, PpHelper}
 import jsfacile.util.BinarySearch
@@ -11,7 +10,9 @@ object ProductParser {
 
 	final case class PpFieldInfo(name: String, valueParser: Parser[_], oDefaultValue: Option[Any], ctorArgIndex: Int)
 
-	trait PpHelper[P <: ProductUpperBound] {
+	val fieldsOrdering: Ordering[PpFieldInfo] = Ordering.by(_.name);
+
+	trait PpHelper[P] {
 		def fullName: String;
 		def fieldsInfo: Array[PpFieldInfo];
 		def createProduct(args: Seq[Any]): P
@@ -19,7 +20,7 @@ object ProductParser {
 
 }
 
-class ProductParser[P <: ProductUpperBound](helper: PpHelper[P]) extends Parser[P] {
+class ProductParser[P](helper: PpHelper[P]) extends Parser[P] {
 
 	assert(helper != null); // Fails here when the macro expansion of CoproductParserMacro fails for some reason. Usually because a compilation error of the expanded code. To find the place in the log search the string "<empty>"
 

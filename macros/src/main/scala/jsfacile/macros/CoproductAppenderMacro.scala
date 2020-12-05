@@ -1,128 +1,22 @@
 package jsfacile.macros
 
 import scala.collection.mutable
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
-import jsfacile.joint.{CoproductUpperBound, discriminatorField}
+import jsfacile.joint.discriminatorField
 import jsfacile.write.Appender
 
-object CoproductAppenderMacro {
+class CoproductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+	import ctx.universe._
 
-	def materializeImpl[C <: CoproductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Appender[C]] = {
-		import ctx.universe._
+	private case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
+		var isAmbiguous = false;
+	}
 
-		case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
-			var isAmbiguous = false;
-		}
+	def materializeImpl[C](coproductType: Type, coproductClassSymbol: ClassSymbol): ctx.Expr[Appender[C]] = {
 
-		def addProductsBelongingTo(
-			coproductClassSymbol: ClassSymbol,
-			coproductType: Type,
-			superHandler: Handler,
-			productsInfoBuilder: mutable.Builder[ProductInfo, IndexedSeq[ProductInfo]]
-		): Unit = {
-			for {
-				productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq
-			} {
-				val productClassSymbol = productSymbol.asClass;
-				ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productClassSymbol.toTypeConstructor) match {
-					case Right(productType) =>
-						if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
-
-							if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
-								productsInfoBuilder.addOne(ProductInfo(
-									productClassSymbol.name.toString,
-									productClassSymbol.toType,
-									Set.empty,
-									Nil
-								))
-
-							} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
-								if (productClassSymbol.isSealed) {
-									addProductsBelongingTo(productClassSymbol, productType, superHandler, productsInfoBuilder)
-								} else {
-									ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
-								}
-
-							} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
-								val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
-
-								val requiredFieldNamesBuilder = Set.newBuilder[String];
-								var isFirstField = true;
-								val appendField_codeLines =
-									for {
-										params <- productCtorParamsLists
-										param <- params
-									} yield {
-										val paramNameStr = param.name.decodedName.toString;
-										val sb = new StringBuilder(paramNameStr.length + 4)
-										if (isFirstField) {
-											isFirstField = false
-										} else {
-											sb.append(',');
-										}
-
-										val paramType = param.typeSignature.dealias;
-										val paramTypeSymbol = paramType.typeSymbol;
-										if (paramTypeSymbol.fullName != "scala.Option") {
-											requiredFieldNamesBuilder.addOne(paramNameStr)
-										}
-
-										val oGetAlreadyExpandedAppenderExpression =
-											if (paramTypeSymbol.isClass) {
-												appenderHandlersMap.get(new TypeKey(paramType)) match {
-													case Some(paramHandler) =>
-														superHandler.addDependency(paramHandler);
-
-														if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
-															Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
-														} else {
-															ctx.abort(ctx.enclosingPosition, "Unreachable")
-														}
-													case None =>
-														None
-												}
-											} else {
-												None
-											}
-										sb.append('"').append(paramNameStr).append('"').append(':');
-
-										oGetAlreadyExpandedAppenderExpression match {
-											case Some(appenderExpression) =>
-												q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})($appenderExpression);""";
-
-											case None =>
-												q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})""";
-										}
-
-									}
-
-								productsInfoBuilder.addOne(ProductInfo(
-									productSymbol.name.toString,
-									productType,
-									requiredFieldNamesBuilder.result(),
-									appendField_codeLines
-								))
-							}
-
-						}
-
-					case Left(freeTypeParams) =>
-						ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
-				}
-			}
-		}
-
-		//// the body of this method starts here ////
-
-		val coproductType: Type = ctx.weakTypeTag[C].tpe.dealias;
-		val coproductSymbol: Symbol = coproductType.typeSymbol;
-		if (!coproductSymbol.isClass || !coproductSymbol.isAbstract) {
-			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a trait or abstract class")
-		}
-		val coproductClassSymbol = coproductSymbol.asClass;
 		if (!coproductClassSymbol.isSealed) {
-			ctx.abort(ctx.enclosingPosition, s"$coproductSymbol is not a sealed")
+			ctx.abort(ctx.enclosingPosition, s"$coproductClassSymbol is not a sealed")
 		}
 
 //		ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}", force = false);
@@ -240,7 +134,7 @@ createAppender""";
 
 				coproductHandler.oExpression = Some(createAppenderCodeLines);
 
-				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				ctx.typecheck(createAppenderCodeLines);
 				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
@@ -275,10 +169,110 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 				q"""appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender body for ${show(coproductType)}: ${show(body)}\n------${showAppenderDependencies(coproductHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender body for ${show(coproductType)}: ${show(body)}\n------${showAppenderDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 
 		ctx.Expr[Appender[C]](body);
 	}
+
+
+	private def addProductsBelongingTo(
+		coproductClassSymbol: ClassSymbol,
+		coproductType: Type,
+		superHandler: Handler,
+		productsInfoBuilder: mutable.Builder[ProductInfo, IndexedSeq[ProductInfo]]
+	): Unit = {
+		for {
+			productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq
+		} {
+			val productClassSymbol = productSymbol.asClass;
+			ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productClassSymbol.toTypeConstructor) match {
+				case Right(productType) =>
+					if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
+
+						if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
+							productsInfoBuilder.addOne(ProductInfo(
+								productClassSymbol.name.toString,
+								productClassSymbol.toType,
+								Set.empty,
+								Nil
+							))
+
+						} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
+							if (productClassSymbol.isSealed) {
+								addProductsBelongingTo(productClassSymbol, productType, superHandler, productsInfoBuilder)
+							} else {
+								ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
+							}
+
+						} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
+							val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+
+							val requiredFieldNamesBuilder = Set.newBuilder[String];
+							var isFirstField = true;
+							val appendField_codeLines =
+								for {
+									params <- productCtorParamsLists
+									param <- params
+								} yield {
+									val paramNameStr = param.name.decodedName.toString;
+									val sb = new StringBuilder(paramNameStr.length + 4)
+									if (isFirstField) {
+										isFirstField = false
+									} else {
+										sb.append(',');
+									}
+
+									val paramType = param.typeSignature.dealias;
+									val paramTypeSymbol = paramType.typeSymbol;
+									if (paramTypeSymbol.fullName != "scala.Option") {
+										requiredFieldNamesBuilder.addOne(paramNameStr)
+									}
+
+									val oGetAlreadyExpandedAppenderExpression =
+										if (paramTypeSymbol.isClass) {
+											appenderHandlersMap.get(new TypeKey(paramType)) match {
+												case Some(paramHandler) =>
+													superHandler.addDependency(paramHandler);
+
+													if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
+														Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
+													} else {
+														ctx.abort(ctx.enclosingPosition, "Unreachable")
+													}
+												case None =>
+													None
+											}
+										} else {
+											None
+										}
+									sb.append('"').append(paramNameStr).append('"').append(':');
+
+									oGetAlreadyExpandedAppenderExpression match {
+										case Some(appenderExpression) =>
+											q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})($appenderExpression);""";
+
+										case None =>
+											q"""r.append(${sb.toString}).appendSummoned[$paramType](${Select(Ident(TermName("p")), param.name)})""";
+									}
+
+								}
+
+							productsInfoBuilder.addOne(ProductInfo(
+								productSymbol.name.toString,
+								productType,
+								requiredFieldNamesBuilder.result(),
+								appendField_codeLines
+							))
+						}
+
+					}
+
+				case Left(freeTypeParams) =>
+					ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
+			}
+		}
+	}
+
 }
 
 

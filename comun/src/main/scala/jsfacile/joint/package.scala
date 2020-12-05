@@ -3,8 +3,6 @@ package jsfacile
 import scala.reflect.{api => sra}
 
 package object joint {
-	type CoproductUpperBound = Any;
-	type ProductUpperBound = Any;
 
 	type IterableUpperBound[E] = scala.collection.Iterable[E];
 	type MapUpperBound[K, V] = scala.collection.Map[K, V];

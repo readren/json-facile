@@ -1,26 +1,17 @@
 package jsfacile.macros
 
 import scala.language.experimental.macros
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
-import jsfacile.joint.ProductUpperBound
-import jsfacile.read.ProductParser.PpFieldInfo
 import jsfacile.read.Parser
 
 
-object ProductParserMacro {
-
-	val fieldsOrdering: Ordering[PpFieldInfo] = Ordering.by(_.name);
+class ProductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+	import ctx.universe._
 
 	/** Macro implicit materializer of [[ProductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	def materializeImpl[P <: ProductUpperBound : ctx.WeakTypeTag](ctx: whitebox.Context): ctx.Expr[Parser[P]] = {
-		import ctx.universe._
+	def materializeImpl[P](productType: Type, productClassSymbol: ClassSymbol): ctx.Expr[Parser[P]] = {
 
-		val productType: Type = ctx.weakTypeTag[P].tpe.dealias;
-		val productSymbol: Symbol = productType.typeSymbol;
-		if (!productSymbol.isClass || productSymbol.isAbstract || productSymbol.isModuleClass) {
-			ctx.abort(ctx.enclosingPosition, s"$productSymbol is not a concrete non module class")
-		}
 //		ctx.info(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}", force = false);
 
 		val productTypeKey = new TypeKey(productType);
@@ -33,7 +24,7 @@ object ProductParserMacro {
 				parserHandlersMap.put(productTypeKey, productHandler);
 
 				val addFieldInfoSnippetsBuilder = List.newBuilder[Tree];
-				val paramsList = productSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+				val paramsList = productClassSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 				var argIndex = -1;
 				val ctorArgumentSnippets =
 					for (params <- paramsList) yield {
@@ -82,7 +73,6 @@ import _root_.scala.collection.immutable.Seq;
 import _root_.jsfacile.read.{Parser, ProductParser};
 import ProductParser.{PpFieldInfo, PpHelper};
 import _root_.jsfacile.macros.LazyParser;
-import _root_.jsfacile.macros.ProductParserMacro.fieldsOrdering;
 
 val createParser: Array[LazyParser] => ProductParser[$productType] = parsersBuffer => {
 	val builder = ArrayBuffer[PpFieldInfo]();
@@ -91,9 +81,9 @@ val createParser: Array[LazyParser] => ProductParser[$productType] = parsersBuff
 	val helper = new PpHelper[$productType] {
 		override val fullName: String = ${productType.toString};
 
-		override val fieldsInfo: Array[PpFieldInfo] = builder.sortInPlace()(fieldsOrdering).toArray;
+		override val fieldsInfo: Array[PpFieldInfo] = builder.sortInPlace()(ProductParser.fieldsOrdering).toArray;
 
-		override def createProduct(args: Seq[Any]):$productType = new $productSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
+		override def createProduct(args: Seq[Any]):$productType = new $productClassSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
 	}
 	new ProductParser[$productType](helper)
 };
@@ -101,7 +91,7 @@ createParser""";
 
 				productHandler.oExpression = Some(createParserCodeLines);
 
-				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				ctx.typecheck(createParserCodeLines); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
@@ -136,7 +126,7 @@ parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 				q"""parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"product parser body for ${show(productType)}:\n${show(body)}\n------${showParserDependencies(productHandler)}\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"product parser body for ${show(productType)}:\n${show(body)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 		ctx.Expr[Parser[P]](body);
 	}
 }

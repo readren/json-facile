@@ -83,12 +83,12 @@ package object macros {
 	}
 	def isOuterParserMacroInvocation(ctx: blackbox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx) { methodFullName =>
-			methodFullName == "jsfacile.read.PriorityLowParsers.jpProduct" || methodFullName == "jsfacile.read.PriorityLowParsers.jpCoproduct"
+			methodFullName == "jsfacile.read.PriorityLowParsers.jpCustom"
 		}
 	}
 	def isOuterAppenderMacroInvocation(ctx: blackbox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx) { methodFullName =>
-			methodFullName == "jsfacile.write.PriorityLowAppenders.jaProduct" || methodFullName == "jsfacile.write.PriorityLowAppenders.jaCoproduct"
+			methodFullName == "jsfacile.write.PriorityLowAppenders.jaCustom"
 		}
 	}
 
@@ -96,29 +96,30 @@ package object macros {
 
 	def showEnclosingMacros(ctx: blackbox.Context): String = {
 		ctx.enclosingMacros.map { ctx =>
-			if (true) s"application: ${ctx.macroApplication}, hashCode: ${ctx.hashCode}\n"
+			if (true) s"\n\tapplication: ${ctx.macroApplication}, hashCode: ${ctx.hashCode}"
 			else {
 				import ctx.universe._
 				val q"$term[..$_](...$_)" = ctx.macroApplication
-				s"""	application: ${ctx.macroApplication},
-				   |	actualType : ${ctx.prefix.actualType},
-				   | 	prefix     : ${ctx.prefix},
-				   |  	hashCode   : ${ctx.hashCode}
-				   |""".stripMargin
+				s"""{
+				   |		application: ${ctx.macroApplication},
+				   |		actualType : ${ctx.prefix.actualType},
+				   | 		prefix     : ${ctx.prefix},
+				   |  		hashCode   : ${ctx.hashCode}
+				   |	}""".stripMargin
 			}
-		}.mkString("[{\n\t","},{\n\t","}]")
+		}.mkString("\nmacros stack trace: [", ", ", "]")
 	}
 
 	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
 		showEnclosingMacros(ctx)
-		val implicits = ctx.openImplicits.map { ic =>
+		val implicits = ctx.enclosingImplicits.map { ic =>
 			s"""|
 				|	provider prefix: ${ic.pre},
 				|	provider symbol: ${ic.sym.fullName},
 				|	invoked type   : ${ic.pt},
 				|	invoker code   : ${ic.tree}
 				|""".stripMargin
-		}.mkString("[{","},{","}]")
-		s"\nmacros stack trace: ${showEnclosingMacros(ctx)}\n\nimplicits stack trace: $implicits\n"
+		}.mkString("\nimplicits stack trace: [{", "},{", "}]")
+		s"${showEnclosingMacros(ctx)}\n$implicits\n"
 	}
 }
