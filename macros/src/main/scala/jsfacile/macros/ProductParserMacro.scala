@@ -48,7 +48,9 @@ class ProductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
 											if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
 												q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 											} else {
-												ctx.abort(ctx.enclosingPosition, "Unreachable")
+												val msg = s"Unreachable reached: productType=$productType, paramType=$paramType";
+												productHandler.creationTreeOrErrorMsg = Some(Left(msg));
+												ctx.abort(ctx.enclosingPosition, msg)
 											}
 										case None =>
 											q"Parser[$paramType]"
@@ -89,7 +91,7 @@ val createParser: Array[LazyParser] => ProductParser[$productType] = parsersBuff
 };
 createParser""";
 
-				productHandler.oExpression = Some(createParserCodeLines);
+				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				ctx.typecheck(createParserCodeLines); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
@@ -105,14 +107,21 @@ createParser""";
 		};
 
 		val body =
-			if (productHandler.oExpression.isDefined && isOuterParserMacroInvocation(ctx)) {
+			if (productHandler.creationTreeOrErrorMsg.isDefined && isOuterParserMacroInvocation(ctx)) {
 				val inits =
 					for {
-						(_, handler) <- parserHandlersMap
-						if productHandler.doesDependOn(handler.typeIndex)
+						(innerTypeKey, innerHandler) <- parserHandlersMap
+						if productHandler.doesDependOn(innerHandler.typeIndex)
 					} yield {
-						val createParserCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
-						q"""parsersBuffer(${handler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
+						innerHandler.creationTreeOrErrorMsg.get match {
+							case Right(creationTree) =>
+								val createParserCodeLines = creationTree.asInstanceOf[ctx.Tree];
+								q"""parsersBuffer(${innerHandler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
+
+							case Left(innerErrorMsg) =>
+								ctx.abort(ctx.enclosingPosition, s"Unable to derive a parser for $productType because it depends on the parser for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+
+						}
 
 					}
 				q"""

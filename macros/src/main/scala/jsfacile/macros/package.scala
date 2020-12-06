@@ -82,14 +82,10 @@ package object macros {
 		loop(ctx.enclosingMacros.head, ctx.enclosingMacros.tail)
 	}
 	def isOuterParserMacroInvocation(ctx: blackbox.Context): Boolean = {
-		this.isOuterMacroInvocation(ctx) { methodFullName =>
-			methodFullName == "jsfacile.read.PriorityLowParsers.jpCustom"
-		}
+		this.isOuterMacroInvocation(ctx) { _ == "jsfacile.read.PriorityLowParsers.jpCustom" }
 	}
 	def isOuterAppenderMacroInvocation(ctx: blackbox.Context): Boolean = {
-		this.isOuterMacroInvocation(ctx) { methodFullName =>
-			methodFullName == "jsfacile.write.PriorityLowAppenders.jaCustom"
-		}
+		this.isOuterMacroInvocation(ctx) { _ == "jsfacile.write.PriorityLowAppenders.jaCustom" }
 	}
 
 	////////

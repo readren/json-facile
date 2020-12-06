@@ -77,7 +77,7 @@ val createParser: Array[LazyParser] => CoproductParser[$coproductType] = parsers
 };
 createParser""";
 
-				coproductHandler.oExpression = Some(createParserCodeLines);
+				coproductHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(coproductType)} : ${show(createParserCodeLines)}\n------${showParserDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				ctx.typecheck(createParserCodeLines.duplicate); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
@@ -92,14 +92,22 @@ createParser""";
 		}
 
 		val body =
-			if (coproductHandler.oExpression.isDefined && isOuterParserMacroInvocation(ctx)) {
+			if (coproductHandler.creationTreeOrErrorMsg.isDefined && isOuterParserMacroInvocation(ctx)) {
 				val inits =
 					for {
-						(_, handler) <- parserHandlersMap
-						if coproductHandler.doesDependOn(handler.typeIndex)
+						(innerTypeKey, innerHandler) <- parserHandlersMap
+						if coproductHandler.doesDependOn(innerHandler.typeIndex)
 					} yield {
-						val createParserCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
-						q"""parsersBuffer(${handler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
+						innerHandler.creationTreeOrErrorMsg.get match {
+							case Right(creationTree) =>
+								val createParserCodeLines = creationTree.asInstanceOf[ctx.Tree];
+								q"""parsersBuffer(${innerHandler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
+
+							case Left(innerErrorMsg) =>
+								ctx.abort(ctx.enclosingPosition, s"Unable to derive a parser for $coproductType because it depends on the parser for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+						}
+
+
 					}
 
 				q"""
@@ -154,6 +162,8 @@ productsInfoBuilder.addOne(CpProductInfo(
 							if (productClassSymbol.isSealed) {
 								nextBitSlot = addProductsBelongingTo(productClassSymbol, productType, rootType, rootHandler, nextBitSlot, consideredFields, productsSnippetsBuilder)
 							} else {
+								val msg = s"$productClassSymbol should be sealed"
+								rootHandler.creationTreeOrErrorMsg = Some(Left(msg))
 								ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
 							}
 
@@ -193,7 +203,7 @@ productsInfoBuilder.addOne(CpProductInfo(
 														q"""productFieldsBuilder.addOne(CpFieldInfo($fieldName, $consideredFieldIndex, $argIndex, $defaultValue_expression));"""
 													} else {
 														val msg = s"""Unsupported situation while building a `Parser[$rootType]`: two implementations, `$productSymbol` and `$firstOwner`, have a field with the same name ("$fieldName") but different type."""
-														ctx.info(ctx.enclosingPosition, msg, force = true)
+														rootHandler.creationTreeOrErrorMsg = Some(Left(msg))
 														ctx.abort(ctx.enclosingPosition, msg)
 													}
 
@@ -218,7 +228,9 @@ productsInfoBuilder.addOne(CpProductInfo(
 																	if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
 																		q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 																	} else {
-																		ctx.abort(ctx.enclosingPosition, "Unreachable")
+																		val msg = s"Unreachable reached: productType=$productType, paramTypeSymbol=${paramTypeSymbol.fullName}"
+																		rootHandler.creationTreeOrErrorMsg = Some(Left(msg))
+																		ctx.abort(ctx.enclosingPosition, msg)
 																	}
 																case None =>
 																	q"Parser[$paramType]"
@@ -257,7 +269,9 @@ productFieldsBuilder.clear();"""
 					}
 
 				case Left(freeTypeParams) =>
-					ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
+					val msg =s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
+					rootHandler.creationTreeOrErrorMsg = Some(Left(msg));
+					ctx.abort(ctx.enclosingPosition, msg)
 			}
 		}
 		nextBitSlot

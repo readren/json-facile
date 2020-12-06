@@ -49,7 +49,9 @@ class ProductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
 										if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
 											Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 										} else {
-											ctx.abort(ctx.enclosingPosition, "Unreachable")
+											val msg = s"Unreachable reached: productType=$productType, paramType=$paramType"
+											productHandler.creationTreeOrErrorMsg = Some(Left(msg));
+											ctx.abort(ctx.enclosingPosition, msg)
 										}
 
 									case None =>
@@ -86,7 +88,7 @@ val createAppender: Array[LazyAppender] => Appender[$productType] = appendersBuf
 createAppender""";
 
 				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
-				productHandler.oExpression = Some(createAppenderCodeLines);
+				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
 				ctx.typecheck(createAppenderCodeLines);
 				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
@@ -100,14 +102,20 @@ createAppender""";
 		}
 
 		val body =
-			if (productHandler.oExpression.isDefined && isOuterAppenderMacroInvocation(ctx)) {
+			if (productHandler.creationTreeOrErrorMsg.isDefined && isOuterAppenderMacroInvocation(ctx)) {
 				val inits =
 					for {
-						(_, handler) <- appenderHandlersMap
-						if productHandler.doesDependOn(handler.typeIndex)
+						(innerTypeKey, innerHandler) <- appenderHandlersMap
+						if productHandler.doesDependOn(innerHandler.typeIndex)
 					} yield {
-						val createAppenderCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
-						q"""appendersBuffer(${handler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
+						innerHandler.creationTreeOrErrorMsg.get match {
+							case Right(creationTree) =>
+								val createAppenderCodeLines = creationTree.asInstanceOf[ctx.Tree];
+								q"""appendersBuffer(${innerHandler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
+
+							case Left(innerErrorMsg) =>
+								ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $productType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+						}
 					};
 
 				q"""

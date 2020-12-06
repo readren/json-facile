@@ -132,7 +132,7 @@ val createAppender: Array[LazyAppender] => CoproductAppender[$coproductType] = a
 };
 createAppender""";
 
-				coproductHandler.oExpression = Some(createAppenderCodeLines);
+				coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				ctx.typecheck(createAppenderCodeLines);
@@ -148,14 +148,20 @@ createAppender""";
 		};
 
 		val body =
-			if (coproductHandler.oExpression.isDefined && isOuterAppenderMacroInvocation(ctx)) {
+			if (coproductHandler.creationTreeOrErrorMsg.isDefined && isOuterAppenderMacroInvocation(ctx)) {
 				val inits =
 					for {
-						(_, handler) <- appenderHandlersMap
-						if coproductHandler.doesDependOn(handler.typeIndex)
+						(innerTypeKey, innerHandler) <- appenderHandlersMap
+						if coproductHandler.doesDependOn(innerHandler.typeIndex)
 					} yield {
-						val createAppenderCodeLines = handler.oExpression.get.asInstanceOf[ctx.Tree];
-						q"""appendersBuffer(${handler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
+						innerHandler.creationTreeOrErrorMsg.get match {
+							case Right(creationTree) =>
+								val createAppenderCodeLines = creationTree.asInstanceOf[ctx.Tree];
+								q"""appendersBuffer(${innerHandler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
+
+							case Left(innerErrorMsg) =>
+								ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $coproductType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+						}
 					}
 
 				q"""
@@ -178,7 +184,7 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 	private def addProductsBelongingTo(
 		coproductClassSymbol: ClassSymbol,
 		coproductType: Type,
-		superHandler: Handler,
+		rootHandler: Handler,
 		productsInfoBuilder: mutable.Builder[ProductInfo, IndexedSeq[ProductInfo]]
 	): Unit = {
 		for {
@@ -199,9 +205,11 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 
 						} else if (productSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
 							if (productClassSymbol.isSealed) {
-								addProductsBelongingTo(productClassSymbol, productType, superHandler, productsInfoBuilder)
+								addProductsBelongingTo(productClassSymbol, productType, rootHandler, productsInfoBuilder)
 							} else {
-								ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
+								val msg = s"$productClassSymbol should be sealed";
+								rootHandler.creationTreeOrErrorMsg = Some(Left(msg));
+								ctx.abort(ctx.enclosingPosition, msg)
 							}
 
 						} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
@@ -232,12 +240,14 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 										if (paramTypeSymbol.isClass) {
 											appenderHandlersMap.get(new TypeKey(paramType)) match {
 												case Some(paramHandler) =>
-													superHandler.addDependency(paramHandler);
+													rootHandler.addDependency(paramHandler);
 
 													if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
 														Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 													} else {
-														ctx.abort(ctx.enclosingPosition, "Unreachable")
+														val msg = s"Unreachable reached: productType=$productType, paramTypeSymbol=${paramTypeSymbol.fullName}"
+														rootHandler.creationTreeOrErrorMsg = Some(Left(msg));
+														ctx.abort(ctx.enclosingPosition, msg)
 													}
 												case None =>
 													None
@@ -268,7 +278,9 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 					}
 
 				case Left(freeTypeParams) =>
-					ctx.abort(ctx.enclosingPosition, s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""")
+					val msg = s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""";
+					rootHandler.creationTreeOrErrorMsg = Some(Left(msg))
+					ctx.abort(ctx.enclosingPosition, msg)
 			}
 		}
 	}
