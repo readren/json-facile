@@ -15,6 +15,10 @@ package object write extends PriorityMediumAppenders {
 
 	implicit val jaBoolean: Appender[Boolean] = { (r, bool) => r.append(if (bool) "true" else "false") }
 
+	implicit val jaByte: Appender[Byte] = { (r, byte) => r.append(byte) }
+
+	implicit val jaShort: Appender[Short] = { (r, short) => r.append(short) }
+
 	implicit val jaInt: Appender[Int] = { (r, int) => r.append(int) }
 
 	implicit val jaLong: Appender[Long] = { (r, long) => r.append(long) }
