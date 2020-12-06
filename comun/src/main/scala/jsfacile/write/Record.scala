@@ -3,13 +3,17 @@ package jsfacile.write
 trait Record {
 	def appendCodePoint(codePoint: Int): this.type;
 
+	def append(char: Char): this.type;
+
 	def append(csq: CharSequence): this.type;
 
 	def append(csq: CharSequence, start: Int, `end`: Int): this.type;
 
-	def append(char: Char): this.type;
-
 	def append(string: String): this.type;
+
+	def append(byte: Byte): this.type;
+
+	def append(short: Short): this.type;
 
 	def append(int: Int): this.type;
 

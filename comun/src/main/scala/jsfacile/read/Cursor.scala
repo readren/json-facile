@@ -43,11 +43,11 @@ trait Cursor {
 	/** Clears both, the missed and failed flags. */
 	def repair(): Unit
 
-	/** The implementation should execute the received block and, if after that this [[Cursor]] is missed but not failed, should recover the position it had before the block had been executed.
+	/** The implementation should apply the received function to this [[Cursor]] instance and, if after that this [[Cursor]] is missed but not failed, should recover the position it had before the block had been executed.
 	 *
-	 * @param block procedure which may and usually do modify this cursor.
+	 * @param block procedure which may and usually do mutate this cursor.
 	 * @return the result given by the block */
-	def attempt[@specialized(Int, Char) X](block: () => X): X
+	def attempt[@specialized(Int, Char) X](block: Cursor => X): X
 
 	/** The implementation should execute the received block and, if after that this [[Cursor]]:
 	 * - is [[ok]], should return a [[String]] containing the code points consumed by the block;

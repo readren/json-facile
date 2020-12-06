@@ -70,7 +70,7 @@ object Parser {
 	implicit def acceptChar(char: Char): Parser[Elem] = acceptElem(char)
 
 	def pick: Parser[Elem] = { cursor =>
-		if(cursor.have){
+		if (cursor.have) {
 			cursor.pointedElem
 		}
 		else {
@@ -158,7 +158,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	def >>[@specialized(Int, Char) B](f: A => Parser[B]): Parser[B] = flatMap(f);
 
 	def pursue[@specialized(Int, Char) B, @specialized(Int, Char) C](iB: Parser[B])(f: (A, B) => C): Parser[C] = { cursor =>
-		cursor.attempt { () =>
+		cursor.attempt { cursor =>
 			val a = this.parse(cursor)
 			if (cursor.ok) {
 				val b = iB.parse(cursor)
@@ -175,7 +175,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	@inline def ~[@specialized(Int, Char) B](iB: Parser[B]): Parser[~[A, B]] = pursue(iB)(new ~(_, _))
 
 	@inline def ~>[@specialized(Int, Char) B](iB: Parser[B]): Parser[B] = { cursor =>
-		cursor.attempt { () =>
+		cursor.attempt { cursor =>
 			this.parse(cursor)
 			if (cursor.ok) {
 				iB.parse(cursor)
@@ -185,7 +185,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 		}
 	}
 	@inline def <~[@specialized(Int, Char) B](iB: Parser[B]): Parser[A] = { cursor =>
-		cursor.attempt { () =>
+		cursor.attempt { cursor =>
 			val a = this.parse(cursor)
 			if (cursor.ok) {
 				iB.parse(cursor)
@@ -196,7 +196,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 
 
 	def orElse(iB: Parser[A]): Parser[A] = { (cursor: Cursor) =>
-		val a = cursor.attempt { () => self.parse(cursor) };
+		val a = cursor.attempt(self.parse);
 		if (cursor.missed) {
 			cursor.clearMiss();
 			iB.parse(cursor)
@@ -243,14 +243,14 @@ trait Parser[@specialized(Int, Char) A] { self =>
 		val iB_self = iB ~> self;
 		{ cursor =>
 			val a = self.parse(cursor);
-			if(cursor.failed) {
+			if (cursor.failed) {
 				ignored[C]
 			} else {
 				val builder = builderCtor();
-				if(cursor.ok) {
+				if (cursor.ok) {
 					builder.addOne(a);
 					iB_self.repGenFunc(builder)(cursor)
-				} else{
+				} else {
 					cursor.clearMiss();
 					builder.result()
 				}
@@ -277,7 +277,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 
 	def repNGen[C](n: Int, builderCtor: () => mutable.Builder[A, C]): Parser[C] = { cursor =>
 		if (n > 0) {
-			cursor.attempt { () =>
+			cursor.attempt { cursor =>
 				var a = self.parse(cursor);
 				if (cursor.ok) {
 					val builder = builderCtor();
@@ -318,7 +318,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	/** Give a parser that behaves identically to this parser except that, when it misses and no miss cause is specified, sets the received one. */
 	def withMissCause(cause: String): Parser[A] = { cursor =>
 		val a = this.parse(cursor);
-		if(cursor.missed && cursor.missCause == null) {
+		if (cursor.missed && cursor.missCause == null) {
 			cursor.miss(cause)
 		}
 		a
@@ -337,7 +337,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	}
 
 	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser.
-	 * TODO: take a [[PartialFunction]][[[AnyRef]], [[Parser]][B] instead.*/
+	 * TODO: take a [[PartialFunction]][[[AnyRef]], [[Parser]][B] instead. */
 	def recoverWith[B >: A](iB: Parser[B]): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {

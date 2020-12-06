@@ -42,9 +42,9 @@ class CursorStr(content: Array[Char]) extends AbstractCursor {
 		cursorPos < content.length;
 	}
 
-	override def attempt[@specialized(Int, Char) X](block: () => X): X = {
+	override def attempt[@specialized(Int, Char) X](block: Cursor => X): X = {
 		val startingPos = cursorPos;
-		val x = block();
+		val x = block(this);
 		// si está la marca de fracaso puesta y no la de falla, recuperar posición.
 		if (isMissed && !isFailed) {
 			this.cursorPos = startingPos

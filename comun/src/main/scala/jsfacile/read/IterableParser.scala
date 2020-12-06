@@ -13,7 +13,7 @@ class IterableParser[IC[e] <: IterableUpperBound[e], E](
 	assert(parserE != null && factoryHolder != null);
 
 	override def parse(cursor: Cursor): IC[E] = {
-		if (cursor.have) {
+		if (cursor.isPointing) {
 			if (cursor.pointedElem == '[') {
 				cursor.advance();
 				val builder = factoryHolder.factory.newBuilder[E];

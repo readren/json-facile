@@ -3,8 +3,17 @@ package jsfacile.read
 import jsfacile.read.Parser._
 
 object BasicParsers {
-	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
+
+	private val MAX_BYTE_DIV_10 = java.lang.Byte.MAX_VALUE / 10;
+	private val MAX_BYTE_DIGITS = MAX_BYTE_DIV_10.toString.length;
+	private val MAX_SHORT_DIV_10 = java.lang.Short.MAX_VALUE / 10;
+	private val MAX_SHORT_DIGITS = MAX_SHORT_DIV_10.toString.length;
+
 	private val MAX_INT_DIV_10 = java.lang.Integer.MAX_VALUE / 10;
+	private val MAX_INT_DIGITS = MAX_INT_DIV_10.toString.length;
+	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
+	private val MAX_LONG_DIGITS = MAX_LONG_DIV_10.toString.length;
+
 	private val THRESHOLD = 40; // length of the string chunk above which it is faster to create an append a string than to append the contained characters one by one. TODO calculate the THRESHOLD
 
 	/** A [[Parser]] of JSON strings.
@@ -110,59 +119,32 @@ object BasicParsers {
 			}
 	}
 
+	object jpByte extends Parser[Byte] {
+		override def parse(cursor: Cursor): Byte = {
+			if (cursor.isPointing) {
+				cursor.attempt(jpInteger("Byte", MAX_BYTE_DIGITS, MAX_BYTE_DIV_10)).toByte
+			} else {
+				cursor.miss("A Byte was expected")
+				0
+			}
+		}
+	}
 
-	/** Interpretador de Int en Json */
+	object jpShort extends Parser[Short] {
+		override def parse(cursor: Cursor): Short = {
+			if (cursor.isPointing) {
+				cursor.attempt {jpInteger("Short", MAX_SHORT_DIGITS, MAX_SHORT_DIV_10)}.toShort
+			} else {
+				cursor.miss("A Short was expected")
+				0
+			}
+		}
+	}
+
 	object jpInt extends Parser[Int] {
 		override def parse(cursor: Cursor): Int = {
-			var have = cursor.have
-			if (have) {
-				cursor.attempt { () =>
-					var accum: Int = 0;
-					var limit = 9; // mantissa length
-					var pointedElem = cursor.pointedElem;
-					val isNegative = pointedElem == '-';
-					if (isNegative) {
-						have = cursor.advance();
-						if (have) {
-							pointedElem = cursor.pointedElem
-						}
-					};
-					var digit = pointedElem - '0';
-					if (digit < 0 || 9 < digit) {
-						if (isNegative) {
-							cursor.fail("A digit was expected after the minus sign when parsing a Int")
-						} else {
-							cursor.miss("The first digit of an Int was expected")
-						}
-					} else {
-						do {
-							accum = accum * 10 + digit;
-							limit -= 1;
-							have = cursor.advance();
-							if (have) {
-								pointedElem = cursor.pointedElem;
-								digit = pointedElem - '0';
-							}
-						} while (0 <= digit && digit <= 9 && have && limit > 0);
-
-						if (0 <= digit && digit <= 9 && have) {
-							if (accum > MAX_INT_DIV_10 || (accum == MAX_INT_DIV_10 && (digit == 9 || !isNegative && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
-								cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Int`.");
-							} else {
-								accum = accum * 10 + digit
-								have = cursor.advance();
-								if (have) {
-									pointedElem = cursor.pointedElem;
-									if ('0' <= pointedElem && pointedElem <= '9') {
-										cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Int`.");
-									}
-								}
-							}
-						}
-					}
-					if (isNegative) -accum
-					else accum
-				}
+			if (cursor.isPointing) {
+				cursor.attempt(jpInteger("Int", MAX_INT_DIGITS, MAX_INT_DIV_10))
 			} else {
 				cursor.miss("An Int was expected")
 				0
@@ -170,14 +152,64 @@ object BasicParsers {
 		}
 	}
 
-	/** Interpretador de Long en Json */
+
+	private final def jpInteger(name: String, maxWholeDigits: Int, maxValueDiv10: Int)(cursor: Cursor): Int = {
+		var have = true;
+		var accum: Int = 0;
+		var limit = maxWholeDigits; // mantissa length
+		var pointedElem = cursor.pointedElem;
+		val isNegative = pointedElem == '-';
+		if (isNegative) {
+			have = cursor.advance();
+			if (have) {
+				pointedElem = cursor.pointedElem
+			}
+		};
+		var digit = pointedElem - '0';
+		if (digit < 0 || 9 < digit) {
+			if (isNegative) {
+				cursor.fail(s"A digit was expected after the minus sign when parsing a $name")
+			} else {
+				cursor.miss("The first digit of an integer number was expected")
+			}
+		} else {
+			do {
+				accum = accum * 10 + digit;
+				limit -= 1;
+				have = cursor.advance();
+				if (have) {
+					pointedElem = cursor.pointedElem;
+					digit = pointedElem - '0';
+				}
+			} while (0 <= digit && digit <= 9 && have && limit > 0);
+
+			if (0 <= digit && digit <= 9 && have) {
+				if (accum > maxValueDiv10 || (accum == maxValueDiv10 && (digit == 9 || !isNegative && digit == 8))) { // Note that for all primitive integers MaxValue/10 == -MinValue/10 and the least significant digit of MaxValue is 7 and of MinValue is 8. Otherwise there would have to deal with the differences
+					cursor.fail(s"Overflow: The number being parsed can't be represented by a `scala.$name`.");
+				} else {
+					accum = accum * 10 + digit
+					have = cursor.advance();
+					if (have) {
+						pointedElem = cursor.pointedElem;
+						if ('0' <= pointedElem && pointedElem <= '9') {
+							cursor.fail(s"Overflow: The number being parsed can't be represented by a `scala.$name`.");
+						}
+					}
+				}
+			}
+		}
+		if (isNegative) -accum
+		else accum
+	}
+
+
 	object jpLong extends Parser[Long] {
 		override def parse(cursor: Cursor): Long = {
 			var have = cursor.have;
 			if (have) {
-				cursor.attempt { () =>
+				cursor.attempt { cursor =>
 					var accum: Long = 0;
-					var limit = 18; // mantissa length
+					var limit = MAX_LONG_DIGITS;
 
 					var pointedElem = cursor.pointedElem;
 					val isNegative = pointedElem == '-';
@@ -207,7 +239,7 @@ object BasicParsers {
 						} while (0 <= digit && digit <= 9 && have && limit > 0);
 
 						if (0 <= digit && digit <= 9 && have) {
-							if (accum > MAX_LONG_DIV_10 || (accum == MAX_LONG_DIV_10 && (digit == 9 || !isNegative && digit == 8))) { // notar que MAX_LONG/10 == MIN_LONG/10. De lo contrario habría que lidiar con la diferencia.
+							if (accum > MAX_LONG_DIV_10 || (accum == MAX_LONG_DIV_10 && (digit == 9 || !isNegative && digit == 8))) { // Note that MAX_LONG/10 == MIN_LONG/10. Otherwise there would have to deal with the difference
 								cursor.fail("Overflow: The number being parsed can't be represented by a `scala.Long`.");
 							} else {
 								accum = accum * 10 + digit
@@ -234,7 +266,7 @@ object BasicParsers {
 	object jpBigInt extends Parser[BigInt] {
 		override def parse(cursor: Cursor): BigInt = {
 			val integer = cursor.stringConsumedBy(Skip.integer)
-			if (cursor.ok && integer.length > 0) {
+			if (cursor.ok && integer.nonEmpty) {
 				BigInt(integer);
 			} else {
 				cursor.miss("An integer number was expected while parsing a BigInt");
@@ -309,7 +341,7 @@ object BasicParsers {
 	/** The right parser has priority. If it hits the left parser is ignored.
 	 * Implemented with an optimized versión of {{{(pR ^^ { r => Right[L, R](r).asInstanceOf[Either[L, R]] }) | (pL ^^ { l => Left[L, R](l).asInstanceOf[Either[L, R]] })}}} */
 	def jpEither[L, R](implicit pL: Parser[L], pR: Parser[R]): Parser[Either[L, R]] = { cursor =>
-		val r = cursor.attempt(() => pR.parse(cursor));
+		val r = cursor.attempt(pR.parse);
 		if (cursor.ok) {
 			Right(r)
 		} else {

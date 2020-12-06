@@ -4,16 +4,18 @@ import jsfacile.joint.IterableUpperBound
 
 object IterableAppender {
 
-	def apply[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] = { (record, iterable) =>
-		var isTail = false;
-		record.append('[')
-		iterable.foreach { e =>
-			if (isTail) {
-				record.append(',');
-			}
-			elemAppender.append(record, e);
-			isTail = true;
+	@inline def apply[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] = { (record, iterable) =>
+		record.append('[');
+
+		val i = iterable.iterator;
+		if (i.hasNext) {
+			elemAppender.append(record, i.next());
 		}
+		while (i.hasNext) {
+			record.append(',');
+			elemAppender.append(record, i.next());
+		}
+
 		record.append(']')
 	}
 }

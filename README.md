@@ -21,7 +21,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 
 * Map keys can be of any type, even when represented as a JSON object. In that case the keys are encoded in the JSON object's field names.
 
-* No discriminator field is needed to distinguish between different concrete implementations of said abstract type, unless two of those implementations have the same amount of required fields and all of them have the same names. In that case, only the ambiguous implementations require a discriminator field. This reduces the JSON documents length considerably.
+* No discriminator field is needed to distinguish between different concrete implementations of an abstract type, unless two of those implementations have the same amount of required fields and all of them have the same names. In that case, only the ambiguous implementations require a discriminator field. This reduces the JSON documents length considerably.
 
 # Table of content
 - [json-facile](#json-facile)
@@ -162,20 +162,20 @@ Note that the keys are JSON enconded in the JSON object's field names.
 The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
 
 ### Implement a custom parser/appender pair.
-There is no date parsers/appenders bundled in the *json-facile* library. In my opinion the most convenient way to encode dates in JSON is domain dependent.
-So, suppouse the front end your scala service is communicating with is a single page application implemented with [angular](https://angular.io), and you don't need the dates be encoded in a human readable format. Then you can represent the date with the number of milliseconds since 1970 which is how the browsers represents it internally.
+There is no `java.time` parsers/appenders bundled in the *json-facile* library. In my opinion the most convenient way to encode dates in JSON is domain dependent.
+So, suppouse the front end your scala service is communicating with is a single page application implemented with [angular](https://angular.io), and you don't need the `Instant` values be represented in a human readable format. Then you can encode them in a JSON number with the number of milliseconds since 1970, which is how the browsers represents it internally.
 ```scala
-		implicit val instantAppender: Appender[Instant] =
-			(record, instant) => record.append(instant.toEpochMilli);
+implicit val instantAppender: Appender[Instant] =
+	(record, instant) => record.append(instant.toEpochMilli);
 
-		implicit val instantParser: Parser[Instant] =
-			Parser[Long] ^^ Instant.ofEpochMilli
+implicit val instantParser: Parser[Instant] =
+	Parser[Long] ^^ Instant.ofEpochMilli
 
-		val instant = java.time.Instant.now()
-		val json = instant.toJson
-		println(json);
-		val parsedInstant = json.fromJson[Instant]
-		assert(Right(instant) == parsedInstant)
+val instant = java.time.Instant.now()
+val json = instant.toJson
+println(json);
+val parsedInstant = json.fromJson[Instant]
+assert(Right(instant) == parsedInstant)
 ```
 
 ## Why?
@@ -184,7 +184,7 @@ If I had known about the existence of [jsoniter], this library would not have ex
 *json-facile* is significantly faster than all JSON libraries I know except [jsoniter] whose speed is unreachable. But they achieved that crazy speed at cost of weight and some inflexibility.
 If I am not wrong, [jsoniter] allows to encode to and/or decode from `Array[byte]`, `InputStream`, and `java.nio.ByteBuffer` easily. But it's difficult to use other kind of source/sink.
 
-With *Json-facile*, intead, it is easy to implement a custom source or sink. Just extend `jsfacile.read.AbstractCursor` for the source, and/or `jsfacile.write.Record` for the sink. The `Cursor` API was designed to minimize the amount of JSON data that needs to be holded in memory.
+With *Json-facile*, instead, it is easy to implement a custom source or sink. Just extend `jsfacile.read.AbstractCursor` for the source, and/or `jsfacile.write.Record` for the sink. The `Cursor` API was designed to minimize the amount of JSON data that needs to be holded in memory.
 
 Other good features found in *json-facile* are:
 1. Its flexibility to represent scala map-like collections. The keys may be of any type even when represented as a JSON object.
@@ -302,7 +302,7 @@ object example3 {
 }
 ```	
 ## Supported standard types
-* Int, Long, Float, Double, Char, Boolean, Unit, Null
+* Byte, Short, Int, Long, Float, Double, Char, Boolean, Unit, Null, Nothing
 * String, CharSequence
 * BigInt, BigDecimal
 * Option and Either (are treated specially)
@@ -337,7 +337,7 @@ object limitations1 {
 	}
 }
 ```
-The compiler error is preceded by an info message that explains the cause: * Unsupported situation while building a `Parser[limitations1.Thing]`: two implementations, `class Ball` and `class Box`, have a field with the same name ("weight") but different type.*
+The compiler error is preceded by an info message that explains the cause: *"Unsupported situation while building a `Parser[limitations1.Thing]`: two implementations, `class Ball` and `class Box`, have a field with the same name ("weight") but different type."*
 
 This limitation is a consequence of a design decision: configuration simplicity and execution speed is more important than support of rare or easily avoidable use cases.
 

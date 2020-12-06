@@ -7,8 +7,8 @@ object Skip {
 	 * @return true iff an integer was consumed and the cursor is [[Cursor.ok]]*/
 	def integer(cursor: Cursor): Boolean = {
 		val isNeg = cursor.consumeChar('-')
-		val hasMantisa = cursor.consumeChar('0') || cursor.consumeCharIfDigit() && cursor.consumeWhileDigit()
-		if (hasMantisa) {
+		val hasMantissa = cursor.consumeChar('0') || cursor.consumeCharIfDigit() && cursor.consumeWhileDigit()
+		if (hasMantissa) {
 			cursor.ok
 		} else {
 			if (isNeg) {

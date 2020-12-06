@@ -6,8 +6,28 @@ class RecordStr(val sb: java.lang.StringBuilder) extends Record {
 		sb.appendCodePoint(codePoint)
 		this
 	};
+	override def append(c: Char): this.type = {
+		sb.append(c)
+		this;
+	}
+	override def append(csq: CharSequence): this.type = {
+		sb.append(csq)
+		this;
+	}
+	override def append(csq: CharSequence, start: Int, end: Int): this.type = {
+		sb.append(csq, start, end)
+		this;
+	}
 	override def append(string: String): this.type = {
 		sb.append(string);
+		this;
+	}
+	override def append(byte: Byte): this.type = {
+		sb.append(byte);
+		this;
+	}
+	override def append(short: Short): this.type = {
+		sb.append(short);
 		this;
 	}
 	override def append(int: Int): this.type = {
@@ -24,18 +44,6 @@ class RecordStr(val sb: java.lang.StringBuilder) extends Record {
 	}
 	override def append(double: Double): this.type = {
 		sb.append(double)
-		this;
-	}
-	override def append(csq: CharSequence): this.type = {
-		sb.append(csq)
-		this;
-	}
-	override def append(csq: CharSequence, start: Int, end: Int): this.type = {
-		sb.append(csq, start, end)
-		this;
-	}
-	override def append(c: Char): this.type = {
-		sb.append(c)
 		this;
 	}
 }

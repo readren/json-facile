@@ -10,10 +10,13 @@ trait PriorityMediumAppenders extends PriorityLowAppenders {
 	///////////////////////////////////////////////////////////////
 	//// JSON appenders for standard collections library types ////
 
-	@inline implicit def jaIterable[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
+	implicit def jaArray[E](implicit elemAppender: Appender[E]): Appender[Array[E]] =
+		ArrayAppender.apply[E](elemAppender)
+
+	implicit def jaIterable[E, IC[e] <: IterableUpperBound[e]](implicit elemAppender: Appender[E]): Appender[IC[E]] =
 		IterableAppender.apply[E, IC](elemAppender)
 
-	@inline implicit def jaMap[K, V, MC[k, v] <: MapUpperBound[k, v]](
+	implicit def jaMap[K, V, MC[k, v] <: MapUpperBound[k, v]](
 		implicit
 		ka: Appender[K],
 		va: Appender[V],
