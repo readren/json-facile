@@ -16,6 +16,10 @@ package object read extends PriorityMediumParsers {
 
 	implicit val jpBoolean: Parser[Boolean] = BasicParsers.jpBoolean
 
+	implicit val jpByte: Parser[Byte] = BasicParsers.jpByte;
+
+	implicit val jpShort: Parser[Short] = BasicParsers.jpShort;
+
 	implicit val jpInt: Parser[Int] = BasicParsers.jpInt;
 
 	implicit val jpLong: Parser[Long] = BasicParsers.jpLong;

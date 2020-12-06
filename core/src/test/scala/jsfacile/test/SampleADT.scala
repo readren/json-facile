@@ -17,8 +17,8 @@ object SampleADT {
 		def enclosingShape: Shape
 		def description: String
 	}
-	case class Table(enclosingShape: Shape, legsAmount: Int, description: String) extends Thing
-	case class Shelf(enclosingShape: Shape, levelsAmount: Option[Int], description: String) extends Thing
+	case class Table(enclosingShape: Shape, legsAmount: Short, description: String) extends Thing
+	case class Shelf(enclosingShape: Shape, levelsAmount: Option[Byte], description: String) extends Thing
 	case class Ball(enclosingShape: Shape, description: String) extends Thing
 
 	type Price = BigDecimal
