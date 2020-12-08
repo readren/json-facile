@@ -333,13 +333,13 @@ object limitations1 {
 		val json = things.toJson
 		println(json) // out: [{"length":12.3,"weight":32.1},{"radius":45.6,"weight":"3 kg"}]
 		val thingsParsed = json.fromJson[List[Thing]]
-		println(thingsParsed) // compile error: could not find implicit value for parameter pt: jsfacile.api.package.Parser[List[limitations1.Thing]]
+		println(thingsParsed) // compile error: Unable to derive a parser for `List[jsfacile.test.Probando.Thing]` because it depends on the parser for `jsfacile.test.Probando.Thing` whose derivation has failed saying: Unsupported situation while building a `Parser[jsfacile.test.Probando.Thing]`: two implementations, `class Ball` and `class Box`, have a field with the same name ("weight") but different type.
 	}
 }
 ```
-The compiler error is preceded by an info message that explains the cause: *"Unsupported situation while building a `Parser[limitations1.Thing]`: two implementations, `class Ball` and `class Box`, have a field with the same name ("weight") but different type."*
-
 This limitation is a consequence of a design decision: configuration simplicity and execution speed is more important than support of rare or easily avoidable use cases.
+
+Note that the appender does not complain. Only the parser. This is intended because the generated JSON document may be parsed by other JSON library that supports namesakes fields with differnt types. 
 
 2. The Intellij IDE hightlights false "implicit not found" kind error mensajes. Ignore or suppress them. Or use another IDE.
 

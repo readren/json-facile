@@ -31,6 +31,7 @@ package object macros {
 
 	/** Wraps a [[blackbox.Context.Type]] in order to be usable as a map key.
 	 *
+	 * This class is intended to be used by macros during compilation only
 	 * @param tpe a dealiased type */
 	final class TypeKey(val tpe: blackbox.Context#Type) {
 		override val toString: String = tpe.toString
@@ -47,7 +48,9 @@ package object macros {
 	type TypeIndex = Int;
 
 	type HandlersMap = mutable.Map[TypeKey, Handler];
+	/** This val is intended to be used by macros during compilation only */
 	val appenderHandlersMap: HandlersMap = mutable.HashMap.empty;
+	/** This val is intended to be used by macros during compilation only */
 	val parserHandlersMap: HandlersMap = mutable.HashMap.empty;
 
 	/** Adds the received [[TypeIndex]] to the [[Handler.dependencies]] set of all the parser handlers that are capturing dependencies. */

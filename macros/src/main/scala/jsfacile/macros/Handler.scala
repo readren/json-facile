@@ -4,7 +4,8 @@ import scala.collection.mutable
 import scala.reflect.api.{Universe => univ}
 
 
-/** Manages the construction and inter-relation of an [[jsfacile.write.Appender]] or [[jsfacile.read.Parser]] of the type indicated by the received [[TypeIndex]]. */
+/** Manages the construction and inter-relation of an [[jsfacile.write.Appender]] or [[jsfacile.read.Parser]] of the type indicated by the received [[TypeIndex]].
+ * This class is intended to be used by macros during compilation only*/
 class Handler(val typeIndex: TypeIndex) {
 	/** The code lines that creates a [[jsfacile.read.Parser]] or a [[jsfacile.write.Appender]].*/
 	var creationTreeOrErrorMsg: Option[Either[String, univ#Tree]] = None;
@@ -62,7 +63,7 @@ object Handler {
 			(keyType, handler) <- handlersMap
 			if dependantHandler.dependencies.contains(handler.typeIndex)
 		} yield {
-			handler.typeIndex -> f"name: ${keyType.toString.takeRight(30)}%30s, expanded: ${handler.creationTreeOrErrorMsg.exists(_.isRight)}%5.5b, capturing: ${handler.isCapturingDependencies}%5.5b, dependencies: ${handler.dependencies.mkString(", ")}%s"
+			handler.typeIndex -> f"name: ${keyType.toString.takeRight(50)}%50s, expanded: ${handler.creationTreeOrErrorMsg.exists(_.isRight)}%5.5b, capturing: ${handler.isCapturingDependencies}%5.5b, dependencies: ${handler.dependencies.mkString(", ")}%s"
 		}
 		mutable.SortedMap.from(tc);
 		tc.mkString("\n\t", "\n\t", "")

@@ -160,7 +160,7 @@ createAppender""";
 								q"""appendersBuffer(${innerHandler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
 
 							case Left(innerErrorMsg) =>
-								ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $coproductType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+								ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $coproductType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed saying: $innerErrorMsg.")
 						}
 					}
 

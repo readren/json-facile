@@ -104,7 +104,7 @@ createParser""";
 								q"""parsersBuffer(${innerHandler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
 
 							case Left(innerErrorMsg) =>
-								ctx.abort(ctx.enclosingPosition, s"Unable to derive a parser for $coproductType because it depends on the parser for ${innerTypeKey.toString} whose derivation has failed: $innerErrorMsg.")
+								ctx.abort(ctx.enclosingPosition, s"""Unable to derive a parser for `$coproductType` because it depends on the parser for `${innerTypeKey.toString}` whose derivation has failed saying: $innerErrorMsg""")
 						}
 
 
