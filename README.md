@@ -126,7 +126,7 @@ prints
 The same result is acchieved with the annotation approach:
 
 ```scala
-@discriminatorField("type", true) sealed trait Accessory {
+@jsfacile.annotations.discriminatorField("type", true) sealed trait Accessory {
 	def description: String
 }
 ```

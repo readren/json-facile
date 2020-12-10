@@ -4,7 +4,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
-import jsfacile.joint.discriminatorField
+import jsfacile.annotations.discriminatorField
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot

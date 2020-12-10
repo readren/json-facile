@@ -3,7 +3,7 @@ package jsfacile.macros
 import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
-import jsfacile.joint.discriminatorField
+import jsfacile.annotations.discriminatorField
 import jsfacile.write.Appender
 
 class CoproductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {

@@ -13,7 +13,7 @@ object SampleADT {
 	case class Box(axis: List[Distance]) extends Shape
 	case class Sphere(radius: Distance) extends Shape
 
-	@jsfacile.joint.discriminatorField(value = "type", required = false) sealed trait Thing {
+	@jsfacile.annotations.discriminatorField(value = "type", required = false) sealed trait Thing {
 		def enclosingShape: Shape
 		def description: String
 	}

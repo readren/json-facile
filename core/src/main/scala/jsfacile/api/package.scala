@@ -19,9 +19,9 @@ package object api {
 	type Record = jsfacile.write.Record;
 	type RecordStr = jsfacile.write.RecordStr;
 
-	type discriminatorField = jsfacile.joint.discriminatorField;
+	type discriminatorField = jsfacile.annotations.discriminatorField;
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
-	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapAppender.MapFormatDecider[K, V, MC];
+	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapFormatDecider[K, V, MC];
 
 	///////////////////
 	//// Summoners ////

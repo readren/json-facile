@@ -1,4 +1,4 @@
-ThisBuild / organization := "readren"
+ThisBuild / organization := "org.readren.json-facile"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / autoAPIMappings := true // for unidoc
@@ -8,10 +8,14 @@ lazy val akkaHttpVersion = "10.2.0"
 lazy val jsfacile = (project in file("."))
 	.aggregate(core, macros, comun)
 	.settings(
-		publishArtifact := false,
+		publish / skip := true,
 	)
 
-lazy val core = (project in file("core")).dependsOn(macros, comun)
+lazy val core = (project in file("core"))
+	.dependsOn(
+		macros,
+		comun % "compile-internal, test-internal" // the "compile-internal" removes `common` from the set of dependencies for publishing because its content is provided by the artifact of this package. See the mappings below. Also see "https://www.scala-sbt.org/1.x/docs/Macro-Projects.html"
+	) 
 	.settings(
 		// append the content of the common binary package to the core binary package
 		Compile / packageBin / mappings ++= (comun / Compile / packageBin / mappings).value,
@@ -21,14 +25,15 @@ lazy val core = (project in file("core")).dependsOn(macros, comun)
 		Compile / doc / sources ++= (comun / Compile / doc / sources).value,
 	)
 
-lazy val macros = (project in file("macros")).dependsOn(comun)
+lazy val macros = (project in file("macros")).dependsOn(comun % "compile-internal, test-internal") // the "compile-internal" removes `common` from the set of dependencies for publishing because it is provided by the core artifact.
 	.settings(
 		// other settings
   	)
 
 lazy val comun = (project in file("comun"))
 	.settings(
-		publishArtifact := false,
+		name := "common",
+		publish / skip := true,
 	)
 
 ThisBuild / libraryDependencies ++= Seq(
@@ -44,11 +49,7 @@ core / libraryDependencies ++= Seq(
   	"com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.6.2" % Test,
 )
 macros / libraryDependencies ++= Seq(
-	// scala reflection required for macros
-	"org.scala-lang" % "scala-reflect" % scalaVersion.value
-)
-comun / libraryDependencies ++= Seq(
-	// scala reflection required for annotations
+	// scala reflection required for macros and annotations
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value
 )
 
