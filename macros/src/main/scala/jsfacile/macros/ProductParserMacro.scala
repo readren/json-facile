@@ -49,7 +49,7 @@ class ProductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
 												q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 											} else {
 												val msg = s"Unreachable reached: productType=$productType, paramType=$paramType";
-												productHandler.creationTreeOrErrorMsg = Some(Left(msg));
+												productHandler.setFailed(msg);
 												ctx.abort(ctx.enclosingPosition, msg)
 											}
 										case None =>
@@ -94,7 +94,8 @@ createParser""";
 				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
-				ctx.typecheck(createParserCodeLines); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
+				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
+				ctx.typecheck(createParserCodeLines/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
 
@@ -106,34 +107,7 @@ createParser""";
 
 		};
 
-		val body =
-			if (productHandler.creationTreeOrErrorMsg.isDefined && isOuterParserMacroInvocation(ctx)) {
-				val inits =
-					for {
-						(innerTypeKey, innerHandler) <- parserHandlersMap
-						if productHandler.doesDependOn(innerHandler.typeIndex)
-					} yield {
-						innerHandler.creationTreeOrErrorMsg.get match {
-							case Right(creationTree) =>
-								val createParserCodeLines = creationTree.asInstanceOf[ctx.Tree];
-								q"""parsersBuffer(${innerHandler.typeIndex}).set($createParserCodeLines(parsersBuffer));"""
-
-							case Left(innerErrorMsg) =>
-								ctx.abort(ctx.enclosingPosition, s"""Unable to derive a parser for `$productType` because it depends on the parser for `${innerTypeKey.toString}` whose derivation has failed saying: $innerErrorMsg""")
-
-						}
-
-					}
-				q"""
-import _root_.jsfacile.macros.LazyParser;
-
-val parsersBuffer = _root_.scala.Array.fill(${parserHandlersMap.size})(new LazyParser);
-{..$inits}
-parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
-
-			} else {
-				q"""parsersBuffer(${productHandler.typeIndex}).get[$productType]"""
-			}
+		val body = CustomParserMacro.buildParserBody[ctx.type](ctx)(productType, productHandler);
 
 		ctx.info(ctx.enclosingPosition, s"product parser body for ${show(productType)}:\n${show(body)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 		ctx.Expr[Parser[P]](body);

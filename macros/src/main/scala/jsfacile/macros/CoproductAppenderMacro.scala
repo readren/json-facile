@@ -135,6 +135,7 @@ createAppender""";
 				coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
+				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createAppenderCodeLines);
 				coproductHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
@@ -208,7 +209,7 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 								addProductsBelongingTo(productClassSymbol, productType, rootHandler, productsInfoBuilder)
 							} else {
 								val msg = s"$productClassSymbol should be sealed";
-								rootHandler.creationTreeOrErrorMsg = Some(Left(msg));
+								rootHandler.setFailed(msg);
 								ctx.abort(ctx.enclosingPosition, msg)
 							}
 
@@ -246,7 +247,7 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 														Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 													} else {
 														val msg = s"Unreachable reached: productType=$productType, paramTypeSymbol=${paramTypeSymbol.fullName}"
-														rootHandler.creationTreeOrErrorMsg = Some(Left(msg));
+														rootHandler.setFailed(msg);
 														ctx.abort(ctx.enclosingPosition, msg)
 													}
 												case None =>
@@ -279,7 +280,7 @@ appendersBuffer(${coproductHandler.typeIndex}).get[$coproductType]""";
 
 				case Left(freeTypeParams) =>
 					val msg = s"""The "$productSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""";
-					rootHandler.creationTreeOrErrorMsg = Some(Left(msg))
+					rootHandler.setFailed(msg)
 					ctx.abort(ctx.enclosingPosition, msg)
 			}
 		}

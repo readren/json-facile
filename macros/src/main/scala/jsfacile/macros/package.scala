@@ -4,13 +4,11 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.{blackbox, whitebox}
 
-import jsfacile.joint.Named
 import jsfacile.read.{Cursor, Parser}
+import jsfacile.util.BitSet.BitSlot
 import jsfacile.write.{Appender, Record}
 
 package object macros {
-
-	@inline def namedOrdering[T <: Named]: Ordering[T] = Ordering.by[T, String](_.name)
 
 	abstract class Lazy[Op[_]] {
 		protected var instance: Op[Any] = _;
@@ -31,7 +29,8 @@ package object macros {
 
 	/** Wraps a [[blackbox.Context.Type]] in order to be usable as a map key.
 	 *
-	 * This class is intended to be used by macros during compilation only
+	 * Note: instances of this class exists only during compilation time.
+	 *
 	 * @param tpe a dealiased type */
 	final class TypeKey(val tpe: blackbox.Context#Type) {
 		override val toString: String = tpe.toString
@@ -47,6 +46,12 @@ package object macros {
 
 	type TypeIndex = Int;
 
+	/** Note: instances of this class exists only during compilation time. */
+	trait Keeper {
+		def setFailed(message: String): Unit;
+		def addDependency(handler: Handler): Unit;
+	}
+
 	type HandlersMap = mutable.Map[TypeKey, Handler];
 	/** This val is intended to be used by macros during compilation only */
 	val appenderHandlersMap: HandlersMap = mutable.HashMap.empty;
@@ -60,6 +65,16 @@ package object macros {
 
 	@inline def showParserDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, parserHandlersMap)}";
 	@inline def showAppenderDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, appenderHandlersMap)}";
+
+
+	/**Note: instances of this class exists only during compilation time.
+	 *
+	 * @param fieldType the type of the field
+	 * @param firstOwnerName the TypeSymbol of the first product that contains a field named as the key specifies.
+	 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
+	 * @param bitSlot the [[BitSlot]] assigned to this considered field*/
+	case class ConsideredField(fieldType: scala.reflect.api.Types#Type, firstOwnerName: String, consideredFieldIndex: Int, bitSlot: BitSlot)
+
 
 	//////////////////
 
@@ -85,7 +100,11 @@ package object macros {
 		loop(ctx.enclosingMacros.head, ctx.enclosingMacros.tail)
 	}
 	def isOuterParserMacroInvocation(ctx: blackbox.Context): Boolean = {
-		this.isOuterMacroInvocation(ctx) { _ == "jsfacile.read.PriorityLowParsers.jpCustom" }
+		this.isOuterMacroInvocation(ctx) { methodName =>
+			methodName == "jsfacile.read.PriorityLowParsers.jpCustom" ||
+			methodName == "jsfacile.read.CoproductParserBuilder.add"  ||
+			methodName == "jsfacile.read.CoproductParserBuilder.seal"
+		}
 	}
 	def isOuterAppenderMacroInvocation(ctx: blackbox.Context): Boolean = {
 		this.isOuterMacroInvocation(ctx) { _ == "jsfacile.write.PriorityLowAppenders.jaCustom" }
@@ -95,11 +114,12 @@ package object macros {
 
 	def showEnclosingMacros(ctx: blackbox.Context): String = {
 		ctx.enclosingMacros.map { ctx =>
-			if (true) s"\n\tapplication: ${ctx.macroApplication}, hashCode: ${ctx.hashCode}"
+			if (false) s"\n\tapplication: ${ctx.macroApplication}, hashCode: ${ctx.hashCode}, name: "
 			else {
 				import ctx.universe._
 				val q"$term[..$_](...$_)" = ctx.macroApplication
 				s"""{
+				   |		methodName : $term,
 				   |		application: ${ctx.macroApplication},
 				   |		actualType : ${ctx.prefix.actualType},
 				   | 		prefix     : ${ctx.prefix},

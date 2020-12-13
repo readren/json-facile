@@ -28,7 +28,9 @@ class ArrayParser[E](parserE: Parser[E], ctE: ClassTag[E]) extends Parser[Array[
 					cursor.advance();
 					builder.result()
 				} else {
-					cursor.fail(s"Invalid syntax for Array.");
+					if (cursor.ok) {
+						cursor.fail(s"Invalid syntax for Array.");
+					}
 					ignored[Array[E]]
 				}
 			} else {
@@ -40,6 +42,5 @@ class ArrayParser[E](parserE: Parser[E], ctE: ClassTag[E]) extends Parser[Array[
 			ignored[Array[E]]
 
 		}
-
 	}
 }

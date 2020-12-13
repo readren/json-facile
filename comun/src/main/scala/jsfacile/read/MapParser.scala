@@ -79,7 +79,9 @@ class MapParser[M <: MapUpperBound[K, V], K, V](
 				cursor.advance();
 				builder.result()
 			} else {
-				cursor.fail("Invalid syntax for map");
+				if(cursor.ok) {
+					cursor.fail("Invalid syntax for map");
+				}
 				ignored[M]
 			}
 

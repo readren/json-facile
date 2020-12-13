@@ -60,7 +60,10 @@ package object api {
 			} else if (cursor.failed) {
 				Left(ParseFailure(jsonDoc, cursor.pos, cursor.failureCause))
 			} else {
-				Left(ParseMiss(jsonDoc, cursor.pos, "The json representation is not compatible with the expected type"))
+				val missCause =
+					if(cursor.missCause!=null) cursor.missCause
+					else "The json representation is not compatible with the expected type"
+				Left(ParseMiss(jsonDoc, cursor.pos, missCause));
 			}
 		}
 	}

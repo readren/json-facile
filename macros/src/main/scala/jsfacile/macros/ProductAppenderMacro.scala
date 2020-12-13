@@ -50,7 +50,7 @@ class ProductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
 											Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 										} else {
 											val msg = s"Unreachable reached: productType=$productType, paramType=$paramType"
-											productHandler.creationTreeOrErrorMsg = Some(Left(msg));
+											productHandler.setFailed(msg);
 											ctx.abort(ctx.enclosingPosition, msg)
 										}
 
@@ -89,7 +89,7 @@ createAppender""";
 
 				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
-
+				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createAppenderCodeLines);
 				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);

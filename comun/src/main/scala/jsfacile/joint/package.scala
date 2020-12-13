@@ -10,4 +10,7 @@ package object joint {
 	trait Named {
 		def name: String;
 	}
+
+	@inline def namedOrdering[T <: Named]: Ordering[T] = Ordering.by[T, String](_.name)
+
 }

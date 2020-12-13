@@ -4,9 +4,9 @@ import scala.collection.mutable
 import scala.reflect.api.{Universe => univ}
 
 
-/** Manages the construction and inter-relation of an [[jsfacile.write.Appender]] or [[jsfacile.read.Parser]] of the type indicated by the received [[TypeIndex]].
- * This class is intended to be used by macros during compilation only*/
-class Handler(val typeIndex: TypeIndex) {
+/** Keeps the state of the generation of the code [[Tree]] that builds an [[jsfacile.write.Appender]] or a [[jsfacile.read.Parser]] for the type indicated by the received [[TypeIndex]]; and manages the inter-dependence of the associated type with the types associated to other [[Handler]] instances.
+ * Note: Instances of this class exists only during compilation time.*/
+class Handler(val typeIndex: TypeIndex) extends Keeper {
 	/** The code lines that creates a [[jsfacile.read.Parser]] or a [[jsfacile.write.Appender]].*/
 	var creationTreeOrErrorMsg: Option[Either[String, univ#Tree]] = None;
 
@@ -19,6 +19,10 @@ class Handler(val typeIndex: TypeIndex) {
 	private val dependencies: mutable.BitSet = mutable.BitSet(typeIndex) // include himself
 
 	private val dependants: mutable.Set[Handler] = mutable.Set.empty
+
+	override def setFailed(cause: String): Unit = this.creationTreeOrErrorMsg = Some(Left(cause));
+
+	def setCreationTree(tree: univ#Tree): Unit = this.creationTreeOrErrorMsg = Some(Right(tree));
 
 	def addDependency(dependency: Handler): Unit = {
 		dependency.addDependant(this);

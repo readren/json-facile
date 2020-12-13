@@ -50,7 +50,7 @@ core / libraryDependencies ++= Seq(
 )
 macros / libraryDependencies ++= Seq(
 	// scala reflection required for macros and annotations
-	"org.scala-lang" % "scala-reflect" % scalaVersion.value
+	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
 )
 
 ThisBuild / scalacOptions ++= Seq(
@@ -63,5 +63,14 @@ ThisBuild / scalacOptions ++= Seq(
 )
 core / scalacOptions += "-language:experimental.macros"
 macros / scalacOptions += "-language:experimental.macros"
+
+
+/** Bloop settings */
+
+// Source dependencies are not well supported in sbt. This setting allows to use them and generates bloop configuration files for them too.
+bloopAggregateSourceDependencies in Global := true
+// This setting enables source classifiers and downloads the sources of binary dependencies. Required if you are using bloop with IDEs (e.g. Metals or IntelliJ) and expect navigation to binary dependencies to work.
+bloopExportJarClassifiers in Global := Some(Set("sources"))
+
 
 

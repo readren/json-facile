@@ -30,7 +30,9 @@ class IterableParser[IC[e] <: IterableUpperBound[e], E](
 					cursor.advance();
 					builder.result()
 				} else {
-					cursor.fail(s"Invalid syntax for iterable. The builder factory is ${factoryHolder.factory.getClass.getName}");
+					if(cursor.ok) {
+						cursor.fail(s"Invalid syntax for iterable. The builder factory is ${factoryHolder.factory.getClass.getName}")
+					}
 					ignored[IC[E]]
 				}
 			} else {
