@@ -6,11 +6,12 @@ import scala.reflect.macros.blackbox
 import jsfacile.read.Parser
 
 
-class ProductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+/** @tparam P the type of the concrete data type for which this macro materializes a [[Parser]]*/
+class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
 	/** Macro implicit materializer of [[ProductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	def materializeImpl[P](productType: Type, productClassSymbol: ClassSymbol): ctx.Expr[Parser[P]] = {
+	def materializeImpl(productType: Type, productClassSymbol: ClassSymbol): ctx.Expr[Parser[P]] = {
 
 //		ctx.info(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}", force = false);
 
@@ -93,7 +94,7 @@ createParser""";
 
 				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
-				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createParserCodeLines/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
@@ -107,9 +108,6 @@ createParser""";
 
 		};
 
-		val body = CustomParserMacro.buildParserBody[ctx.type](ctx)(productType, productHandler);
-
-		ctx.info(ctx.enclosingPosition, s"product parser body for ${show(productType)}:\n${show(body)}\n------${showParserDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
-		ctx.Expr[Parser[P]](body);
+		this.buildBody[P](productType, productHandler);
 	}
 }

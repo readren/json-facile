@@ -16,9 +16,9 @@ class Handler(val typeIndex: TypeIndex) extends Keeper {
 	var isCapturingDependencies: Boolean = true;
 
 	/** the set indexes of the handlers on which this handled  depends, including himself. A handler depends on other handler when the type definition associated to the first contains a reference to the type definition associated to the second. */
-	private val dependencies: mutable.BitSet = mutable.BitSet(typeIndex) // include himself
+	private val dependencies: mutable.BitSet = mutable.BitSet(typeIndex) // includes himself
 
-	private val dependants: mutable.Set[Handler] = mutable.Set.empty
+	private val dependants: mutable.Set[Handler] = mutable.Set.empty // does not include himself
 
 	override def setFailed(cause: String): Unit = this.creationTreeOrErrorMsg = Some(Left(cause));
 
@@ -43,6 +43,19 @@ class Handler(val typeIndex: TypeIndex) extends Keeper {
 	@inline def doesDependOn(typeIndex: TypeIndex): Boolean = {
 		this.dependencies.contains(typeIndex);
 	}
+
+	def clear(handlersMap: HandlersMap): Unit = {
+		creationTreeOrErrorMsg = None;
+		isCapturingDependencies = true;
+		this.dependencies.clear();
+		this.dependencies.add(typeIndex);
+		this.dependants.clear();
+		// delete this handler from the set of dependants of other handlers
+		for ((_, aHandler) <- handlersMap) {
+			aHandler.dependants.remove(this)
+		}
+	}
+
 
 	override def equals(other: Any): Boolean = other match {
 		case that: Handler =>

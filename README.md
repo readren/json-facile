@@ -9,13 +9,15 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 
 * Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
 
-* An efficient JSON parser. Substantially faster than [spray] (around 84%), although considerably slower than [jsoniter] (around 33%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
+* An efficient JSON parser. Substantially faster than [spray] (around 80%), although considerably slower than [jsoniter] (around 35%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
 
 * The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`.
 
 	The fields names, types, and encoding order is determined by, and extracted from, the concrete type's primary constructor.
 	
 	Abstract types must be sealed and have at least one concrete implementation.
+
+* Non sealed abstract data types are supported with the help of a builder.
 
 * Scala map-like collections can be represented as either JSON objects or JSON arrays of pairs.
 
@@ -31,6 +33,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
 		- [Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-ever-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
+		- [Use the `CoproductBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproductbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
 		- [Implement a custom parser/appender pair.](#implement-a-custom-parserappender-pair)
 	- [Why?](#why)
 	- [More examples](#more-examples)
@@ -160,6 +163,39 @@ prints
 Note that the keys are JSON enconded in the JSON object's field names.
 
 The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
+
+### Use the `CoproductBuilder` to create a parser and/or appender for a non sealed data type.
+```scala
+import jsfacile.api._
+
+object DistanceUnit extends Enumeration {
+	val Meter, Millimeter = Value;
+}
+case class Distance(value: Double, unit: DistanceUnit.Value)
+
+trait Thing
+case class Box(length: Distance, weight: Float) extends Thing
+case class Ball(radius: Distance, weight: Float) extends Thing
+
+val things = List[Thing](new Box(Distance(1.23, DistanceUnit.Meter), 32.1f), new Ball(Distance(4.56, DistanceUnit.Millimeter), 3))
+
+val builder = new CoproductBuilder[Thing]
+builder.add[Box]
+builder.add[Ball]
+implicit val appender: Appender[Thing] = builder.appender
+implicit val parser: Parser[Thing] = builder.parser;
+
+val json = things.toJson
+println(json)
+
+val result = json.fromJson[List[Thing]]
+assert(result == Right(things))
+```
+prints
+```json
+[{"length":{"value":1.23,"unit":"Meter"},"weight":32.1},{"radius":{"value":4.56,"unit":"Millimeter"},"weight":3.0}]
+```
+
 
 ### Implement a custom parser/appender pair.
 There is no `java.time` parsers/appenders bundled in the *json-facile* library. In my opinion the most convenient way to encode dates in JSON is domain dependent.

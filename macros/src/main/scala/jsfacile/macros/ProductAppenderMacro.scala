@@ -4,10 +4,10 @@ import scala.reflect.macros.blackbox
 
 import jsfacile.write.Appender
 
-class ProductAppenderMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
 	import ctx.universe._
 
-	def materializeImpl[P](productType: Type, productSymbol: ClassSymbol): ctx.Expr[Appender[P]] = {
+	def materializeImpl(productType: Type, productSymbol: ClassSymbol): ctx.Expr[Appender[P]] = {
 
 //		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
@@ -87,7 +87,7 @@ val createAppender: Array[LazyAppender] => Appender[$productType] = appendersBuf
 	}
 createAppender""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createAppenderCodeLines);
@@ -101,38 +101,6 @@ createAppender""";
 				productHandler
 		}
 
-		val body =
-			if (productHandler.creationTreeOrErrorMsg.isDefined && isOuterAppenderMacroInvocation(ctx)) {
-				val inits =
-					for {
-						(innerTypeKey, innerHandler) <- appenderHandlersMap
-						if productHandler.doesDependOn(innerHandler.typeIndex)
-					} yield {
-						innerHandler.creationTreeOrErrorMsg.get match {
-							case Right(creationTree) =>
-								val createAppenderCodeLines = creationTree.asInstanceOf[ctx.Tree];
-								q"""appendersBuffer(${innerHandler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
-
-							case Left(innerErrorMsg) =>
-								ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $productType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed saying: $innerErrorMsg.")
-						}
-					};
-
-				q"""
-import _root_.scala.Array;
-import _root_.jsfacile.macros.LazyAppender;
-
-val appendersBuffer = _root_.scala.Array.fill(${appenderHandlersMap.size})(new LazyAppender);
-{..$inits}
-appendersBuffer(${productHandler.typeIndex}).get[$productType]""";
-
-			} else {
-				q"""appendersBuffer(${productHandler.typeIndex}).get[$productType]"""
-
-			}
-
-		ctx.info(ctx.enclosingPosition, s"product appender body for ${show(productType)}: ${show(body)}\n------${showAppenderDependencies(productHandler)}\n${showEnclosingMacros(ctx)}", force = false)
-
-		ctx.Expr[Appender[P]](body);
+		buildBody[P](productType, productHandler);
 	}
 }

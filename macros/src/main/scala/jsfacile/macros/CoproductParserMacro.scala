@@ -9,19 +9,29 @@ import jsfacile.read.Parser
 import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot
 
-class CoproductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
+
+/** @tparam C the type of the sealed abstract data type for which this macro materializes a [[Parser]]. */
+class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
-	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
-	def materializeImpl[C](coproductType: Type, coproductClassSymbol: ClassSymbol): ctx.Expr[Parser[C]] = {
+	/**Note: instances of this class exists only during compilation time.
+	 *
+	 * @param fieldType the type of the field
+	 * @param firstOwnerName the TypeSymbol of the first product that contains a field named as the key specifies.
+	 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
+	 * @param bitSlot the [[BitSlot]] assigned to this considered field*/
+	case class ConsideredField(fieldType: Type, firstOwnerName: String, consideredFieldIndex: Int, bitSlot: BitSlot)
 
-		if (!coproductClassSymbol.isSealed) {
-			ctx.abort(ctx.enclosingPosition, s"$coproductClassSymbol is not sealed")
+	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
+	def materializeImpl(initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol): ctx.Expr[Parser[C]] = {
+
+		if (!initialCoproductClassSymbol.isSealed) {
+			ctx.abort(ctx.enclosingPosition, s"$initialCoproductClassSymbol is not sealed")
 		}
 
-//		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(coproductType)}", force = false)
+//		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
 
-		val coproductTypeKey = new TypeKey(coproductType);
+		val coproductTypeKey = new TypeKey(initialCoproductType);
 		val coproductHandler = parserHandlersMap.get(coproductTypeKey) match {
 			case None =>
 				val cpTypeIndex = parserHandlersMap.size;
@@ -29,20 +39,33 @@ class CoproductParserMacro[Ctx <: blackbox.Context](val ctx: Ctx) {
 				registerParserDependency(coproductHandler);
 				parserHandlersMap.put(coproductTypeKey, coproductHandler);
 
-				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val discriminatorFieldName: Tree = {
-					discriminatorField.parse(ctx.universe)(coproductClassSymbol) match {
-						case Some((fieldName, _)) => q"$fieldName"
-
-						case None => q"DiscriminatorDecider[$coproductType].fieldName"
-					}
-				};
-
 				val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
-				val lastConsideredFieldBit = addProductsBelongingTo(coproductClassSymbol, coproductType, coproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty[String, ConsideredField], productAdditionTrees);
+				val lastConsideredFieldBit = addProductsBelongingTo(initialCoproductClassSymbol, initialCoproductType, initialCoproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty, productAdditionTrees);
 
-				val parserCreationTree =
-					q"""
+				buildParserCreationTreeOn(coproductHandler, initialCoproductType, initialCoproductClassSymbol, productAdditionTrees, lastConsideredFieldBit.shardIndex + 1)
+				coproductHandler
+
+			case Some(coproductHandler) =>
+				registerParserDependency(coproductHandler);
+				coproductHandler
+		}
+
+		this.buildBody[C](initialCoproductType, coproductHandler)
+	}
+
+	def buildParserCreationTreeOn(coproductHandler: Handler, initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol, productAdditionTrees: Iterable[Tree], numberOfShards: Int): Unit = {
+
+		// Get the discriminator field name and requirement from the coproduct annotation, or from the `DiscriminatorDecider` in the implicit scope if it isn't annotated.
+		val discriminatorFieldName: Tree = {
+			discriminatorField.parse(ctx.universe)(initialCoproductClassSymbol) match {
+				case Some(discriminatorConf) => q"${discriminatorConf.fieldName}"
+
+				case None => q"DiscriminatorDecider[$initialCoproductType].fieldName"
+			}
+		};
+
+		val parserCreationTree =
+			q"""
 import _root_.scala.Array;
 
 import _root_.jsfacile.joint.DiscriminatorDecider;
@@ -51,41 +74,28 @@ import _root_.jsfacile.read.{Parser, CoproductParser, CoproductParserBuilderStat
 import _root_.jsfacile.util.BitSet;
 import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 
-val createParser: Array[LazyParser] => CoproductParser[$coproductType] = parsersBuffer => {
-	val state = new CoproductParserBuilderState[$coproductType];
+val createParser: Array[LazyParser] => CoproductParser[$initialCoproductType] = parsersBuffer => {
+	val state = new CoproductParserBuilderState[$initialCoproductType];
 
-	..${productAdditionTrees}
+	..$productAdditionTrees
 
-	new CoproductParser[$coproductType](
-		${coproductType.toString},
+	new CoproductParser[$initialCoproductType](
+		${initialCoproductType.toString},
 		$discriminatorFieldName,
 		state.productsInfo,
 		state.consideredFields,
-		${lastConsideredFieldBit.shardIndex + 1}
+		$numberOfShards
 	)
 };
 createParser""";
 
-				coproductHandler.creationTreeOrErrorMsg = Some(Right(parserCreationTree));
+		coproductHandler.creationTreeOrErrorMsg = Some(Right(parserCreationTree));
 
-				ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(coproductType)} : ${show(parserCreationTree)}\n------${showParserDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
-				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
-				ctx.typecheck(parserCreationTree/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
-				coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-				ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(coproductType)}", force = false);
-
-				coproductHandler
-
-			case Some(coproductHandler) =>
-				registerParserDependency(coproductHandler);
-				coproductHandler
-		}
-
-		val body = CustomParserMacro.buildParserBody[ctx.type](ctx)(coproductType, coproductHandler)
-
-		ctx.info(ctx.enclosingPosition, s"coproduct parser body for ${show(coproductType)}: ${show(body)}\n------${showParserDependencies(coproductHandler)}\n${showEnclosingMacros(ctx)}", force = false);
-
-		ctx.Expr[Parser[C]](body);
+		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} : ${show(parserCreationTree)}\n------${showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
+		ctx.typecheck(parserCreationTree/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
+		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
+		ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(initialCoproductType)}", force = false);
 	}
 
 
@@ -93,18 +103,15 @@ createParser""";
 	private def addProductsBelongingTo(
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
-		rootType: Type, // the starting coproduct type
-		rootKeeper: Keeper, // the keeper/handler of the starting coproduct. This parameter may be mutated
-		startingBitSlot: BitSlot, // The bit slot that will be assigned to the next field that be added to the considered fields set.
-		metaConsideredFields: mutable.Map[String, ConsideredField], // a map that memorizes info about the the fields for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the `consideredFieldsBuilder` was already generated.
-		productAdditionTrees: mutable.ArrayBuffer[Tree] // the buffer where the [[Tree]]s that add a [[CpProductInfo]] instance to the [[CoproductParserBuilderState]] are collected.
+		initialCoproductType: Type, // the coproduct type received by this macro execution
+		initialKeeper: Keeper, // the keeper/handler of the initial coproduct. This parameter may be mutated
+		startingBitSlot: BitSlot, // The bit slot that this method will assign to the first field added to the considered fields set.
+		metaConsideredFields: mutable.Map[String, ConsideredField], // the map where the info about the the fields, for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the `consideredFieldsBuilder` was already generated, is collected
+		productAdditionTrees: mutable.ArrayBuffer[Tree] // the buffer where the [[Tree]]s, that add a [[CpProductInfo]] instance to the [[CoproductParserBuilderState]], are collected.
 	): BitSlot = {
 		var nextBitSlot = startingBitSlot;
-		for {
-			productSymbol <- coproductClassSymbol.knownDirectSubclasses
-		} {
-			val productClassSymbol = productSymbol.asClass;
-			nextBitSlot = this.addProduct(productClassSymbol, coproductClassSymbol, coproductType, rootType, rootKeeper, nextBitSlot, metaConsideredFields, productAdditionTrees)
+		for (productSymbol <- coproductClassSymbol.knownDirectSubclasses) {
+			nextBitSlot = this.addProduct(productSymbol.asClass, coproductClassSymbol, coproductType, initialCoproductType, initialKeeper, nextBitSlot, metaConsideredFields, productAdditionTrees)
 		}
 		nextBitSlot
 	}
@@ -114,15 +121,15 @@ createParser""";
 		productClassSymbol: ClassSymbol, // the class symbol of the product to add
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
-		rootType: Type, // the starting coproduct type
-		rootKeeper: Keeper, // the keeper/handler of the starting coproduct. This parameter may be mutated
-		startingBitSlot: BitSlot, // The bit slot that will be assigned to the next field that be added to the considered fields set.
-		metaConsideredFields: mutable.Map[String, ConsideredField], // a map that memorizes info about the the fields for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the [[CoproductParserBuilderState]] was already generated.
+		initialCoproductType: Type, // the coproduct type received by this macro execution
+		initialKeeper: Keeper, // the keeper/handler of the initial coproduct. This parameter may be mutated
+		startingBitSlot: BitSlot, // The bit slot that this method will assign to the first field added to the considered fields set.
+		metaConsideredFields: mutable.Map[String, ConsideredField], // the map where the info about the the fields, for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the `consideredFieldsBuilder` was already generated, is collected
 		productAdditionTrees: mutable.ArrayBuffer[Tree] // the buffer where the [[Tree]]s that add a [[CpProductInfo]] instance to the [[CoproductParserBuilderState]] are collected.
 	): BitSlot = {
 		var nextBitSlot = startingBitSlot;
 
-		ReflectTools.applySubclassTypeConstructor[ctx.universe.type](ctx.universe)(coproductType, productClassSymbol.toTypeConstructor) match {
+		this.applySubclassTypeConstructor(coproductType, productClassSymbol.toTypeConstructor) match {
 			case Right(productType) =>
 				if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This is and edge case that occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and, therefore, not added to the products info set.
 
@@ -140,10 +147,10 @@ state.addProduct(CpProductInfo[$coproductType](
 
 					} else if (productClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
 						if (productClassSymbol.isSealed) {
-							nextBitSlot = addProductsBelongingTo(productClassSymbol, productType, rootType, rootKeeper, nextBitSlot, metaConsideredFields, productAdditionTrees)
+							nextBitSlot = addProductsBelongingTo(productClassSymbol, productType, initialCoproductType, initialKeeper, nextBitSlot, metaConsideredFields, productAdditionTrees)
 						} else {
 							val msg = s"$productClassSymbol should be sealed"
-							rootKeeper.setFailed(msg);
+							initialKeeper.setFailed(msg);
 							ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
 						}
 
@@ -179,11 +186,11 @@ state.addProduct(CpProductInfo[$coproductType](
 													requiredFieldsAccum = requiredFieldsAccum.add(consideredFieldBitSlot);
 												}
 
-												if (paramType =:= fieldType.asInstanceOf[ctx.Type]) {
+												if (paramType =:= fieldType) {
 													q"""state.addProductField(CpFieldInfo($fieldName, $consideredFieldIndex, $argIndex, $defaultValue_expression));"""
 												} else {
-													val msg = s"""Unsupported situation while building a `Parser[$rootType]`: two implementations, `$productClassSymbol` and `$firstOwnerName`, have a field with the same name ("$fieldName") but different type."""
-													rootKeeper.setFailed(msg);
+													val msg = s"""Unsupported situation while building a `Parser[$initialCoproductType]`: two implementations, `$productClassSymbol` and `$firstOwnerName`, have a field with the same name ("$fieldName") but different type."""
+													initialKeeper.setFailed(msg);
 													ctx.abort(ctx.enclosingPosition, msg)
 												}
 
@@ -202,13 +209,13 @@ state.addProduct(CpProductInfo[$coproductType](
 													if (paramTypeSymbol.isClass) {
 														parserHandlersMap.get(new TypeKey(paramType)) match {
 															case Some(paramHandler) =>
-																rootKeeper.addDependency(paramHandler);
+																initialKeeper.addDependency(paramHandler);
 
 																if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
 																	q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 																} else {
-																	val msg = s"Unreachable reached: fieldName = $fieldName, productType = $productType, paramTypeSymbol = ${paramTypeSymbol.fullName}\n------${showParserDependencies(paramHandler)}\n${showEnclosingMacros(ctx)}"
-																	rootKeeper.setFailed(msg);
+																	val msg = s"Unreachable reached: fieldName = $fieldName, productType = $productType, paramTypeSymbol = ${paramTypeSymbol.fullName}\n------${showParserDependencies(paramHandler)}\n$showEnclosingMacros"
+																	initialKeeper.setFailed(msg);
 																	ctx.abort(ctx.enclosingPosition, msg)
 																}
 															case None =>
@@ -248,7 +255,7 @@ state.productFieldsBuilder.clear();"""
 
 			case Left(freeTypeParams) =>
 				val msg =s"""The "$productClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
-				rootKeeper.setFailed(msg);
+				initialKeeper.setFailed(msg);
 				ctx.abort(ctx.enclosingPosition, msg)
 		}
 		nextBitSlot

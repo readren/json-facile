@@ -13,7 +13,6 @@ package object api {
 	type Cursor = jsfacile.read.Cursor;
 	type CursorStr = jsfacile.read.CursorStr;
 
-
 	type Appender[A] = jsfacile.write.Appender[A];
 	val Appender: jsfacile.write.Appender.type = jsfacile.write.Appender;
 	type Record = jsfacile.write.Record;
@@ -21,6 +20,8 @@ package object api {
 
 	type discriminatorField = jsfacile.annotations.discriminatorField;
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
+	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
+
 	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapFormatDecider[K, V, MC];
 
 	///////////////////

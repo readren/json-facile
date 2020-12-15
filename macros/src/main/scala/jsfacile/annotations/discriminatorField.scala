@@ -2,6 +2,8 @@ package jsfacile.annotations
 
 import scala.reflect.{api => sra}
 
+import jsfacile.joint.DiscriminatorConf
+
 /** An annotation for sealed traits or abstract classes that:
  * (1) instructs the [[jsfacile.macros.CoproductAppenderMacro]] (which is the responsible to translate values declared with an abstract type to json representation) to append an extra field in the json representation of each instance of the annotated type, in order to specify the concrete type of the instance. The type is specified with the instance type's simple name.
  * (2) informs the [[jsfacile.macros.CoproductParserMacro]] (which is the responsible to translate values from json representation to instances of abstract data types) which is the name of the extra field that disambiguates between concrete candidates whose required fields have the same name.
@@ -11,7 +13,7 @@ class discriminatorField(value: String, required: Boolean = true) extends scala.
 
 
 object discriminatorField {
-	def parse[U <: sra.Universe](universe: U)(classSymbol: universe.ClassSymbol): Option[(String, Boolean)] = {
+	def parse[U <: sra.Universe](universe: U)(classSymbol: universe.ClassSymbol): Option[DiscriminatorConf] = {
 		import universe._
 		classSymbol.annotations.collectFirst {
 			case a if a.tree.tpe =:= typeOf[jsfacile.annotations.discriminatorField] =>
@@ -22,7 +24,7 @@ object discriminatorField {
 							case NamedArg(Ident(TermName("required")), Literal(Constant(r: Boolean))) :: _ => r // matches when the second annotation parameter is optional and the user specified it with its name
 							case _ => false
 						}
-						(discriminatorFieldName, required)
+						DiscriminatorConf(discriminatorFieldName, required)
 				}
 		}
 	}

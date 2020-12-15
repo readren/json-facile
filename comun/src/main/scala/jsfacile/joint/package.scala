@@ -6,6 +6,7 @@ package object joint {
 	type MapUpperBound[K, V] = scala.collection.Map[K, V];
 	type SortedMapUpperBound[K, V] = scala.collection.SortedMap[K, V];
 
+	case class DiscriminatorConf(fieldName: String, required: Boolean) extends DiscriminatorDecider[Any];
 
 	trait Named {
 		def name: String;
