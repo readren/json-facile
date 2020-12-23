@@ -20,7 +20,7 @@ object CoproductParser {
 
 	/** The information about a product that the [[CoproductParser]] needs.
 	 *
-	 * @param name                 the product name
+	 * @param name                 the product name. Used for the value of the discriminator field.
 	 * @param requiredFieldsSet    the set of required fields of the product.
 	 * @param requiredFieldsNumber number of fields of the product that are required.
 	 * @param fields               the info of each field of the product, sorted by the [[CpFieldInfo.name]].
@@ -47,7 +47,7 @@ object CoproductParser {
 		}
 	}
 
-	private def definedFieldsNamesIn(fields: Array[FieldState]): String = fields.collect { case f if f.wasParsed => f.name } mkString ", ";
+	private def definedFieldsNamesIn(fields: Array[FieldState]): String = fields.collect { case f if f.wasParsed => f.name } mkString("{", ", ", "}")
 
 }
 
@@ -58,7 +58,7 @@ object CoproductParser {
  * @tparam C the declared abstract type of the instances created by this [[Parser]].
  * @param fullName         the full name of the actual abstract type represented by the type parameter `C`. Only used for error messages.
  * @param discriminator    the name of the discriminator field. Used when disambiguation is necessary.
- * @param productsInfo     a with the information this [[Parser]] needs about all known concrete implementation of `C`. It should be sorted by [[CpProductInfo.name]].
+ * @param productsInfo     the information this [[Parser]] needs about all known concrete subtypes of `C`. It should be sorted by [[CpProductInfo.name]].
  * @param consideredFields an array with the information this [[Parser]] needs about all the fields from the JSON object that will be considered. It should be sorted by [[CpConsideredField.name]]. Any JSON object field whose name is not contained in this array would be ignored. The set of considered fields should be the union of the fields of the concrete implementations specified by the `productsInfo` parameter.
  * @param numberOfShards   number of [[Shard]] required to hold all the [[BitSlot]]s mentioned in the [[CpConsideredField]] instances contained by the `consideredFields` array. The necessity of this parameter is a consequence of the inability of the [[BitSet]] class to grow its shards array (because it is implemented with a value class). */
 class CoproductParser[C](
@@ -164,7 +164,7 @@ class CoproductParser[C](
 								val productName = BasicParsers.jpString.parse(cursor);
 								chosenManager = BinarySearch.find(wp.managers)(_.name.compareTo(productName));
 								if (chosenManager == null) {
-									cursor.miss(s"""The discriminator field value "$productName" does not match any of the implementation of $fullName.""")
+									cursor.miss(s"""The discriminator field value "$productName" does not match the name of any of the concrete subclasses of $fullName.""")
 								} else {
 									have = cursor.consumeWhitespaces()
 								}
@@ -199,7 +199,7 @@ class CoproductParser[C](
 						var isAmbiguous: Boolean = false;
 						if (chosenManager != null) { // if the discriminator field is present
 							if (!chosenManager.productInfo.requiredFieldsSet.isSubsetOf(wp.foundFields)) { // check all the fields required by the product pointed at are present
-								cursor.miss(s"The JSON object being parsed does not contain all the fields required by ${chosenManager.productInfo.name}, which is the implementation of $fullName that the discriminator field pointed at.");
+								cursor.miss(s"The JSON object being parsed does not contain all the fields required by ${chosenManager.productInfo.name}, which is the concrete subclass of $fullName that the discriminator field pointed at.");
 								have = false;
 							}
 						} else { // if the discriminator field is absent chose the products such that all its required fields are present.
@@ -220,10 +220,10 @@ class CoproductParser[C](
 						}
 
 						if (chosenManager == null) { // if the discriminator fields is absent and no product has all its required fields present here
-							cursor.miss(s"There is no implementation of $fullName such that all its required fields are present in the JSON object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}. Note that only the fields that are defined in at least one of said products are considered.")
+							cursor.miss(s"There is no concrete subclass of $fullName such that all its required fields are present in the JSON object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}. Note that only the fields that are defined in at least one of said products are considered.")
 							ignored[C]
 						} else if (isAmbiguous) { // if the discriminator fields is absent and more than product has all its required fields present here
-							cursor.fail(s"""Ambiguous products: more than one implementation of "$fullName" has the fields present in the json object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}; and the viable implementations are: ${wp.managers.collect { case m if m.productInfo.requiredFieldsSet.isSubsetOf(wp.foundFields) => m.name }.mkString(", ")}.""");
+							cursor.fail(s"""Ambiguous products: more than one concrete subclass of "$fullName" has the fields present in the json object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}; and the viable implementations are: ${wp.managers.collect { case m if m.productInfo.requiredFieldsSet.isSubsetOf(wp.foundFields) => m.name }.mkString(", ")}.""");
 							ignored[C]
 						} else if (have) { // if the discriminator field is present or only one product has all its required fields present here
 							val chosenProductFields = chosenManager.productInfo.fields;

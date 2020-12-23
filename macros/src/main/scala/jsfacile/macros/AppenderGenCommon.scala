@@ -16,9 +16,10 @@ class AppenderGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon
 					if initialHandler.doesDependOn(innerHandler.typeIndex)
 				} yield {
 					innerHandler.creationTreeOrErrorMsg.get match {
-						case Right(creationTree) =>
-							val createAppenderCodeLines = creationTree.asInstanceOf[Tree];
-							q"""appendersBuffer(${innerHandler.typeIndex}).set($createAppenderCodeLines(appendersBuffer));"""
+						case Right(appenderCreationTree) =>
+							q"""
+val appender = ${appenderCreationTree.asInstanceOf[Tree]}
+appendersBuffer(${innerHandler.typeIndex}).set(appender);"""
 
 						case Left(innerErrorMsg) =>
 							ctx.abort(ctx.enclosingPosition, s"Unable to derive an appender for $initialType because it depends on the appender for ${innerTypeKey.toString} whose derivation has failed saying: $innerErrorMsg.")
@@ -26,6 +27,11 @@ class AppenderGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon
 				}
 
 			q"""
+import _root_.scala.Array;
+import _root_.scala.collection.mutable.ArrayBuffer;
+import _root_.jsfacile.joint.DiscriminatorDecider;
+import _root_.jsfacile.write.{Appender, Record, CoproductAppender};
+import CoproductAppender.{CahProductInfo, productInfoComparator};
 import _root_.jsfacile.macros.LazyAppender;
 
 val appendersBuffer = _root_.scala.Array.fill(${appenderHandlersMap.size})(new LazyAppender);

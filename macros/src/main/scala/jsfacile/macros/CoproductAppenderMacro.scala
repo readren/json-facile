@@ -11,15 +11,22 @@ import jsfacile.write.Appender
 class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
 	import ctx.universe._
 
-	protected case class ProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) {
+	/** Knows information pertaining to a concrete subtype of `C`*/
+	protected trait ProductInfo {
+		var isAmbiguous: Boolean;
+		def tpe: Type;
+		def requiredFieldNames: Set[String];
+	}
+	/** A [[ProductInfo]] obtained from the primary constructor of the subtype. */
+	protected case class DerivedProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) extends ProductInfo {
+		var isAmbiguous = false;
+	}
+	/** A [[ProductInfo]] specified by the library user by means of one of the [[jsfacile.api.builder.CoproductBuilder.add*]] methods that customize the parsing. */
+	protected case class CustomProductInfo(tpe: Type, requiredFieldNames: Set[String], appenderTree: Tree) extends ProductInfo {
 		var isAmbiguous = false;
 	}
 
 	def materializeImpl(initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol): ctx.Expr[Appender[C]] = {
-
-		if (!initialCoproductClassSymbol.isSealed) {
-			ctx.abort(ctx.enclosingPosition, s"`$initialCoproductClassSymbol` is not sealed.")
-		}
 
 		//	ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}", force = false);
 
@@ -32,11 +39,17 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 				registerAppenderDependency(coproductHandler);
 				appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
+				if (!initialCoproductClassSymbol.isSealed) {
+					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductBuilder`.";
+					coproductHandler.setFailed(errorMsg)
+					ctx.abort(ctx.enclosingPosition, errorMsg)
+				}
+
 				val productsInfoCollector: mutable.ArrayBuffer[ProductInfo] = mutable.ArrayBuffer.empty;
 				addProductsBelongingTo(initialCoproductClassSymbol, initialCoproductType, coproductHandler, productsInfoCollector);
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
-				val discriminatorOverride = discriminatorField.parse(ctx.universe)(initialCoproductClassSymbol);
+				val discriminatorOverride = discriminatorField.parse(ctx)(initialCoproductClassSymbol);
 
 				buildAppenderCreationTreeOn(initialCoproductType, coproductHandler, discriminatorOverride, productsInfoCollector);
 
@@ -52,7 +65,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 	}
 
 
-	def buildAppenderCreationTreeOn(coproductType: Type, coproductHandler: Handler, discriminatorOverride: Option[DiscriminatorConf], productsInfo: IndexedSeq[ProductInfo]): Unit = {
+	protected def buildAppenderCreationTreeOn(coproductType: Type, coproductHandler: Handler, discriminatorOverride: Option[DiscriminatorConf], productsInfo: IndexedSeq[ProductInfo]): Unit = {
 
 		// If the discriminator annotation is absent or its `required` field value is false, then mark ambiguous products. Remember that the [[discriminatorField]] annotation has precedence over the [[DiscriminatorDecider]].
 		if (discriminatorOverride.fold(true)(!_.required)) {
@@ -80,39 +93,45 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 			for {
 				productInfo <- productsInfo
 			} yield {
-				val discriminatorFieldValue =
-					if (productInfo.appendField_codeLines.isEmpty) s"""":"${productInfo.simpleName}"""";
-					else s"""":"${productInfo.simpleName}",""";
-
-				val appendDiscriminator_codeLine = discriminatorOverride match {
-					case Some(discriminatorAnnotation) =>
-						if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
-							val discriminatorField = s""""${discriminatorAnnotation.fieldName}$discriminatorFieldValue""";
-							q"r.append($discriminatorField)";
-						} else {
-							q"";
-						}
-
-					case None =>
-						if (productInfo.isAmbiguous) {
-							q"""r.append(discrimPrefix).append($discriminatorFieldValue)"""
-						} else {
-							q"""if (discrimRequired) { r.append(discrimPrefix).append($discriminatorFieldValue) }"""
-						}
-				}
-
 				val productClassNameAtRuntime = productInfo.tpe.erasure.typeSymbol.fullName;
-				q"""
-val productAppender: _root_.jsfacile.write.Appender[${productInfo.tpe}] = { (r, p) =>
+
+				productInfo match {
+					case customProductInfo: CustomProductInfo =>
+						q"""productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, ${customProductInfo.appenderTree}));"""
+
+					case derivedProductInfo: DerivedProductInfo =>
+						val discriminatorFieldValue = s"""":"${derivedProductInfo.simpleName}${if (derivedProductInfo.appendField_codeLines.isEmpty) "\"" else "\","}""";
+
+						val appendDiscriminator_codeLine = discriminatorOverride match {
+							case Some(discriminatorAnnotation) =>
+								if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
+									val discriminatorField = s""""${discriminatorAnnotation.fieldName}$discriminatorFieldValue""";
+									q"r.append($discriminatorField)";
+								} else {
+									q"";
+								}
+
+							case None =>
+								if (productInfo.isAmbiguous) {
+									q"""r.append(discrimPrefix).append($discriminatorFieldValue)"""
+								} else {
+									q"""if (discrimRequired) { r.append(discrimPrefix).append($discriminatorFieldValue) }"""
+								}
+						}
+
+						q"""
+val productAppender: _root_.jsfacile.write.Appender[${derivedProductInfo.tpe}] = { (r, p) =>
 	r.append('{')
 
 	$appendDiscriminator_codeLine
 
-	..${productInfo.appendField_codeLines}
+	..${derivedProductInfo.appendField_codeLines}
 
 	r.append('}')
 }
 productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productAppender));"""
+
+				}
 			}
 		val discriminatorDecider_valsCodeLines =
 			if (discriminatorOverride.isEmpty) {
@@ -128,6 +147,18 @@ val discrimPrefix = "\"" + discrimDecider.fieldName;
 
 		val createAppenderCodeLines =
 			q"""
+..${discriminatorDecider_valsCodeLines.children.take(3)}
+
+val productsInfoBuilder = ArrayBuffer[CahProductInfo[_ <: $coproductType]]();
+
+..$addProductInfo_codeLines
+
+val productsArray = productsInfoBuilder.toArray.asInstanceOf[Array[CahProductInfo[$coproductType]]];
+_root_.java.util.Arrays.sort(productsArray, productInfoComparator);
+new CoproductAppender[$coproductType](${coproductType.toString}, productsArray)""";
+
+		val createAppenderCodeLinesWithContext =
+			q"""
 import _root_.scala.Array;
 import _root_.scala.collection.mutable.ArrayBuffer;
 import _root_.jsfacile.joint.DiscriminatorDecider;
@@ -135,25 +166,13 @@ import _root_.jsfacile.write.CoproductAppender;
 import CoproductAppender.{CahProductInfo, productInfoComparator};
 import _root_.jsfacile.macros.LazyAppender;
 
-val createAppender: Array[LazyAppender] => CoproductAppender[$coproductType] = appendersBuffer => {
-
-	..${discriminatorDecider_valsCodeLines.children.take(3)}
-
-	val productsInfoBuilder = ArrayBuffer[CahProductInfo[_ <: $coproductType]]();
-
-	..$addProductInfo_codeLines
-
-	val productsArray = productsInfoBuilder.toArray.asInstanceOf[Array[CahProductInfo[$coproductType]]];
-	_root_.java.util.Arrays.sort(productsArray, productInfoComparator);
-	new CoproductAppender[$coproductType](${coproductType.toString}, productsArray)
-};
-createAppender""";
+(appendersBuffer: Array[LazyAppender]) => $createAppenderCodeLines;""";
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
 		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
-		ctx.typecheck(createAppenderCodeLines);
+		ctx.typecheck(createAppenderCodeLinesWithContext /*.duplicate*/);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 		ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
 	}
@@ -165,15 +184,15 @@ createAppender""";
 		initialHandler: Handler,
 		productsInfoCollector: mutable.ArrayBuffer[ProductInfo]
 	): Unit = {
-		for(productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq)
+		for (productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq)
 			this.addProduct(productSymbol.asClass, coproductClassSymbol, coproductType, initialHandler, productsInfoCollector)
 	}
 
-	def addProduct(
+	protected def addProduct(
 		productClassSymbol: ClassSymbol,
 		coproductClassSymbol: ClassSymbol,
 		coproductType: Type,
-		initialHandler: Handler,
+		initialHandler: Handler, // may be mutated
 		productsInfoCollector: mutable.ArrayBuffer[ProductInfo]
 	): Unit = {
 		this.applySubclassTypeConstructor(coproductType, productClassSymbol.toTypeConstructor) match {
@@ -181,7 +200,7 @@ createAppender""";
 				if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
 
 					if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
-						productsInfoCollector.addOne(ProductInfo(
+						productsInfoCollector.addOne(DerivedProductInfo(
 							productClassSymbol.name.toString,
 							productClassSymbol.toType,
 							Set.empty,
@@ -252,7 +271,7 @@ createAppender""";
 
 							}
 
-						productsInfoCollector.addOne(ProductInfo(
+						productsInfoCollector.addOne(DerivedProductInfo(
 							productClassSymbol.name.toString,
 							productType,
 							requiredFieldNamesBuilder.result(),

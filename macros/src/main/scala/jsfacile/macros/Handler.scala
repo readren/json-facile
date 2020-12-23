@@ -6,7 +6,7 @@ import scala.reflect.api.{Universe => univ}
 
 /** Keeps the state of the generation of the code [[Tree]] that builds an [[jsfacile.write.Appender]] or a [[jsfacile.read.Parser]] for the type indicated by the received [[TypeIndex]]; and manages the inter-dependence of the associated type with the types associated to other [[Handler]] instances.
  * Note: Instances of this class exists only during compilation time.*/
-class Handler(val typeIndex: TypeIndex) extends Keeper {
+class Handler(val typeIndex: TypeIndex) {
 	/** The code lines that creates a [[jsfacile.read.Parser]] or a [[jsfacile.write.Appender]].*/
 	var creationTreeOrErrorMsg: Option[Either[String, univ#Tree]] = None;
 
@@ -16,11 +16,11 @@ class Handler(val typeIndex: TypeIndex) extends Keeper {
 	var isCapturingDependencies: Boolean = true;
 
 	/** the set indexes of the handlers on which this handled  depends, including himself. A handler depends on other handler when the type definition associated to the first contains a reference to the type definition associated to the second. */
-	private val dependencies: mutable.BitSet = mutable.BitSet(typeIndex) // includes himself
+	val dependencies: mutable.BitSet = mutable.BitSet(typeIndex) // includes himself
 
 	private val dependants: mutable.Set[Handler] = mutable.Set.empty // does not include himself
 
-	override def setFailed(cause: String): Unit = this.creationTreeOrErrorMsg = Some(Left(cause));
+	def setFailed(cause: String): Unit = this.creationTreeOrErrorMsg = Some(Left(cause));
 
 	def setCreationTree(tree: univ#Tree): Unit = this.creationTreeOrErrorMsg = Some(Right(tree));
 
@@ -63,6 +63,8 @@ class Handler(val typeIndex: TypeIndex) extends Keeper {
 		case _ => false
 	}
 	override def hashCode(): Int = typeIndex
+
+	override def toString: String = s"Handler(index=${this.typeIndex}${creationTreeOrErrorMsg match {case Some(Left(msg)) => s", error=$msg" case _ => ""}})"
 }
 
 object Handler {
@@ -75,10 +77,10 @@ object Handler {
 
 	/////////
 
-	def showDependenciesOf(dependantHandler: Handler, handlersMap: HandlersMap): String = {
+	def show(handlersMap: HandlersMap, filter: Handler => Boolean): String = {
 		val tc = for {
 			(keyType, handler) <- handlersMap
-			if dependantHandler.dependencies.contains(handler.typeIndex)
+			if filter(handler)
 		} yield {
 			handler.typeIndex -> f"name: ${keyType.toString.takeRight(50)}%50s, expanded: ${handler.creationTreeOrErrorMsg.exists(_.isRight)}%5.5b, capturing: ${handler.isCapturingDependencies}%5.5b, dependencies: ${handler.dependencies.mkString(", ")}%s"
 		}

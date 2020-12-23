@@ -87,12 +87,12 @@ package object api {
 		}
 	}
 	case class ParseIncomplete(jsonDoc: String, pos: Parser.Pos) extends ParseError {
-		override def toString = s"""The json input was not entirely consumed. The parsing stopped at position $pos. The remaining fragment surrounded with '>' and '<' is: >${jsonDoc.substring(pos)}<."""
+		override def toString = s"""The json input was not entirely consumed. The parsing stopped at position $pos. The remaining fragment surrounded with '>' and '<' is: >${jsonDoc.substring(pos)}<.\nJSON document:\n$jsonDoc$visualizePos"""
 	}
 	case class ParseMiss(jsonDoc: String, pos: Parser.Pos, expected: String = null) extends ParseError {
-		override def toString = s"The parsing missed at position $pos. ${if (expected != null) expected else ""}"
+		override def toString = s"The parsing missed at position $pos. ${if (expected != null) expected else ""}\nJSON document:\n$jsonDoc$visualizePos"
 	}
 	case class ParseFailure(jsonDoc: String, pos: Parser.Pos, cause: AnyRef) extends ParseError {
-		override def toString = s"The parsing failed at position $pos. Cause: $cause"
+		override def toString = s"The parsing failed at position $pos. Cause: $cause\nJSON document:\n$jsonDoc$visualizePos"
 	}
 }

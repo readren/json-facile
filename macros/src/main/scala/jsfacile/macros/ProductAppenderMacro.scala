@@ -73,24 +73,26 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 				val createAppenderCodeLines =
 					q"""
+new Appender[$productType] {
+	override def append(r: Record, p: $productType): Record = {
+		r.append('{')
+		..$appendField_codeLines
+		r.append('}');
+	}
+}""";
+
+				val createAppenderCodeLinesWithContext =
+					q"""
 import _root_.scala.Array;
 import _root_.jsfacile.macros.LazyAppender;
 import _root_.jsfacile.write.{Appender, Record};
 
-val createAppender: Array[LazyAppender] => Appender[$productType] = appendersBuffer =>
-	new Appender[$productType] {
-		override def append(r: Record, p: $productType): Record = {
-			r.append('{')
-			..$appendField_codeLines
-			r.append('}');
-		}
-	}
-createAppender""";
+(appendersBuffer: Array[LazyAppender]) => $createAppenderCodeLines""";
 
 				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
-				ctx.typecheck(createAppenderCodeLines);
+				ctx.typecheck(createAppenderCodeLinesWithContext/*.duplicate*/);
 				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
 

@@ -11,4 +11,9 @@ trait Appender[A] {
 	/** A version of [[append]] that keeps the record's type. "Krt" stands for Keeping Record Type.
 	 * This combinator should be the primitive one, but that would prevent to implement extensions with single abstract methods, because they aren't supported when the method is polymorphic. */
 	def appendKrt[R <: Record](r: R, a: A): R = append(r, a).asInstanceOf[R];
+
+
+	def map[B](f: B => A)(implicit appenderA: Appender[A]): Appender[B] = (r, b) => {
+		r.appendSummoned(f(b))
+	}
 }

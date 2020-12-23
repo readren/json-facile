@@ -2,6 +2,7 @@ package jsfacile.macros
 
 import scala.reflect.macros.blackbox
 
+import jsfacile.api.builder.{ProductAppendingInfo, ProductParsingInfo}
 import jsfacile.read.{Parser, SingletonParser}
 import jsfacile.write.Appender
 
@@ -53,17 +54,42 @@ object macrosEntrance {
 
 	//////////////////////////
 
-	def addCaseImpl[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Unit] = {
-		val builder = new GenCommon[ctx.type](ctx);
-		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P])
+	def addFieldToParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], defaultValue: ctx.Expr[Option[F]]): ctx.Expr[Unit] = {
+		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
+		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, defaultValue)
 	}
 
-	def sealParserImpl[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Parser[C]] = {
+	def completeProductParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
+		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
+		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], name, ctor)
+	}
+
+	def addCase[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Unit] = {
+		val builder = new GenCommon[ctx.type](ctx);
+		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, None)
+	}
+
+	def addCaseWithAppender[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(appendingInfo: ctx.Expr[ProductAppendingInfo[P]]): ctx.Expr[Unit] = {
+		val builder = new GenCommon[ctx.type](ctx);
+		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), None)
+	}
+
+	def addCaseWithParser[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(parsingInfo: ctx.Expr[ProductParsingInfo[P]]): ctx.Expr[Unit] = {
+		val builder = new GenCommon[ctx.type](ctx);
+		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, Some(parsingInfo))
+	}
+
+	def addCaseWithBoth[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(appendingInfo: ctx.Expr[ProductAppendingInfo[P]], parsingInfo: ctx.Expr[ProductParsingInfo[P]]): ctx.Expr[Unit] = {
+		val builder = new GenCommon[ctx.type](ctx);
+		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), Some(parsingInfo))
+	}
+
+	def sealParser[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Parser[C]] = {
 		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
 		builder.sealParser(ctx.weakTypeOf[C])
 	}
 
-	def sealAppenderImpl[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[C]] = {
+	def sealAppender[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[C]] = {
 		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
 		builder.sealAppender(ctx.weakTypeOf[C])
 	}

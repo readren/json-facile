@@ -377,12 +377,10 @@ This limitation is a consequence of a design decision: configuration simplicity 
 
 Note that the appender does not complain. Only the parser. This is intended because the generated JSON document may be parsed by other JSON library that supports namesakes fields with differnt types. 
 
-2. The Intellij IDE hightlights false "implicit not found" kind error mensajes. Ignore or suppress them. Or use another IDE.
-
-3. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time is significantly increased.
+2. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time suffers an increase proportional to the amount of derivations.
 This problem can be easily mittigated moving the involved ADTs to a separate SBT project.
 
-4. Recursive data types are vulnerable to run-time stack overflow error when the recursion deph level of the data is high enough. This will be solved when I come up with a simple way to configure the limit.
+3. Recursive data types are vulnerable to run-time stack overflow error when the recursion deph level of the data is high enough. This will be solved when I come up with a simple way to configure the limit.
 
 ## Edge cases
 ### BigDecimal input limit

@@ -1,7 +1,8 @@
 ThisBuild / organization := "org.readren.json-facile"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "2.13.4"
-ThisBuild / autoAPIMappings := true // for unidoc
+ThisBuild / autoAPIMappings := true
+// ThisBuild / apiURL := Some(url(s"file:${(baseDirectory).value.getAbsolutePath}/target/scala-${scalaVersion.value.take(4)}/api"))
 
 lazy val akkaHttpVersion = "10.2.0"
 
@@ -21,14 +22,17 @@ lazy val core = (project in file("core"))
 		Compile / packageBin / mappings ++= (comun / Compile / packageBin / mappings).value,
 		// append the content of the common source package to the core source package 
 		Compile / packageSrc / mappings ++= (comun / Compile / packageSrc / mappings).value,
-		// append the content of the common javadoc package to the core doc package 
+		// append the content of the common javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work. 
 		Compile / doc / sources ++= (comun / Compile / doc / sources).value,
+		// append the content of the macros javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work. 
+		Compile / doc / sources ++= (macros / Compile / doc / sources).value,
 	)
 
 lazy val macros = (project in file("macros")).dependsOn(comun % "compile-internal, test-internal") // the "compile-internal" removes `common` from the set of dependencies for publishing because it is provided by the core artifact.
 	.settings(
-		// other settings
-  	)
+		// the content of the macros project's javadoc package is appended to the core project's javadoc package. This setting avoids to publish the javadoc of this project.
+		Compile / packageDoc / publishArtifact := false,
+	)
 
 lazy val comun = (project in file("comun"))
 	.settings(

@@ -67,7 +67,22 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 							q"args($argIndex).asInstanceOf[$paramType]";
 						}
 					}
+
 				val createParserCodeLines =
+					q"""
+val builder = ArrayBuffer[PpFieldInfo]();
+..${addFieldInfoSnippetsBuilder.result()}
+
+val helper = new PpHelper[$productType] {
+	override val fullName: String = ${productType.toString};
+
+	override val fieldsInfo: Array[PpFieldInfo] = builder.sortInPlace()(ProductParser.fieldsOrdering).toArray;
+
+	override def createProduct(args: Seq[Any]):$productType = new $productClassSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
+}
+new ProductParser[$productType](helper);""";
+
+				val createParserCodeLinesWithContext =
 					q"""
 import _root_.scala.Array;
 import _root_.scala.collection.mutable.ArrayBuffer;
@@ -77,26 +92,14 @@ import _root_.jsfacile.read.{Parser, ProductParser};
 import ProductParser.{PpFieldInfo, PpHelper};
 import _root_.jsfacile.macros.LazyParser;
 
-val createParser: Array[LazyParser] => ProductParser[$productType] = parsersBuffer => {
-	val builder = ArrayBuffer[PpFieldInfo]();
-	..${addFieldInfoSnippetsBuilder.result()}
+(parsersBuffer: Array[LazyParser]) => $createParserCodeLines""";
 
-	val helper = new PpHelper[$productType] {
-		override val fullName: String = ${productType.toString};
-
-		override val fieldsInfo: Array[PpFieldInfo] = builder.sortInPlace()(ProductParser.fieldsOrdering).toArray;
-
-		override def createProduct(args: Seq[Any]):$productType = new $productClassSymbol[..${productType.typeArgs}](...$ctorArgumentSnippets);
-	}
-	new ProductParser[$productType](helper)
-};
-createParser""";
 
 				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
 				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
-				ctx.typecheck(createParserCodeLines/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
+				ctx.typecheck(createParserCodeLinesWithContext/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
 				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
 

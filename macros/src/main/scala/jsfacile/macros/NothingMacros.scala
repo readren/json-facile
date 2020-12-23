@@ -11,7 +11,7 @@ object NothingMacros {
 	def materializeNothingParserImpl(ctx: whitebox.Context): ctx.Expr[Parser[Nothing]] = {
 		import ctx.universe._
 
-		ctx.info(ctx.enclosingPosition, s"Note that a Parser[Nothing] is involved here:\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		ctx.info(ctx.enclosingPosition, s"Note that a `Parser[Nothing]` is involved here. If you get a compiler error at this line, this could be the cause. Probably the `Nothing` type was inferred by the compiler because a type parameter is not specified.\n${showOpenImplicitsAndMacros(ctx)}", force = true);
 
 		val body = q"""
 import _root_.jsfacile.read.{Parser, Cursor};
@@ -27,7 +27,7 @@ new Parser[Nothing] {
 	def materializeNothingAppenderImpl(ctx: whitebox.Context): ctx.Expr[Appender[Nothing]] = {
 		import ctx.universe._
 
-		ctx.info(ctx.enclosingPosition, s"Note that a Appender[Nothing] is involved here:\n${showOpenImplicitsAndMacros(ctx)}", force = true);
+		ctx.info(ctx.enclosingPosition, s"Note that an `Appender[Nothing]` is involved here. If you get a compiler error at this line, this could be the cause. Probably the `Nothing` type was inferred by the compiler because a type parameter is not specified.:\n${showOpenImplicitsAndMacros(ctx)}", force = true);
 
 		val body = q"""
 import _root_.jsfacile.write.{Appender, Record};

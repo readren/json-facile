@@ -44,12 +44,6 @@ package object macros {
 
 	type TypeIndex = Int;
 
-	/** Note: instances of this class exists only during compilation time. */
-	trait Keeper {
-		def setFailed(message: String): Unit;
-		def addDependency(handler: Handler): Unit;
-	}
-
 	type HandlersMap = mutable.Map[TypeKey, Handler];
 	/** This val is intended to be used by macros during compilation only */
 	val appenderHandlersMap: HandlersMap = mutable.HashMap.empty;
@@ -61,8 +55,8 @@ package object macros {
 	/** Adds the received [[TypeIndex]] to the [[Handler.dependencies]] set of all the appender handlers that are capturing dependencies. */
 	@inline def registerAppenderDependency(to: Handler): Unit = Handler.registerDependency(to, appenderHandlersMap);
 
-	@inline def showParserDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, parserHandlersMap)}";
-	@inline def showAppenderDependencies(handler: Handler): String = s"\nbuffered dependencies:${Handler.showDependenciesOf(handler, appenderHandlersMap)}";
+	def showParserDependencies(dependantHandler: Handler): String = s"\nbuffered dependencies:${Handler.show(parserHandlersMap, handler => dependantHandler.dependencies.contains(handler.typeIndex))}";
+	def showAppenderDependencies(dependantHandler: Handler): String = s"\nbuffered dependencies:${Handler.show(appenderHandlersMap, handler => dependantHandler.dependencies.contains(handler.typeIndex))}";
 
 
 	//////////////////

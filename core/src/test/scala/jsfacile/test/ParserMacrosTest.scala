@@ -207,7 +207,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		}
 
 
-		def `when traits and/or abstract classes are nested directly (no intermediate product)`(): Unit = {
+		def `when an abstract type has an abstract subtype`(): Unit = {
 			import jsfacile.api._
 
 			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)

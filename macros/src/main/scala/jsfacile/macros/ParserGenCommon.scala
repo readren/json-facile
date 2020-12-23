@@ -19,8 +19,8 @@ class ParserGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon(c
 						innerHandler.creationTreeOrErrorMsg match {
 							case Some(Right(parserCreationTree)) =>
 								q"""
-val parserCreator = ${parserCreationTree.asInstanceOf[Tree]};
-parsersBuffer(${innerHandler.typeIndex}).set(parserCreator.apply(parsersBuffer));"""
+val parser = ${parserCreationTree.asInstanceOf[Tree]};
+parsersBuffer(${innerHandler.typeIndex}).set(parser);"""
 
 							case Some(Left(innerErrorMsg)) =>
 								ctx.abort(ctx.enclosingPosition, s"""Unable to derive a parser for `$initialType` because it depends on the parser for `$innerTypeKey` whose derivation has failed saying: $innerErrorMsg""")
@@ -31,7 +31,16 @@ parsersBuffer(${innerHandler.typeIndex}).set(parserCreator.apply(parsersBuffer))
 					}
 
 				q"""
+import _root_.scala.Array;
+import _root_.scala.collection.mutable.ArrayBuffer;
+import _root_.scala.collection.immutable.Seq;
+
+import _root_.jsfacile.joint.DiscriminatorDecider;
 import _root_.jsfacile.macros.LazyParser;
+import _root_.jsfacile.read.{Parser, ProductParser, CoproductParser, CoproductParserBuilderState};
+import _root_.jsfacile.util.BitSet;
+import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
+import ProductParser.{PpFieldInfo, PpHelper};
 
 val parsersBuffer = _root_.scala.Array.fill(${parserHandlersMap.size})(new LazyParser);
 {..$inits}

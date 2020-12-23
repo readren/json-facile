@@ -58,7 +58,7 @@ object CoproductAppender {
 		diff
 	}
 
-	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"coproductName: $coproductName, productName: $productName")
+	class UnexpectedProductTypeException(coproductName: String, productName: String) extends RuntimeException(s"`$productName` is not a known subtype of `$coproductName`.")
 }
 
 class CoproductAppender[C](fullName: String, productsInfo: Array[CahProductInfo[C]]) extends Appender[C] {
