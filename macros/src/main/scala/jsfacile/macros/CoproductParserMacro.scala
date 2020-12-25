@@ -28,6 +28,12 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 
 //		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
 
+		val isOuterMacroInvocation = isOuterParserMacroInvocation;
+		if(isOuterMacroInvocation) {
+			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
+			Handler.parserHandlersMap.clear();
+		}
+
 		val coproductTypeKey = new TypeKey(initialCoproductType);
 		val coproductHandler = Handler.parserHandlersMap.get(coproductTypeKey) match {
 			case None =>
@@ -53,7 +59,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 				coproductHandler
 		}
 
-		this.buildBody[C](initialCoproductType, coproductHandler)
+		this.buildBody[C](initialCoproductType, coproductHandler, isOuterMacroInvocation)
 	}
 
 	protected def buildParserCreationTreeOn(coproductHandler: Handler, initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol, productAdditionTrees: Iterable[Tree], numberOfShards: Int): Unit = {

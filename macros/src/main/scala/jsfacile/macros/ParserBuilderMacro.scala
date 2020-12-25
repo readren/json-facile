@@ -105,7 +105,7 @@ state.productFieldsBuilder.clear();"""
 		coproductHandler.creationTreeOrErrorMsg match {
 			case None =>
 				this.buildParserCreationTreeOn(coproductHandler, coproductType, coproductSymbol, productAdditionTrees, nextBitSlot.shardIndex + 1)
-				this.buildBody[C](coproductType, coproductHandler);
+				this.buildBody[C](coproductType, coproductHandler, isOuterMacroInvocation = true);
 
 			case Some(Left(errorCause)) =>
 				ctx.abort(ctx.enclosingPosition, errorCause);

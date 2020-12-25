@@ -7,9 +7,9 @@ import jsfacile.write.Appender
 class AppenderGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon(context) {
 	import ctx.universe._
 
-	def buildBody[T](initialType: Type, initialHandler: Handler): ctx.Expr[Appender[T]] = {
+	def buildBody[T](initialType: Type, initialHandler: Handler, isOuterMacroInvocation: Boolean): ctx.Expr[Appender[T]] = {
 		val body =
-			if (initialHandler.creationTreeOrErrorMsg.isDefined && isOuterAppenderMacroInvocation) {
+			if (isOuterMacroInvocation) {
 			val inits =
 				for {
 					(innerTypeKey, innerHandler) <- Handler.appenderHandlersMap

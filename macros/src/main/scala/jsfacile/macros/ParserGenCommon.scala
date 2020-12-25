@@ -7,10 +7,10 @@ import jsfacile.read.Parser
 class ParserGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon(context) {
 	import ctx.universe._
 
-	def buildBody[T](initialType: Type, initialHandler: Handler): ctx.Expr[Parser[T]] = {
+	def buildBody[T](initialType: Type, initialHandler: Handler, isOuterMacroInvocation: Boolean): ctx.Expr[Parser[T]] = {
 
 		val body =
-			if (initialHandler.creationTreeOrErrorMsg.isDefined && this.isOuterParserMacroInvocation) {
+			if (isOuterMacroInvocation) {
 				val inits =
 					for {
 						(innerTypeKey, innerHandler) <- Handler.parserHandlersMap

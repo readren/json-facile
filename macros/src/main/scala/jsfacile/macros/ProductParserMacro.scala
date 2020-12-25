@@ -16,6 +16,12 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 
 //		ctx.info(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}", force = false);
 
+		val isOuterMacroInvocation = isOuterParserMacroInvocation;
+		if(isOuterMacroInvocation) {
+			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
+			Handler.parserHandlersMap.clear();
+		}
+
 		val productTypeKey = new TypeKey(productType);
 		val productHandler = Handler.parserHandlersMap.get(productTypeKey) match {
 
@@ -107,6 +113,6 @@ import _root_.jsfacile.macros.LazyParser;
 
 		};
 
-		this.buildBody[P](productType, productHandler);
+		this.buildBody[P](productType, productHandler, isOuterMacroInvocation);
 	}
 }

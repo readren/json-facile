@@ -12,6 +12,12 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 //		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
+		val isOuterMacroInvocation = isOuterAppenderMacroInvocation;
+		if(isOuterMacroInvocation) {
+			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
+			Handler.appenderHandlersMap.clear()
+		}
+
 		val productTypeKey = new TypeKey(productType);
 		val productHandler = Handler.appenderHandlersMap.get(productTypeKey) match {
 
@@ -97,6 +103,6 @@ import _root_.jsfacile.write.{Appender, Record};
 				productHandler
 		}
 
-		buildBody[P](productType, productHandler);
+		buildBody[P](productType, productHandler, isOuterMacroInvocation);
 	}
 }

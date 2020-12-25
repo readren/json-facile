@@ -33,7 +33,7 @@ class AppenderBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Cop
 		coproductHandler.creationTreeOrErrorMsg match {
 			case None =>
 				buildAppenderCreationTreeOn(coproductType, coproductHandler, None, productsInfoCollector);
-				this.buildBody[C](coproductType, coproductHandler);
+				this.buildBody[C](coproductType, coproductHandler, isOuterMacroInvocation = true);
 
 			case Some(Left(errorCause)) =>
 				ctx.abort(ctx.enclosingPosition, errorCause);

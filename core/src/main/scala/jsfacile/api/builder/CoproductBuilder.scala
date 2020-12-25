@@ -8,8 +8,7 @@ import jsfacile.macros.macrosEntrance
  *
  * The names of the type parameters `P` and `C` stand for "product" and "coproduct" respectively.
  *
- * Caution 1: This class is not thread safe. Don't share an instance between concurrent threads.
- * Caution 2: It is allowed to use at most one instance of this class per type of the `C` parameter simultaneously.
+ * Caution: The state of instances of the same type is shared. Therefore, at most one instance of this class per type of the `C` parameter should be used simultaneously.
  *
  * @define addProduct Adds the type `P` to the set of considered direct subtypes of `C`
  *
