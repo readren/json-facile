@@ -2,6 +2,7 @@ package jsfacile.macros
 
 import scala.reflect.macros.blackbox
 
+import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.write.Appender
 
 class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
@@ -12,13 +13,13 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 //		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
 		val productTypeKey = new TypeKey(productType);
-		val productHandler = appenderHandlersMap.get(productTypeKey) match {
+		val productHandler = Handler.appenderHandlersMap.get(productTypeKey) match {
 
 			case None =>
-				val paTypeIndex = appenderHandlersMap.size;
+				val paTypeIndex = Handler.appenderHandlersMap.size;
 				val productHandler = new Handler(paTypeIndex);
-				registerAppenderDependency(productHandler);
-				appenderHandlersMap.put(productTypeKey, productHandler);
+				Handler.registerAppenderDependency(productHandler);
+				Handler.appenderHandlersMap.put(productTypeKey, productHandler);
 
 				val paramsList = productSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
@@ -42,17 +43,10 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 						val oGetAlreadyExpandedAppenderExpression =
 							if (paramTypeSymbol.isClass) { // if the field type is a class or trait
-								appenderHandlersMap.get(new TypeKey(paramType)) match {
+								Handler.appenderHandlersMap.get(new TypeKey(paramType)) match {
 									case Some(paramHandler) =>
 										productHandler.addDependency(paramHandler);
-
-										if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
-											Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
-										} else {
-											val msg = s"Unreachable reached: productType=$productType, paramType=$paramType"
-											productHandler.setFailed(msg);
-											ctx.abort(ctx.enclosingPosition, msg)
-										}
+										Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 
 									case None =>
 										None
@@ -89,7 +83,7 @@ import _root_.jsfacile.write.{Appender, Record};
 
 (appendersBuffer: Array[LazyAppender]) => $createAppenderCodeLines""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createAppenderCodeLinesWithContext/*.duplicate*/);
@@ -99,7 +93,7 @@ import _root_.jsfacile.write.{Appender, Record};
 				productHandler
 
 			case Some(productHandler) =>
-				registerAppenderDependency(productHandler)
+				Handler.registerAppenderDependency(productHandler)
 				productHandler
 		}
 

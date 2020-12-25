@@ -3,7 +3,8 @@ package jsfacile.macros
 import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
-import jsfacile.macros.GenCommon.{ProductAppendingInfoDigested, ProductCustomization}
+import jsfacile.macros.GenCommon.{ProductCustomization, TypeKey}
+import jsfacile.macros.Handler.appenderHandlersMap
 import jsfacile.write.Appender
 
 class AppenderBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends CoproductAppenderMacro(context) {
@@ -15,7 +16,7 @@ class AppenderBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Cop
 		val coproductTypeKey = new TypeKey(coproductType);
 		val keeper = getCoproductBuilderStateOf(coproductTypeKey);
 
-		val coproductHandler = getCleanHandlerFor(coproductTypeKey, appenderHandlersMap)
+		val coproductHandler = Handler.getCleanHandlerFor(coproductTypeKey, appenderHandlersMap)
 
 		val productsInfoCollector: mutable.ArrayBuffer[ProductInfo] = mutable.ArrayBuffer.empty;
 		for {(productType, productConfig) <- keeper.productsCollector.asInstanceOf[mutable.Map[Type, ProductCustomization]]} {

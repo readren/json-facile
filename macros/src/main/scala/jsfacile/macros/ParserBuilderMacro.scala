@@ -5,7 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.api.builder.ProductParsingInfo
-import jsfacile.macros.GenCommon.{FieldParsingInfo, ProductCustomization, ProductParsingInfoBuilderState}
+import jsfacile.macros.GenCommon.{FieldParsingInfo, ProductCustomization, ProductParsingInfoBuilderState, TypeKey}
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot
@@ -67,7 +67,7 @@ class ParserBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Copro
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductBuilderState = getCoproductBuilderStateOf(coproductTypeKey);
-		val coproductHandler = getCleanHandlerFor(coproductTypeKey, parserHandlersMap);
+		val coproductHandler = Handler.getCleanHandlerFor(coproductTypeKey, Handler.parserHandlersMap);
 
 		val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
 		var nextBitSlot: BitSlot = BitSet.FIRST_BIT_SLOT;

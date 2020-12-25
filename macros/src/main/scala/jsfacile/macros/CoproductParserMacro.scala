@@ -5,6 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
+import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot
@@ -28,12 +29,12 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 //		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
 
 		val coproductTypeKey = new TypeKey(initialCoproductType);
-		val coproductHandler = parserHandlersMap.get(coproductTypeKey) match {
+		val coproductHandler = Handler.parserHandlersMap.get(coproductTypeKey) match {
 			case None =>
-				val cpTypeIndex = parserHandlersMap.size;
+				val cpTypeIndex = Handler.parserHandlersMap.size;
 				val coproductHandler = new Handler(cpTypeIndex);
-				registerParserDependency(coproductHandler);
-				parserHandlersMap.put(coproductTypeKey, coproductHandler);
+				Handler.registerParserDependency(coproductHandler);
+				Handler.parserHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
 					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductBuilder`.";
@@ -48,7 +49,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 				coproductHandler
 
 			case Some(coproductHandler) =>
-				registerParserDependency(coproductHandler);
+				Handler.registerParserDependency(coproductHandler);
 				coproductHandler
 		}
 
@@ -94,7 +95,7 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(parserCreationTree));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} : ${show(parserCreationTree)}\n------${showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} : ${show(parserCreationTree)}\n------${Handler.showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
 		ctx.typecheck(parserCreationTreeWithContext/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
@@ -262,17 +263,12 @@ state.productFieldsBuilder.clear();"""
 
 					val fieldParserExpression: ctx.Tree =
 						if (fieldSymbol.isClass) {
-							parserHandlersMap.get(new TypeKey(fieldType)) match {
+							Handler.parserHandlersMap.get(new TypeKey(fieldType)) match {
+
 								case Some(fieldHandler) =>
 									initialHandler.addDependency(fieldHandler);
+									q"""parsersBuffer(${fieldHandler.typeIndex}).get"""
 
-									if (!fieldSymbol.isAbstract || fieldSymbol.asClass.isSealed) {
-										q"""parsersBuffer(${fieldHandler.typeIndex}).get"""
-									} else {
-										val msg = s"Unreachable reached:\n\tinitialHandler = $initialHandler,\n\tproductType = $productType,\n\tfieldName = $fieldName,\n\tfieldType = $fieldType,\n\tfieldTypeHandler = $fieldHandler\n------\nTypes handlers:\n${Handler.show(parserHandlersMap, _=>true)}\n$showEnclosingMacros\n"
-										initialHandler.setFailed(msg);
-										ctx.abort(ctx.enclosingPosition, msg)
-									}
 								case None =>
 									q"Parser[$fieldType]"
 							}

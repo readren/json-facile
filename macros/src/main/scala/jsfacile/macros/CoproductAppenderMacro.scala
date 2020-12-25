@@ -6,6 +6,7 @@ import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
 import jsfacile.joint.DiscriminatorConf
+import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.write.Appender
 
 class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
@@ -31,13 +32,13 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		//	ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}", force = false);
 
 		val coproductTypeKey = new TypeKey(initialCoproductType);
-		val coproductHandler = appenderHandlersMap.get(coproductTypeKey) match {
+		val coproductHandler = Handler.appenderHandlersMap.get(coproductTypeKey) match {
 
 			case None =>
-				val caTypeIndex = appenderHandlersMap.size;
+				val caTypeIndex = Handler.appenderHandlersMap.size;
 				val coproductHandler = new Handler(caTypeIndex)
-				registerAppenderDependency(coproductHandler);
-				appenderHandlersMap.put(coproductTypeKey, coproductHandler);
+				Handler.registerAppenderDependency(coproductHandler);
+				Handler.appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
 					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductBuilder`.";
@@ -56,7 +57,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 				coproductHandler
 
 			case Some(coproductHandler) =>
-				registerAppenderDependency(coproductHandler)
+				Handler.registerAppenderDependency(coproductHandler)
 				coproductHandler
 
 		};
@@ -170,7 +171,7 @@ import _root_.jsfacile.macros.LazyAppender;
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 		ctx.typecheck(createAppenderCodeLinesWithContext /*.duplicate*/);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
@@ -242,17 +243,12 @@ import _root_.jsfacile.macros.LazyAppender;
 
 								val oGetAlreadyExpandedAppenderExpression =
 									if (paramTypeSymbol.isClass) {
-										appenderHandlersMap.get(new TypeKey(paramType)) match {
+										Handler.appenderHandlersMap.get(new TypeKey(paramType)) match {
+
 											case Some(paramHandler) =>
 												initialHandler.addDependency(paramHandler);
+												Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
 
-												if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
-													Some(q"""appendersBuffer(${paramHandler.typeIndex}).get[$paramType]""")
-												} else {
-													val msg = s"Unreachable reached: productType=$productType, paramTypeSymbol=${paramTypeSymbol.fullName}"
-													initialHandler.setFailed(msg);
-													ctx.abort(ctx.enclosingPosition, msg)
-												}
 											case None =>
 												None
 										}

@@ -13,7 +13,7 @@ class ParserGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon(c
 			if (initialHandler.creationTreeOrErrorMsg.isDefined && this.isOuterParserMacroInvocation) {
 				val inits =
 					for {
-						(innerTypeKey, innerHandler) <- parserHandlersMap
+						(innerTypeKey, innerHandler) <- Handler.parserHandlersMap
 						if initialHandler.doesDependOn(innerHandler.typeIndex)
 					} yield {
 						innerHandler.creationTreeOrErrorMsg match {
@@ -26,7 +26,7 @@ parsersBuffer(${innerHandler.typeIndex}).set(parser);"""
 								ctx.abort(ctx.enclosingPosition, s"""Unable to derive a parser for `$initialType` because it depends on the parser for `$innerTypeKey` whose derivation has failed saying: $innerErrorMsg""")
 
 							case None =>
-								ctx.abort(ctx.enclosingPosition, s"Unreachable reached: initialType=$initialType, innerType=$innerTypeKey\n${showParserDependencies(initialHandler)}\n$showEnclosingMacros")
+								ctx.abort(ctx.enclosingPosition, s"Unreachable reached: initialType=$initialType, innerType=$innerTypeKey\n${Handler.showParserDependencies(initialHandler)}\n$showEnclosingMacros")
 						}
 					}
 
@@ -42,7 +42,7 @@ import _root_.jsfacile.util.BitSet;
 import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 import ProductParser.{PpFieldInfo, PpHelper};
 
-val parsersBuffer = _root_.scala.Array.fill(${parserHandlersMap.size})(new LazyParser);
+val parsersBuffer = _root_.scala.Array.fill(${Handler.parserHandlersMap.size})(new LazyParser);
 {..$inits}
 parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 
@@ -50,7 +50,7 @@ parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 				q"""parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"Parser body for ${show(initialType)}: ${show(body)}\n------${showParserDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"Parser body for ${show(initialType)}: ${show(body)}\n------${Handler.showParserDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
 
 		ctx.Expr[Parser[T]](body);
 	}

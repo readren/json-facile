@@ -3,6 +3,7 @@ package jsfacile.macros
 import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 
+import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.read.Parser
 
 
@@ -16,13 +17,13 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 //		ctx.info(ctx.enclosingPosition, s"product parser helper start for ${show(productType)}", force = false);
 
 		val productTypeKey = new TypeKey(productType);
-		val productHandler = parserHandlersMap.get(productTypeKey) match {
+		val productHandler = Handler.parserHandlersMap.get(productTypeKey) match {
 
 			case None =>
-				val ppHelperIndex = parserHandlersMap.size;
+				val ppHelperIndex = Handler.parserHandlersMap.size;
 				val productHandler = new Handler(ppHelperIndex);
-				registerParserDependency(productHandler);
-				parserHandlersMap.put(productTypeKey, productHandler);
+				Handler.registerParserDependency(productHandler);
+				Handler.parserHandlersMap.put(productTypeKey, productHandler);
 
 				val addFieldInfoSnippetsBuilder = List.newBuilder[Tree];
 				val paramsList = productClassSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
@@ -42,17 +43,12 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 
 							val paramParserExpression =
 								if (paramTypeSymbol.isClass) {
-									parserHandlersMap.get(new TypeKey(paramType)) match {
+									Handler.parserHandlersMap.get(new TypeKey(paramType)) match {
+
 										case Some(paramHandler) =>
 											productHandler.addDependency(paramHandler);
+											q"""parsersBuffer(${paramHandler.typeIndex}).get"""
 
-											if (!paramTypeSymbol.isAbstract || paramTypeSymbol.asClass.isSealed) {
-												q"""parsersBuffer(${paramHandler.typeIndex}).get"""
-											} else {
-												val msg = s"Unreachable reached: productType=$productType, paramType=$paramType";
-												productHandler.setFailed(msg);
-												ctx.abort(ctx.enclosingPosition, msg)
-											}
 										case None =>
 											q"Parser[$paramType]"
 									}
@@ -97,7 +93,7 @@ import _root_.jsfacile.macros.LazyParser;
 
 				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
-				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
+				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${Handler.showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
 				ctx.typecheck(createParserCodeLinesWithContext/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
@@ -106,7 +102,7 @@ import _root_.jsfacile.macros.LazyParser;
 				productHandler
 
 			case Some(productHandler) =>
-				registerParserDependency(productHandler);
+				Handler.registerParserDependency(productHandler);
 				productHandler
 
 		};

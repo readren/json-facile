@@ -23,7 +23,7 @@ object Probe {
 
 		val tpe: Type = ctx.weakTypeTag[T].tpe.dealias;
 
-		ctx.info(ctx.enclosingPosition, s"Providing implicit Probe[$tpe]:\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"Providing implicit Probe[$tpe]:\n${whiteBoxCommon.showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		ctx.Expr[Probe[T]](q"_root_.jsfacile.macros.Probe[$tpe](_root_.scala.Predef.implicitly[$tpe])")
 	}
@@ -36,7 +36,7 @@ object Probe {
 
 		val tpe: Type = ctx.weakTypeTag[T].tpe.dealias;
 
-		ctx.info(ctx.enclosingPosition, s"Appending Probe[$tpe]:\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"Appending Probe[$tpe]:\n${whiteBoxCommon.showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		val body = q"""
 import _root_.jsfacile.write.{Appender, Record};
@@ -59,7 +59,7 @@ new Appender[Probe[$tpe]] {
 
 		val tpe: Type = ctx.weakTypeTag[T].tpe.dealias;
 
-		ctx.info(ctx.enclosingPosition, s"Parsing Probe[$tpe]:\n${showOpenImplicitsAndMacros(ctx)}", force = false);
+		ctx.info(ctx.enclosingPosition, s"Parsing Probe[$tpe]:\n${whiteBoxCommon.showOpenImplicitsAndMacros(ctx)}", force = false);
 
 		val body =
 			q"""

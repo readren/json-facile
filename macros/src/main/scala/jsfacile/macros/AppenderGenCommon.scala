@@ -12,7 +12,7 @@ class AppenderGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon
 			if (initialHandler.creationTreeOrErrorMsg.isDefined && isOuterAppenderMacroInvocation) {
 			val inits =
 				for {
-					(innerTypeKey, innerHandler) <- appenderHandlersMap
+					(innerTypeKey, innerHandler) <- Handler.appenderHandlersMap
 					if initialHandler.doesDependOn(innerHandler.typeIndex)
 				} yield {
 					innerHandler.creationTreeOrErrorMsg.get match {
@@ -34,7 +34,7 @@ import _root_.jsfacile.write.{Appender, Record, CoproductAppender};
 import CoproductAppender.{CahProductInfo, productInfoComparator};
 import _root_.jsfacile.macros.LazyAppender;
 
-val appendersBuffer = _root_.scala.Array.fill(${appenderHandlersMap.size})(new LazyAppender);
+val appendersBuffer = _root_.scala.Array.fill(${Handler.appenderHandlersMap.size})(new LazyAppender);
 {..$inits}
 appendersBuffer(${initialHandler.typeIndex}).get[$initialType]""";
 
@@ -42,7 +42,7 @@ appendersBuffer(${initialHandler.typeIndex}).get[$initialType]""";
 			q"""appendersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 		}
 
-		ctx.info(ctx.enclosingPosition, s"appender body for ${show(initialType)}: ${show(body)}\n------${showAppenderDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"appender body for ${show(initialType)}: ${show(body)}\n------${Handler.showAppenderDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
 
 		ctx.Expr[Appender[T]](body);
 	}

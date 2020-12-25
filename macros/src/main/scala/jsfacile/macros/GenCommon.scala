@@ -5,7 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.api.builder.{ProductAppendingInfo, ProductParsingInfo}
-import jsfacile.macros.GenCommon.{CoproductBuilderState, ProductAppendingInfoDigested, ProductParsingInfoDigested, ProductCustomization, coproductsBuildersStates}
+import jsfacile.macros.GenCommon.{CoproductBuilderState, ProductAppendingInfoDigested, ProductCustomization, ProductParsingInfoDigested, TypeKey, coproductsBuildersStates}
 
 /**Contains classes whose instances are shared between macro executions.
  * Some of said instances contain information that depends on the context of the macro that created them. It is responsibility of said macros to limit themselves on which of said instances are they able to access to comply with the encapsulation established by the scala language access scope.
@@ -13,6 +13,23 @@ import jsfacile.macros.GenCommon.{CoproductBuilderState, ProductAppendingInfoDig
  * @define compileTimeOnly Note: Instances of this class exists only during compilation time. */
 object GenCommon {
 	import scala.reflect.{api => sra};
+
+	/** Wraps a [[blackbox.Context.Type]] in order to be usable as a map key.
+	 *
+	 * Note: instances of this class exists only during compilation time.
+	 *
+	 * @param tpe a dealiased type */
+	final class TypeKey(val tpe: blackbox.Context#Type) {
+		override val toString: String = tpe.toString
+
+		override def equals(other: Any): Boolean = other match {
+			case that: TypeKey =>
+				this.toString == that.toString &&
+				tpe =:= that.tpe
+			case _ => false
+		}
+		override val hashCode: Int = this.toString.hashCode
+	}
 
 	/** Knows the mutable state of a [[jsfacile.api.builder.CoproductBuilder.ProductParsingInfoBuilder]] instance.
 	 *
@@ -144,22 +161,6 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 	}
 
 	////////////////////
-
-	def getCleanHandlerFor(typeKey: TypeKey, handlersMap: HandlersMap): Handler = {
-		handlersMap.get(typeKey) match {
-			case None =>
-				val typeKeyIndex = handlersMap.size;
-				val handler = new Handler(typeKeyIndex)
-				handlersMap.put(typeKey, handler);
-				handler
-
-			case Some(handler) =>
-				handler.clear(handlersMap);
-				handler
-		}
-	}
-
-	///////////////////
 
 	protected def getCoproductBuilderStateOf(coproductTypeKey: TypeKey): CoproductBuilderState = {
 		coproductsBuildersStates.getOrElseUpdate(coproductTypeKey, new CoproductBuilderState)

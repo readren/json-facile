@@ -2,8 +2,7 @@ package jsfacile.test
 
 import jsfacile.api._
 import jsfacile.api.builder._
-import jsfacile.jsonast.{JsArray, JsFalse, JsNull, JsNumber, JsObject, JsTrue}
-import jsfacile.read.BasicParsers
+import jsfacile.jsonast.{JsNull, JsObject}
 import jsfacile.test.SampleADT.{Distance, DistanceUnit}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -12,7 +11,6 @@ object CoproductBuilderTest {
 	trait Thing
 	case class Box(length: Distance, weight: Float) extends Thing
 	case class Ball(radius: Distance, weight: Float) extends Thing
-	case object Zero extends Thing
 	case object One extends Thing
 	case object Two extends Thing
 }
@@ -23,12 +21,11 @@ class CoproductBuilderTest extends RefSpec with Matchers {
 	object `Given a data structure with a non sealed abstract data type` {
 
 		def `the appender and parser should work`(): Unit = {
-			val things = List[Thing](Box(Distance(1.23, DistanceUnit.Meter), 32.1f), Ball(Distance(4.56, DistanceUnit.Millimeter), 3), Zero, One, Two)
+			val things = List[Thing](Box(Distance(1.23, DistanceUnit.Meter), 32.1f), Ball(Distance(4.56, DistanceUnit.Millimeter), 3), One, Two)
 
 			val thingBuilder = new CoproductBuilder[Thing]
 			thingBuilder.add[Box]
 			thingBuilder.add[Ball]
-			thingBuilder.add[Zero.type]
 			thingBuilder.add[One.type]
 
 			val twoParsingInfoBuilder = thingBuilder.productParsingInfoBuilder[Two.type]
