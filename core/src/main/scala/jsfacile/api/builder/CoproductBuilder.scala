@@ -45,23 +45,25 @@ class CoproductBuilder[C] {
 	 *  */
 	def add[P]: Unit = macro macrosEntrance.addCase[C, P];
 
-	/** $addProduct customizing the [[Appender]][P] used by the [[Appender]][C] when the value to append is and instance `P`.
-	 * The [[Parser]][P] is derived automatically but the [[Appender]][P] is determined by the provided [[ProdutAppendingInfo]].
+	/** $addProduct customizing the [[Appender]][P] used by the [[Appender]][C] when the value to append is and instance of `P`.
+	 * The [[Parser]][P] is derived automatically but the [[Appender]][P] is determined by the provided [[ProductAppendingInfo]].
 	 *
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.
 	 * */
 	def add[P](appendingInfo: ProductAppendingInfo[P]): Unit = macro macrosEntrance.addCaseWithAppender[C, P];
 
-	/** $addProduct customizing the discrimination and the [[Parser]][P] used by the [[Parser]][C] especially when the JSON fragment being parsed corresponds to `P`. .
-	 * The [[Appender]][P] is derived automatically but the [[Parser]][P] is determined by the provided [[ProductParsingInfo]].
+	/** $addProduct customizing the discrimination and the [[Parser]][P] used by the [[Parser]][C] when the JSON fragment being parsed is a representation of `P`.
+	 * The [[Appender]][P] is derived automatically but the [[Parser]][P] is determined by the provided [[ProductParsingInfo]], which must have been created by the [[ProductParsingInfoBuilder.complete]] method.
 	 *
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.
 	 * */
 	def add[P](parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithParser[C, P];
 
-	/** $addProduct customizing both, the parsing aspect of the [[Parser[C]] and the appending aspect of the [[Appender]][C]
+	/** $addProduct customizing both, the [[Appender]][P] used by the [[Appender]][C] when the value to append is and instance of `P`; and the [[Parser]][P] used by the [[Parser]][C] when the JSON fragment being parsed is a representation of `P`.
+	 * The [[Appender]][P] is determined by the provided [[ProductAppendingInfo]].
+	 * The [[Parser]][P] is determined by the provided [[ProductParsingInfo]], which must have been created by the [[ProductParsingInfoBuilder.complete]] method.
 	 *
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.

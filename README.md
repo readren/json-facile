@@ -1,7 +1,7 @@
 # json-facile
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
-* Converts between scala algebraic data types and String JSON documents directly, without any intermediate representation.
+* Converts between scala algebraic data types and JSON documents directly, without any intermediate representation.
 
 * No external dependencies.
 
@@ -15,7 +15,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 
 	The fields names, types, and encoding order is determined by, and extracted from, the concrete type's primary constructor.
 	
-	Abstract types must be sealed and have at least one concrete implementation.
+	Abstract types must have at least one concrete subtype. 
 
 * Non sealed abstract data types are supported with the help of a builder.
 
@@ -23,7 +23,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 
 * Map keys can be of any type, even when represented as a JSON object. In that case the keys are encoded in the JSON object's field names.
 
-* No discriminator field is needed to distinguish between different concrete implementations of an abstract type, unless two of those implementations have the same amount of required fields and all of them have the same names. In that case, only the ambiguous implementations require a discriminator field. This reduces the JSON documents length considerably.
+* No discriminator field is needed to distinguish between different concrete subtypes of an abstract type, unless two of those subtypes have the same amount of required fields and all of them have the same names. In that case, only the ambiguous subtypes representations require a discriminator field. This reduces the JSON documents length considerably.
 
 # Table of content
 - [json-facile](#json-facile)
@@ -182,8 +182,8 @@ val things = List[Thing](new Box(Distance(1.23, DistanceUnit.Meter), 32.1f), new
 val builder = new CoproductBuilder[Thing]
 builder.add[Box]
 builder.add[Ball]
-implicit val appender: Appender[Thing] = builder.appender
-implicit val parser: Parser[Thing] = builder.parser;
+implicit val thingAppender: Appender[Thing] = builder.appender
+implicit val thingParser: Parser[Thing] = builder.parser;
 
 val json = things.toJson
 println(json)
