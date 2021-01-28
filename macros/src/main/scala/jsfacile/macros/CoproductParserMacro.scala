@@ -30,7 +30,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 
 		val isOuterMacroInvocation = isOuterParserMacroInvocation;
 		if(isOuterMacroInvocation) {
-			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
+			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
 			Handler.parserHandlersMap.clear();
 		}
 
@@ -43,13 +43,13 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 				Handler.parserHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
-					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductBuilder`.";
+					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductTranslatorsBuilder`.";
 					coproductHandler.setFailed(errorMsg)
 					ctx.abort(ctx.enclosingPosition, errorMsg)
 				}
 
 				val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
-				val lastConsideredFieldBit = addProductsBelongingTo(initialCoproductClassSymbol, initialCoproductType, initialCoproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty, productAdditionTrees);
+				val lastConsideredFieldBit = addSubtypesOf(initialCoproductClassSymbol, initialCoproductType, initialCoproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty, productAdditionTrees);
 
 				buildParserCreationTreeOn(coproductHandler, initialCoproductType, initialCoproductClassSymbol, productAdditionTrees, lastConsideredFieldBit.shardIndex + 1)
 				coproductHandler
@@ -109,8 +109,8 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 	}
 
 
-	/** Adds to the `productsSnippetBuilder` a snippet for each product that extends the specified trait (or abstract class). */
-	private def addProductsBelongingTo(
+	/** Adds to the `productAdditionTrees` a snippet for each concrete type that extends the specified coproduct type. */
+	private def addSubtypesOf(
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
 		initialCoproductType: Type, // the coproduct type received by this macro execution
@@ -121,14 +121,14 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 	): BitSlot = {
 		var nextBitSlot = startingBitSlot;
 		for (productSymbol <- coproductClassSymbol.knownDirectSubclasses) {
-			nextBitSlot = this.addProduct(productSymbol.asClass, coproductClassSymbol, coproductType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
+			nextBitSlot = this.addSubtype(productSymbol.asClass, coproductClassSymbol, coproductType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
 		}
 		nextBitSlot
 	}
 
 
-	protected def addProduct(
-		productClassSymbol: ClassSymbol, // the class symbol of the product to add
+	protected def addSubtype(
+		subtypeClassSymbol: ClassSymbol, // the class symbol of the subtype to add
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
 		initialCoproductType: Type, // the coproduct type received by this macro execution
@@ -139,29 +139,29 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 	): BitSlot = {
 		var nextBitSlot = startingBitSlot;
 
-		this.applySubclassTypeConstructor(coproductType, productClassSymbol.toTypeConstructor) match {
+		this.applySubclassTypeConstructor(coproductType, subtypeClassSymbol.toTypeConstructor) match {
 			case Right(productType) =>
 				if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This is and edge case that occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and, therefore, not added to the products info set.
 
-					if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields nor constructor.
+					if (subtypeClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields nor constructor.
 						productAdditionTrees.addOne(
 							q"""
 state.addProduct(CpProductInfo[$coproductType](
-	${productClassSymbol.name.toString},
+	${subtypeClassSymbol.name.toString},
 	BitSet.empty(),
 	0,
 	Array.empty[CpFieldInfo],
-	(args: Seq[Any]) => ${productClassSymbol.module}
+	(args: Seq[Any]) => ${subtypeClassSymbol.module}
 ));"""
 						)
 
-					} else if (productClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
-						if (productClassSymbol.isSealed) {
-							nextBitSlot = addProductsBelongingTo(productClassSymbol, productType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
+					} else if (subtypeClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
+						if (subtypeClassSymbol.isSealed) {
+							nextBitSlot = addSubtypesOf(subtypeClassSymbol, productType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
 						} else {
-							val msg = s"$productClassSymbol should be sealed"
+							val msg = s"$subtypeClassSymbol should be sealed"
 							initialHandler.setFailed(msg);
-							ctx.abort(ctx.enclosingPosition, s"$productClassSymbol should be sealed")
+							ctx.abort(ctx.enclosingPosition, s"$subtypeClassSymbol should be sealed")
 						}
 
 					} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose constructor is its primary one, and its fields are its primary constructor parameters.
@@ -173,18 +173,18 @@ state.addProduct(CpProductInfo[$coproductType](
 								for (param <- params) yield {
 									val fieldType = param.typeSignature.dealias;
 									val oDefaultValue = None; // TODO obtain it from the scala parameter default value
-									addField(productType, productClassSymbol, param.name.toString, param.typeSignature.dealias, oDefaultValue, initialCoproductType, initialHandler, metaConsideredFields, ics);
+									addField(productType, subtypeClassSymbol, param.name.toString, param.typeSignature.dealias, oDefaultValue, initialCoproductType, initialHandler, metaConsideredFields, ics);
 
 									q"args(${ics.argIndex}).asInstanceOf[$fieldType]";
 								}
 							}
-						val ctorFunction = q"(args: Seq[Any]) => new $productClassSymbol[..${productType.typeArgs}](...$ctorArgumentsTrees);"
+						val ctorFunction = q"(args: Seq[Any]) => new $subtypeClassSymbol[..${productType.typeArgs}](...$ctorArgumentsTrees);"
 						nextBitSlot = ics.nextBitSlot;
 						productAdditionTrees.addOne(
 							q"""
 ..${ics.addFieldTreeSeqBuilder.result()}
 state.addProduct(CpProductInfo[$coproductType](
-	${productClassSymbol.name.toString},
+	${subtypeClassSymbol.name.toString},
 	new BitSet(Array(..${new ArraySeq.ofLong(ics.requiredFieldsAccum.shards)})),
 	${ics.requiredFieldsCounter},
 	state.productFields,
@@ -196,7 +196,7 @@ state.productFieldsBuilder.clear();"""
 				}
 
 			case Left(freeTypeParams) =>
-				val msg =s"""The "$productClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
+				val msg =s"""The "$subtypeClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
 				initialHandler.setFailed(msg);
 				ctx.abort(ctx.enclosingPosition, msg)
 		}
@@ -229,7 +229,7 @@ state.productFieldsBuilder.clear();"""
 		val (isRequired, defaultValue_expression) =
 			oFieldDefaultValue match {
 				case None =>
-					if (fieldSymbol.fullName == "scala.Option") {
+					if (fieldSymbol == definitions.OptionClass) {
 						(false, q"Some(None)")
 
 					} else {

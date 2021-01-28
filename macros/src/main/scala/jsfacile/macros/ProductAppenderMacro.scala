@@ -14,7 +14,7 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 		val isOuterMacroInvocation = isOuterAppenderMacroInvocation;
 		if(isOuterMacroInvocation) {
-			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
+			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
 			Handler.appenderHandlersMap.clear()
 		}
 

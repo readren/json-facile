@@ -54,14 +54,38 @@ object macrosEntrance {
 
 	//////////////////////////
 
-	def addFieldToParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], defaultValue: ctx.Expr[Option[F]]): ctx.Expr[Unit] = {
+	def addFieldToParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String]): ctx.Expr[Unit] = {
 		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, defaultValue)
+		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, None)
 	}
 
-	def completeProductParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
+	def addFieldToParsingInfoWithDefaultValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], defaultValue: ctx.Expr[F]): ctx.Expr[Unit] = {
 		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], name, ctor)
+		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, Some(defaultValue))
+	}
+
+	def completeProductParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
+		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
+		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, None)
+	}
+
+	def completeProductParsingInfoSpecifyingDiscriminatorValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(discriminatorValue: ctx.Expr[String])(ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
+		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
+		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, Some(discriminatorValue))
+	}
+
+	def addFieldToAppendingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], accessor: ctx.Expr[P => F]): ctx.Expr[Unit] = {
+		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
+		builder.addFieldToAppendingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, accessor)
+	}
+
+	def completeProductAppendingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[ProductAppendingInfo[P]] = {
+		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
+		builder.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None)
+	}
+	def completeProductAppendingInfoSpecifyingDiscriminatorValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(discriminatorValue: ctx.Expr[String]): ctx.Expr[ProductAppendingInfo[P]] = {
+		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
+		builder.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(discriminatorValue))
 	}
 
 	def addCase[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Unit] = {

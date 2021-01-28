@@ -1,23 +1,23 @@
 # json-facile
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
-* Converts between scala algebraic data types and JSON documents directly, without any intermediate representation.
+* Converts between scala algebraic data types (ADTs) and JSON documents directly, without any intermediate representation.
 
 * No external dependencies.
 
 * Type-class based conversion (no runtime reflection, no intrusion).
 
-* Automatic derivation: the conversion type-classes of custom ADTs (abstract data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
+* Automatic derivation: the conversion type-classes of custom ADTs (algebraic data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
 
 * An efficient JSON parser. Substantially faster than [spray] (around 80%), although considerably slower than [jsoniter] (around 35%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
 
-* The automatic derivation works for any concrete data type. It's not required to be a case class nor inherit `scala.Product`.
+* The automatic derivation works also for non algebraic data types if the primary constructor contains all the persistent fields. It's not required to be a case class nor inherit `scala.Product`.
 
 	The fields names, types, and encoding order is determined by, and extracted from, the concrete type's primary constructor.
 	
-	Abstract types must have at least one concrete subtype. 
+	Abstract ADTs must have at least one concrete ADT. 
 
-* Non sealed abstract data types are supported with the help of a builder.
+* Non algebraic abstract types are supported with the help of a builder.
 
 * Scala map-like collections can be represented as either JSON objects or JSON arrays of pairs.
 
@@ -33,8 +33,9 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
 		- [Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-ever-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
-		- [Use the `CoproductBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproductbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
-		- [Implement a custom parser/appender pair.](#implement-a-custom-parserappender-pair)
+		- [Use the `CoproductTranslatorBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproducttranslatorbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
+		- [Implement a parser/appender for a non algebraic concrete data type.](#implement-a-parserappender-for-a-non-algebraic-concrete-data-type)
+		- [Implement a parser/appender for a non algebraic abstract data type.](#implement-a-parserappender-for-a-non-algebraic-abstract-data-type)
 	- [Why?](#why)
 	- [More examples](#more-examples)
 	- [Edge cases](#edge-cases)
@@ -164,7 +165,7 @@ Note that the keys are JSON enconded in the JSON object's field names.
 
 The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
 
-### Use the `CoproductBuilder` to create a parser and/or appender for a non sealed data type.
+### Use the `CoproductTranslatorBuilder` to create a parser and/or appender for a non sealed data type.
 ```scala
 import jsfacile.api._
 
@@ -173,18 +174,25 @@ object DistanceUnit extends Enumeration {
 }
 case class Distance(value: Double, unit: DistanceUnit.Value)
 
-trait Thing
+trait Thing // Note that `Thing` is not sealed.
 case class Box(length: Distance, weight: Float) extends Thing
 case class Ball(radius: Distance, weight: Float) extends Thing
 
-val things = List[Thing](new Box(Distance(1.23, DistanceUnit.Meter), 32.1f), new Ball(Distance(4.56, DistanceUnit.Millimeter), 3))
-
-val builder = new CoproductBuilder[Thing]
+// create the builder for the `Thing` type.
+val builder = new CoproductTranslatorBuilder[Thing]
+// specify which are the subtypes of `Thing` that will be considered by the resulting appender/parser.
 builder.add[Box]
 builder.add[Ball]
+
+// create the appender/parser of `Thing`.
 implicit val thingAppender: Appender[Thing] = builder.appender
 implicit val thingParser: Parser[Thing] = builder.parser;
 
+// a list of `Thing` instances fort testing
+val things = List[Thing](
+	new Box(Distance(1.23, DistanceUnit.Meter), 32.1f),
+	new Ball(Distance(4.56, DistanceUnit.Millimeter), 3)
+)
 val json = things.toJson
 println(json)
 
@@ -197,21 +205,146 @@ prints
 ```
 
 
-### Implement a custom parser/appender pair.
-There is no `java.time` parsers/appenders bundled in the *json-facile* library. In my opinion the most convenient way to encode dates in JSON is domain dependent.
-So, suppouse the front end your scala service is communicating with is a single page application implemented with [angular](https://angular.io), and you don't need the `Instant` values be represented in a human readable format. Then you can encode them in a JSON number with the number of milliseconds since 1970, which is how the browsers represents it internally.
+### Implement a parser/appender for a non algebraic concrete data type.
+The automatic derivation relies on the primary constructor having all non transint fields of the data type. And that is not the case for many java standard library classes. For example `java.time.Instant`.
+
+And there is no `java.time` parsers/appenders bundled in the *json-facile* library because, in my opinion, the most convenient way to encode temporals in JSON is domain dependent.
+
+So, suppouse the front end your scala service is communicating with is a single page application, and you don't need the `Instant` values be JSON-represented in a human readable format. Then you can encode them in a JSON number with the milliseconds since 1970, which is how the browsers represents it internally.
 ```scala
+// Implement an [[Appender]] of [[Instant]] and put an instance of it in the implicit scope.
 implicit val instantAppender: Appender[Instant] =
 	(record, instant) => record.append(instant.toEpochMilli);
 
+// Implement a [[Parser]] of [[Instant]] and put an instance of it in the implicit scope.
 implicit val instantParser: Parser[Instant] =
 	Parser[Long] ^^ Instant.ofEpochMilli
 
 val instant = java.time.Instant.now()
-val json = instant.toJson
+val json = instant.toJson // this uses the `instanceAppender` 
 println(json);
-val parsedInstant = json.fromJson[Instant]
+val parsedInstant = json.fromJson[Instant] // this uses the `instantParser`
 assert(Right(instant) == parsedInstant)
+```
+
+### Implement a parser/appender for a non algebraic abstract data type.
+The automatic derivation of translators (`Appender`/`Parser`) works only for algebraic data types. And most of the types of the java library are not algebraic. For instance, the `java.time.temporal.Temporal` and all its subclasses.
+If we need to translate instances of them, we have to build the translators by hand.
+An alternative would be to use a scala implementation of the `java.time` library like [scala-java-time](https://cquiroz.github.io/scala-java-time/), whose data types are algebraic.
+But for an academic purpose, let's create translators by hand.
+
+Suppose our domain needs to translate instances of the abstract type `java.time.temporal.Temporal`. And suppose also, that our domain only uses two subclases of it: `Instant` and `Year`.
+Let's create the translators for `Temporal` with the help of a `CoproductTranslatorsBuilder`.
+```scala
+val temporalTranslatorsBuilder = new CoproductTranslatorsBuilder[Temporal]
+```
+To build the translators of an abstract type the builder needs to know which concrete subtypes of said abstract type it has to consider, how to discriminate them, and how to translate each of them.
+Given our domain uses only the `Instant` and `Year` subtypes of `java.time.temporal.Temporal`, it is sufficient to inform the builder about them only.
+Let's start with the `Instant` type.
+The next commented line would do all the job if the primary constructor of `Instant` included all the persistent fields.
+```scala
+// builder.add[Instant];
+```
+Because in that case all the information the builder needs about `Instant` would be obtained automatically.
+But the primary constructor of the `java.time.Instant` type is empty. So we have to supply the builder with the information it needs. The `add` method is overloaded with versions that receive said information.
+
+Note that the `add` method has separated parameters for the information about the appending and the parsing. This was a design decision based on the fact that in most use cases only one is needed.
+
+Let's construct the argument for the `parsingInfo` parameter first:
+The type of the `parsingInfo` parameter is `ProductParsingInfo` whose instances are created by the `CoproductTranslatorsBuilder.ProductParsingInfoBuilder`.
+
+To build a `ProductParsingInfo` instance, the `ProductParsingInfoBuilder` needs you to: (1) inform it about each persistent fields of the product (`Instant` in this case), which is done with the `add` method; and (2) inform it on how to construct an instance of the product ('Instant' in this case), which is done with the `complete` method.
+```scala
+val instantParsingInfo = {
+	val parsingInfoBuilder = temporalTranslatorsBuilder.productParsingInfoBuilder[Instant];
+	parsingInfoBuilder.add[Long]("seconds")
+	parsingInfoBuilder.add[Int]("nanos")
+	parsingInfoBuilder.complete(args => Instant.ofEpochSecond(args(0).asInstanceOf[Long], args(1).asInstanceOf[Int]))
+}
+```
+It's the turn of the appending info now:
+The `appendingInfo` parameter has a rarity in that the expression of its argument must be either: (1) a reference to a `ProductAppendingInfo` instance created by a `ProductAppendingInfoBuilder`, or (2) a literal call to the `jsfacile.api.builder.ProductAppendingInfo.apply` method.
+
+The first alternative is easier to use. The second is more powerful and may be slightly faster, but is open to mistakes.
+
+Let's show the usage of the first alternative here, for the `Instant` product. The usage of the second alternative will be shown later, for the `Year` product.
+
+The first alternative requires the use of a `ProductAppendingInfoBuilder` to build the `ProductAppendingInfo` instance to use as argument for the `appendingInfo` parameter. This is similar to what we did for the `parsingInfo` parameter.
+
+To build a `ProductAppendingInfo` instance, the `ProductAppendingInfoBuilder` needs you to inform it about each persistent field of the product (`Instant` in this case), which is done with the `add` method.
+```scala
+val instantAppendingInfo = {
+	val appendingInfoBuilder = temporalTranslatorsBuilder.productAppendingInfoBuilder[Instant];
+	appendingInfoBuilder.add[Long]("seconds", _.getEpochSecond)
+	appendingInfoBuilder.add[Int]("nanos", _.getNano)
+	appendingInfoBuilder.complete;
+}
+```
+Having all the information required by the `CoproductTranslatorsBuilder` about the `java.time.Instant` type, let's supply it.
+```scala
+temporalTranslatorsBuilder.add[Instant](
+	instantAppendingInfo, // ProductAppendingInfo[Instant](Appender.convert[Map[String, Long], Instant](i => Map("instant" -> i.toEpochMilli)))("instant"),
+	instantParsingInfo
+)
+```
+It's the turn of the `Year`product now.
+The parsing info construction has no difference with the one for the `Instant` product, except that the discriminator field value is specified for clarity.
+```scala
+val yearParsingInfo = {
+	val parsingInfoBuilder = temporalTranslatorsBuilder.productParsingInfoBuilder[Year];
+	parsingInfoBuilder.add[Int]("year")
+	parsingInfoBuilder.complete("Year")(args => Year.of(args(0).asInstanceOf[Int]))
+}
+```
+The argument of the `appendingInfo` parameter for the `Year` product could be an instance constructed using the `ProductAppendingInfoBuilder` as we did with the `Instant` product. But, as promised above, here we are showing the second alternative of the expression form accepted by the `appendingInfo` parameter: a literal call to `jsfacile.api.builder.ProductAppendingInfo.apply` method.
+
+Said `apply` method takes an `Appender[Year]` as argument. That appender will be used by the resulting `Appender[Temporal]` when its `append` method receive an instance of `Year`. So, it must include a discriminator field if it is required by the parser on the other side, or if the field names are ambiguos (equal to the names of all the required fields of other subtype of `Temporal`).
+
+Given the names of the fields we chose for `Instant` and `Year` are different, there is no ambiguity, and the discriminator field is necessary only if the resulting JSON document will be read by a JSON library that requires them.
+
+Assuming that knowledge is centralized in an implicit `DiscriminatorDecider`, let's ask it.
+```scala
+val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = implicitly[DiscriminatorDecider[Temporal]]
+```
+Having all we need to implement the `Appender[Year]`, let's do it.
+```scala
+val yearAppender = Appender[Year] { (record, year) =>
+	val yearField = s""" "year":${year.getValue}"""
+	if(temporalDiscriminatorDecider.required) {
+		record.append(
+			s"""
+				|"{${temporalDiscriminatorDecider.fieldName}":"Year",
+				|$yearField
+				|""".stripMargin)
+	} else {
+		record.append(s"""{$yearField}""")
+	}
+}
+```
+Note that the above appender is particular for the resulting `Appender[Temporal]`.
+
+Having all the information about the `Year` product required by the `CoproductTranslatorsBuilder`, lets supply it.
+```scala
+temporalTranslatorsBuilder.add[Year](
+	ProductAppendingInfo[Year](yearAppender)("year"),
+	yearParsingInfo
+)
+```
+The information about the two subtypes of `Temporal` used in our domain were supplied to the builder. So, it is prepared to build the `Temporal` translators.
+```scala
+implicit val temporalAppender: Appender[Temporal] = temporalTranslatorsBuilder.appender;
+implicit val temporalParser: Parser[Temporal] = temporalTranslatorsBuilder.parser;
+
+val set = Set[Temporal](Instant.now, Year.now)
+
+val json = set.toJson
+println(json)
+val result = json.fromJson[Set[Temporal]]
+assert(result == Right(set))
+```
+prints something like
+```json
+[{"seconds":1611864986,"nanos":882000000},{ "year":2021}]
 ```
 
 ## Why?

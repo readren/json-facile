@@ -223,7 +223,7 @@ class CoproductParser[C](
 							cursor.miss(s"There is no concrete subclass of $fullName such that all its required fields are present in the JSON object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}. Note that only the fields that are defined in at least one of said products are considered.")
 							ignored[C]
 						} else if (isAmbiguous) { // if the discriminator fields is absent and more than product has all its required fields present here
-							cursor.fail(s"""Ambiguous products: more than one concrete subclass of "$fullName" has the fields present in the json object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}; and the viable implementations are: ${wp.managers.collect { case m if m.productInfo.requiredFieldsSet.isSubsetOf(wp.foundFields) => m.name }.mkString(", ")}.""");
+							cursor.fail(s"""Ambiguous products: more than one concrete subclass of "$fullName" has the fields present in the json object being parsed. The present fields are: ${definedFieldsNamesIn(wp.consideredFieldsState)}; and the viable subclasses are: ${wp.managers.collect { case m if m.productInfo.requiredFieldsSet.isSubsetOf(wp.foundFields) => m.name }.mkString(", ")}.""");
 							ignored[C]
 						} else if (have) { // if the discriminator field is present or only one product has all its required fields present here
 							val chosenProductFields = chosenManager.productInfo.fields;

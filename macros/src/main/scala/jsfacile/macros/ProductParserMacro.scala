@@ -18,7 +18,7 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 
 		val isOuterMacroInvocation = isOuterParserMacroInvocation;
 		if(isOuterMacroInvocation) {
-			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
+			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
 			Handler.parserHandlersMap.clear();
 		}
 
@@ -41,7 +41,7 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 							val paramType = param.typeSignature.dealias
 							val paramTypeSymbol = paramType.typeSymbol;
 							val oDefaultValue =
-								if (paramTypeSymbol.fullName == "scala.Option") {
+								if (paramTypeSymbol == definitions.OptionClass) {
 									q"Some(None)"
 								} else {
 									q"None"

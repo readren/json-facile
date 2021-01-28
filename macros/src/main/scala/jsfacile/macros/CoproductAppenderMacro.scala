@@ -19,10 +19,10 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		def requiredFieldNames: Set[String];
 	}
 	/** A [[ProductInfo]] obtained from the primary constructor of the subtype. */
-	protected case class DerivedProductInfo(simpleName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: List[Tree]) extends ProductInfo {
+	protected case class DerivedProductInfo(discriminatorValue: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: Iterable[Tree]) extends ProductInfo {
 		var isAmbiguous = false;
 	}
-	/** A [[ProductInfo]] specified by the library user by means of one of the [[jsfacile.api.builder.CoproductBuilder.add*]] methods that customize the parsing. */
+	/** A [[ProductInfo]] specified by the library user by means of one of the [[jsfacile.api.builder.CoproductTranslatorsBuilder.add*]] methods that customize the parsing. */
 	protected case class CustomProductInfo(tpe: Type, requiredFieldNames: Set[String], appenderTree: Tree) extends ProductInfo {
 		var isAmbiguous = false;
 	}
@@ -33,7 +33,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 
 		val isOuterMacroInvocation = isOuterAppenderMacroInvocation;
 		if(isOuterMacroInvocation) {
-			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
+			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
 			Handler.appenderHandlersMap.clear()
 		}
 
@@ -47,13 +47,13 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 				Handler.appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
-					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductBuilder`.";
+					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductTranslatorsBuilder`.";
 					coproductHandler.setFailed(errorMsg)
 					ctx.abort(ctx.enclosingPosition, errorMsg)
 				}
 
 				val productsInfoCollector: mutable.ArrayBuffer[ProductInfo] = mutable.ArrayBuffer.empty;
-				addProductsBelongingTo(initialCoproductClassSymbol, initialCoproductType, coproductHandler, productsInfoCollector);
+				addSubtypesOf(initialCoproductClassSymbol, initialCoproductType, coproductHandler, productsInfoCollector);
 
 				// Get the discriminator field name and requirement from the coproduct annotation, or the default values if it isn't annotated.
 				val discriminatorOverride = discriminatorField.parse(ctx)(initialCoproductClassSymbol);
@@ -107,7 +107,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 						q"""productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, ${customProductInfo.appenderTree}));"""
 
 					case derivedProductInfo: DerivedProductInfo =>
-						val discriminatorFieldValue = s"""":"${derivedProductInfo.simpleName}${if (derivedProductInfo.appendField_codeLines.isEmpty) "\"" else "\","}""";
+						val discriminatorFieldValue = s"""":"${derivedProductInfo.discriminatorValue}${if (derivedProductInfo.appendField_codeLines.isEmpty) "\"" else "\","}""";
 
 						val appendDiscriminator_codeLine = discriminatorOverride match {
 							case Some(discriminatorAnnotation) =>
@@ -185,46 +185,46 @@ import _root_.jsfacile.macros.LazyAppender;
 	}
 
 
-	private def addProductsBelongingTo(
+	private def addSubtypesOf(
 		coproductClassSymbol: ClassSymbol,
 		coproductType: Type,
 		initialHandler: Handler,
 		productsInfoCollector: mutable.ArrayBuffer[ProductInfo]
 	): Unit = {
 		for (productSymbol <- coproductClassSymbol.knownDirectSubclasses.toIndexedSeq)
-			this.addProduct(productSymbol.asClass, coproductClassSymbol, coproductType, initialHandler, productsInfoCollector)
+			this.addSubtype(productSymbol.asClass, coproductClassSymbol, coproductType, initialHandler, productsInfoCollector)
 	}
 
-	protected def addProduct(
-		productClassSymbol: ClassSymbol,
+	protected def addSubtype(
+		subtypeClassSymbol: ClassSymbol,
 		coproductClassSymbol: ClassSymbol,
 		coproductType: Type,
 		initialHandler: Handler, // may be mutated
 		productsInfoCollector: mutable.ArrayBuffer[ProductInfo]
 	): Unit = {
-		this.applySubclassTypeConstructor(coproductType, productClassSymbol.toTypeConstructor) match {
-			case Right(productType) =>
-				if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
+		this.applySubclassTypeConstructor(coproductType, subtypeClassSymbol.toTypeConstructor) match {
+			case Right(subtypeType) =>
+				if (subtypeType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and therefore not considered by the ambiguity detector below.
 
-					if (productClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
+					if (subtypeClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields
 						productsInfoCollector.addOne(DerivedProductInfo(
-							productClassSymbol.name.toString,
-							productClassSymbol.toType,
+							subtypeClassSymbol.name.toString,
+							subtypeClassSymbol.toType,
 							Set.empty,
 							Nil
 						))
 
-					} else if (productClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
-						if (productClassSymbol.isSealed) {
-							addProductsBelongingTo(productClassSymbol, productType, initialHandler, productsInfoCollector)
+					} else if (subtypeClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addSubtypesOf` recursively to add all its concrete subtypes.
+						if (subtypeClassSymbol.isSealed) {
+							addSubtypesOf(subtypeClassSymbol, subtypeType, initialHandler, productsInfoCollector)
 						} else {
-							val msg = s"$productClassSymbol should be sealed";
+							val msg = s"$subtypeClassSymbol should be sealed";
 							initialHandler.setFailed(msg);
 							ctx.abort(ctx.enclosingPosition, msg)
 						}
 
 					} else { // if the subclass is a concrete non singleton class (a scala class), then add a product whose fields are the parameters of said subclass primary constructor.
-						val productCtorParamsLists = productType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
+						val productCtorParamsLists = subtypeType.typeSymbol.asClass.primaryConstructor.typeSignatureIn(subtypeType).dealias.paramLists;
 
 						val requiredFieldNamesBuilder = Set.newBuilder[String];
 						var isFirstField = true;
@@ -243,7 +243,7 @@ import _root_.jsfacile.macros.LazyAppender;
 
 								val paramType = param.typeSignature.dealias;
 								val paramTypeSymbol = paramType.typeSymbol;
-								if (paramTypeSymbol.fullName != "scala.Option") {
+								if (paramTypeSymbol != definitions.OptionClass) {
 									requiredFieldNamesBuilder.addOne(paramNameStr)
 								}
 
@@ -274,8 +274,8 @@ import _root_.jsfacile.macros.LazyAppender;
 							}
 
 						productsInfoCollector.addOne(DerivedProductInfo(
-							productClassSymbol.name.toString,
-							productType,
+							subtypeClassSymbol.name.toString,
+							subtypeType,
 							requiredFieldNamesBuilder.result(),
 							appendField_codeLines
 						))
@@ -284,7 +284,7 @@ import _root_.jsfacile.macros.LazyAppender;
 				}
 
 			case Left(freeTypeParams) =>
-				val msg = s"""The "$productClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""";
+				val msg = s"""The "$subtypeClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}.""";
 				initialHandler.setFailed(msg)
 				ctx.abort(ctx.enclosingPosition, msg)
 		}

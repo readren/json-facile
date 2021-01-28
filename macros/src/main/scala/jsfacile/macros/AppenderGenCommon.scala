@@ -51,7 +51,7 @@ appendersBuffer(${initialHandler.typeIndex}).get[$initialType]""";
 	def isOuterAppenderMacroInvocation: Boolean = {
 		this.isOuterMacroInvocation { methodName =>
 			methodName == "jsfacile.write.PriorityLowAppenders.jaCustom" ||
-			methodName == "jsfacile.api.CoproductBuilder.appender"
+			methodName == "jsfacile.api.CoproductTranslatorsBuilder.appender"
 		}
 	}
 }

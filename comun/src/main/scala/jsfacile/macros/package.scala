@@ -1,5 +1,6 @@
 package jsfacile
 
+import jsfacile.api.builder.{ProductParsingInfo, ProductAppendingInfo}
 import jsfacile.read.{Cursor, Parser}
 import jsfacile.write.{Appender, Record}
 
@@ -24,4 +25,6 @@ package object macros {
 		def append(record: Record, a: Any): Record = this.instance.append(record, a);
 	}
 
+	class ProductParsingInfoImpl[P] extends ProductParsingInfo[P]
+	class ProductAppendingInfoImpl[P] extends ProductAppendingInfo[P]
 }

@@ -1,5 +1,5 @@
 ThisBuild / organization := "org.readren.json-facile"
-ThisBuild / version      := "0.1.0-SNAPSHOT"
+ThisBuild / version      := "0.2.0-SNAPSHOT"
 ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / autoAPIMappings := true
 // ThisBuild / apiURL := Some(url(s"file:${(baseDirectory).value.getAbsolutePath}/target/scala-${scalaVersion.value.take(4)}/api"))

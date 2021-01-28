@@ -5,7 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.api.builder.{ProductAppendingInfo, ProductParsingInfo}
-import jsfacile.macros.GenCommon.{CoproductBuilderState, ProductAppendingInfoDigested, ProductCustomization, ProductParsingInfoDigested, TypeKey, coproductsBuildersStates}
+import jsfacile.macros.GenCommon.{CoproductTranslatorsBuilderState, ProductAppendingInfoDigested_handmade, ProductAppendingInfoDigested_fromBuilder, ProductCustomization, ProductParsingInfoDigested, TypeKey, coproductsBuildersStates}
 
 /**Contains classes whose instances are shared between macro executions.
  * Some of said instances contain information that depends on the context of the macro that created them. It is responsibility of said macros to limit themselves on which of said instances are they able to access to comply with the encapsulation established by the scala language access scope.
@@ -25,55 +25,80 @@ object GenCommon {
 		override def equals(other: Any): Boolean = other match {
 			case that: TypeKey =>
 				this.toString == that.toString &&
-				tpe =:= that.tpe
+				this.tpe =:= that.tpe
 			case _ => false
 		}
 		override val hashCode: Int = this.toString.hashCode
 	}
 
-	/** Knows the mutable state of a [[jsfacile.api.builder.CoproductBuilder.ProductParsingInfoBuilder]] instance.
+
+	class FieldAppendingInfo(val name: String, val tpe: sra.Types#Type, val accessor: sra.Trees#Tree)
+
+	/** Knows the mutable state of a [[jsfacile.api.builder.CoproductTranslatorsBuilder.ProductAppendingInfoBuilder]] instance.
 	 *
 	 * $compileTimeOnly */
-	class ProductParsingInfoBuilderState[P] {
-		val fields: mutable.ArrayBuffer[FieldParsingInfo] = mutable.ArrayBuffer.empty;
-		var name: Option[String] = None;
-		var ctorExpr: Option[sra.Exprs#Expr[Seq[Any] => P]] = None;
+	class ProductAppendingInfoBuilderState {
+		val fields: mutable.ArrayBuffer[FieldAppendingInfo] = mutable.ArrayBuffer.empty;
+		var discriminatorValue: Option[String] = None;
 	}
 
 	/** Knows the information that the [[ParserBuilderMacro.sealParser]] macro method needs about a field of one of the products added with customized [[jsfacile.read.Parser]] derivation.
 	 *
 	 * $compileTimeOnly */
 	class FieldParsingInfo(val name: String, val tpe: sra.Types#Type, val oDefaultValue: Option[sra.Trees#Tree])
+
+	/** Knows the mutable state of a [[jsfacile.api.builder.CoproductTranslatorsBuilder.ProductParsingInfoBuilder]] instance.
+	 *
+	 * $compileTimeOnly */
+	class ProductParsingInfoBuilderState[P] {
+		val fields: mutable.ArrayBuffer[FieldParsingInfo] = mutable.ArrayBuffer.empty;
+		var discriminatorValue: Option[String] = None;
+		var ctorExpr: Option[sra.Exprs#Expr[Seq[Any] => P]] = None;
+	}
+
+
 	/**Digested version of [[ProductParsingInfo]].
 	 * Knows the information that a [[ParserBuilderMacro.sealParser]] macro method needs about one of the products added with customized [[jsfacile.read.Parser]] derivation.
 	 *
 	 * $compileTimeOnly */
-	class ProductParsingInfoDigested(val name: String, val tpe: sra.Types#Type, val fieldsInfo: Iterable[FieldParsingInfo], val ctor: sra.Trees#Tree);
+	class ProductParsingInfoDigested(val discriminatorValue: String, val tpe: sra.Types#Type, val fieldsInfo: Iterable[FieldParsingInfo], val ctor: sra.Trees#Tree);
 
-	/**Digested version of [[ProductAppendingInfo]].
+	/**Digested version of the argument assigned to the `appendingInfo` parameter of the `jsfacile.builder.CoproductTranslatorsBuilder.add*]] method.
 	 * Knows the information that a [[AppenderBuilderMacro.sealAppender]] macro method needs about one of the products added with customized [[jsfacile.write.Appender]] derivation.
 	 *
 	 * $compileTimeOnly */
-	class ProductAppendingInfoDigested(val tpe: sra.Types#Type, val requiredFieldNames: Set[String], val appenderTree: sra.Trees#Tree);
+	sealed trait ProductAppendingInfoDigested
+	/**Digested version of the argument assigned to the `appendingInfo` parameter of the `jsfacile.builder.CoproductTranslatorsBuilder.add*]] method.
+	 * Knows the information that a [[AppenderBuilderMacro.sealAppender]] macro method needs about one of the products added with customized [[jsfacile.write.Appender]] derivation.
+	 *
+	 * $compileTimeOnly */
+	class ProductAppendingInfoDigested_handmade(val requiredFieldNames: Set[String], val appenderTree: sra.Trees#Tree) extends ProductAppendingInfoDigested;
+
+	/**Digested version of the result of a call to [[jsfacile.builder.CoproductTranslatorsBuilder.ProductParsingInfoBuilder.complete]].
+	 * Knows the information that a [[AppenderBuilderMacro.sealAppender]] macro method needs about one of the products added with customized [[jsfacile.write.Appender]] derivation.
+	 *
+	 * $compileTimeOnly */
+	class ProductAppendingInfoDigested_fromBuilder(val discriminatorValue: String, val fields: Iterable[FieldAppendingInfo]) extends ProductAppendingInfoDigested;
 
 	/** Knows the information that both, the [[ParserBuilderMacro.sealParser]] and the [[AppenderBuilderMacro.sealAppender]] macro methods, need about one of the added products.
 	 *
 	 * $compileTimeOnly */
 	class ProductCustomization(val oAppendingInfo: Option[ProductAppendingInfoDigested], val oParsingInfo: Option[ProductParsingInfoDigested]);
 
-	/** Intended to know the mutable state of a single instance of [[jsfacile.api.builder.CoproductBuilder]]. But actually it knows the merged state of all the instances of [[jsfacile.api.builder.CoproductBuilder]] of the same type. So, only one instance of [[jsfacile.api.builder.CoproductBuilder]][T] should exist simultaneously for each type `T`.
+	/** Intended to know the mutable state of a single instance of [[jsfacile.api.builder.CoproductTranslatorsBuilder]]. But actually it knows the merged state of all the instances of [[jsfacile.api.builder.CoproductTranslatorsBuilder]] of the same type. So, only one instance of [[jsfacile.api.builder.CoproductTranslatorsBuilder]][T] should exist simultaneously for each type `T`.
 	 *
 	 * $compileTimeOnly */
-	class CoproductBuilderState {
+	class CoproductTranslatorsBuilderState {
+		val appendingInfoBuilderStatePerProduct: mutable.Map[sra.Types#Type, ProductAppendingInfoBuilderState] = mutable.Map.empty
 		val parsingInfoBuilderStatePerProduct: mutable.Map[sra.Types#Type, ProductParsingInfoBuilderState[_]] = mutable.Map.empty;
 		val productsCollector: mutable.Map[sra.Types#Type, ProductCustomization] = mutable.Map.empty;
 	}
 
-	/** Knows all the [[CoproductBuilderState]] instances.
-	 * CAUTION: Note that the [[CoproductBuilderState]] instances are not indexed by the identity of the [[jsfacile.api.builder.CoproductBuilder]] instances as it should be, but by the type of the [[jsfacile.api.builder.CoproductBuilder]] instead. Therefore, the state of all the instances of the same type is inconveniently merged. To avoid that, only one instance of [[jsfacile.api.builder.CoproductBuilder]][T] should exist for each type `T`. This limitation is not annoying because usually one instance is needed.
+	/** Knows all the [[CoproductTranslatorsBuilderState]] instances.
+	 * CAUTION: Note that the [[CoproductTranslatorsBuilderState]] instances are not indexed by the identity of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] instances as it should be, but by the type of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] instead. Therefore, the state of all the instances of the same type is inconveniently merged. To avoid that, only one instance of [[jsfacile.api.builder.CoproductTranslatorsBuilder]][T] should exist for each type `T`. This limitation is not annoying because usually one instance is needed.
 	 *
 	 * This variable is used during compilation time only. */
-	val coproductsBuildersStates: mutable.Map[TypeKey, CoproductBuilderState] = mutable.Map.empty;
+	val coproductsBuildersStates: mutable.Map[TypeKey, CoproductTranslatorsBuilderState] = mutable.Map.empty;
 }
 
 /** Contains the macro methods that are common to both [[jsfacile.read.Parser]] and [[jsfacile.write.Appender]] derivation.
@@ -95,45 +120,58 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 		getClassSymbol(coproductType);
 		getClassSymbol(productType);
 
+		val coproductTypeKey = new TypeKey(coproductType);
+		val coproductBuilderState = getCoproductTranslatorsBuilderStateOf(coproductTypeKey);
+
 		val oAppendingInfoDigested =
 			for (appendingInfo <- oAppendingInfo) yield {
-				appendingInfo.tree match {
-					case q"""$_.ProductAppendingInfo.apply[$_]($appenderTree)(..${requiredFieldsTrees})""" =>
-						val requiredFields = for {
-							fieldTree <- requiredFieldsTrees.asInstanceOf[List[Tree]]
-						} yield fieldTree match {
-							case Literal(Constant(fieldName: String)) => fieldName
-							case _ => ctx.abort(ctx.enclosingPosition, s"The `requiredFieldNames` parameter of `ProductAppendingInfo` must be specified literally (literal strings separated by comas). Expression are not supported");
-						}
-						new ProductAppendingInfoDigested(productType, requiredFields.toSet, appenderTree)
+				coproductBuilderState.appendingInfoBuilderStatePerProduct.get(productType) match {
+					case Some(productAppendingInfoBuilderState) =>
+						productAppendingInfoBuilderState.discriminatorValue match {
+							case Some(discriminatorValue) =>
+								new ProductAppendingInfoDigested_fromBuilder(discriminatorValue, productAppendingInfoBuilderState.fields)
 
-					case _ => ctx.abort(ctx.enclosingPosition, s"""The `appendingInfo` parameter must be specified literally. Its form must match this template: `ProductAppendingInfo[$productType](<appender_expression>)("<field_1_Name>","<field_2_name>",..,"<field_N_name>")`.""");
+							case None =>
+								ctx.abort(ctx.enclosingPosition, "The received `appendingInfo` was not completed. The `ProductAppendingInfoBuilder.complete` method should have been called earlier.");
+						}
+
+					case None =>
+						appendingInfo.tree match {
+							case q"""$_.ProductAppendingInfo.apply[$_]($appenderTree)(..${requiredFieldsTrees})""" =>
+								val requiredFields = for {
+									fieldTree <- requiredFieldsTrees.asInstanceOf[List[Tree]]
+								} yield fieldTree match {
+									case Literal(Constant(fieldName: String)) => fieldName
+									case _ => ctx.abort(ctx.enclosingPosition, s"The `requiredFieldNames` parameter of `ProductAppendingInfo` must be specified literally (literal strings separated by comas). Expression are not supported");
+								}
+								new ProductAppendingInfoDigested_handmade(requiredFields.toSet, appenderTree)
+
+							case _ => ctx.abort(ctx.enclosingPosition, s"""The argument assigned to the `appendingInfo` parameter must be either: an instance of `ProductAppendingInfo[P]` created by the `ProductAppendingInfoBuilder.complete` method, or a literal expression with this form: `ProductAppendingInfo[$productType](<appender_expression>)("<field_1_Name>","<field_2_name>",..,"<field_N_name>")`.""");
+						}
 				}
 			};
-
-		val coproductTypeKey = new TypeKey(coproductType);
-		val coproductBuilderState = getCoproductBuilderStateOf(coproductTypeKey);
 
 		val oParsingInfoDigested: Option[ProductParsingInfoDigested] =
 			for (parsingInfo <- oParsingInfo) yield {
 				coproductBuilderState.parsingInfoBuilderStatePerProduct.get(productType) match {
 					case Some(productParsingInfoBuilderState) =>
-						productParsingInfoBuilderState.name match {
-							case Some(name) =>
-								new ProductParsingInfoDigested(name, productType, productParsingInfoBuilderState.fields, productParsingInfoBuilderState.ctorExpr.get.tree.asInstanceOf[Tree])
+						productParsingInfoBuilderState.discriminatorValue match {
+							case Some(discriminatorValue) =>
+								new ProductParsingInfoDigested(discriminatorValue, productType, productParsingInfoBuilderState.fields, productParsingInfoBuilderState.ctorExpr.get.tree.asInstanceOf[Tree])
 
 							case None =>
-								ctx.abort(ctx.enclosingPosition, "The received `parsingInfo` was not completed. The `ProductParsingInfoBuilder.complete` method must be called before, and it must.");
+								ctx.abort(ctx.enclosingPosition, "The received `parsingInfo` was not completed. The `ProductParsingInfoBuilder.complete` method should have benn called earlier.");
 						}
 
 					case None =>
-						ctx.abort(ctx.enclosingPosition, "The `parsingInfo` argument was not created by a `ProductParsingInfoBuilder.complete` method, and it must.");
+						ctx.abort(ctx.enclosingPosition, "The `ProductParsingInfo` received in the `parsingInfo` argument was not created by a `ProductParsingInfoBuilder.complete` method, and it must.");
 				}
 			}
 
 		if (coproductBuilderState.productsCollector.put(productType, new ProductCustomization(oAppendingInfoDigested, oParsingInfoDigested)).isDefined) {
-			ctx.warning(ctx.enclosingPosition, s"The type `$productType` was already added. The previous configuration is overriding this one.")
+			ctx.warning(ctx.enclosingPosition, s"The type `$productType` was already added to this coproduct builder. The previous information is replaced by this one.")
 		}
+
 		ctx.Expr[Unit](q"()");
 	}
 
@@ -162,8 +200,8 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 
 	////////////////////
 
-	protected def getCoproductBuilderStateOf(coproductTypeKey: TypeKey): CoproductBuilderState = {
-		coproductsBuildersStates.getOrElseUpdate(coproductTypeKey, new CoproductBuilderState)
+	protected def getCoproductTranslatorsBuilderStateOf(coproductTypeKey: TypeKey): CoproductTranslatorsBuilderState = {
+		coproductsBuildersStates.getOrElseUpdate(coproductTypeKey, new CoproductTranslatorsBuilderState)
 	}
 
 	/////////////////////

@@ -22,7 +22,7 @@ package object api {
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
 	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
 
-	type MapFormatDecider[K, V, MC[_,_]] = jsfacile.write.MapFormatDecider[K, V, MC];
+	type MapFormatDecider[K, V, MC[_, _]] = jsfacile.write.MapFormatDecider[K, V, MC];
 
 	///////////////////
 	//// Summoners ////
@@ -49,6 +49,7 @@ package object api {
 	/** Adds the [[fromJson]] method to String */
 	implicit class FromJsonConvertible(val jsonDoc: String) extends AnyVal {
 		/** Tries to create an instance of the specified type with the value represented by this [[String]] in JSON format.
+		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
 			val cursor = new CursorStr(jsonDoc);
@@ -62,7 +63,7 @@ package object api {
 				Left(ParseFailure(jsonDoc, cursor.pos, cursor.failureCause))
 			} else {
 				val missCause =
-					if(cursor.missCause!=null) cursor.missCause
+					if (cursor.missCause != null) cursor.missCause
 					else "The json representation is not compatible with the expected type"
 				Left(ParseMiss(jsonDoc, cursor.pos, missCause));
 			}
@@ -77,7 +78,7 @@ package object api {
 			val sb = new StringBuilder(jsonDoc);
 			sb.append('\n')
 			var count = pos;
-			while(count>0) {
+			while (count > 0) {
 				sb.append(' ')
 				count -= 1;
 			}

@@ -58,7 +58,7 @@ parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 	def isOuterParserMacroInvocation: Boolean = {
 		this.isOuterMacroInvocation { methodName =>
 			methodName == "jsfacile.read.PriorityLowParsers.jpCustom" ||
-			methodName == "jsfacile.api.CoproductBuilder.parser"
+			methodName == "jsfacile.api.CoproductTranslatorsBuilder.parser"
 		}
 	}
 }

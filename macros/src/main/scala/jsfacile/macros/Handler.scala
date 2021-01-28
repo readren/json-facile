@@ -47,17 +47,18 @@ class Handler(val typeIndex: TypeIndex) {
 		this.dependencies.contains(typeIndex);
 	}
 
-	def clear(handlersMap: HandlersMap): Unit = {
-		creationTreeOrErrorMsg = None;
-		isCapturingDependencies = true;
-		this.dependencies.clear();
-		this.dependencies.add(typeIndex);
-		this.dependants.clear();
-		// delete this handler from the set of dependants of other handlers
-		for ((_, aHandler) <- handlersMap) {
-			aHandler.dependants.remove(this)
-		}
-	}
+	// TODO analyse if this method is still needed.
+//	def clear(handlersMap: HandlersMap): Unit = {
+//		creationTreeOrErrorMsg = None;
+//		isCapturingDependencies = true;
+//		this.dependencies.clear();
+//		this.dependencies.add(typeIndex);
+//		this.dependants.clear();
+//		// delete this handler from the set of dependants of other handlers
+//		for ((_, aHandler) <- handlersMap) {
+//			aHandler.dependants.remove(this)
+//		}
+//	}
 
 
 	override def equals(other: Any): Boolean = other match {
@@ -91,7 +92,7 @@ object Handler {
 
 	/////////
 
-	def getCleanHandlerFor(typeKey: TypeKey, handlersMap: HandlersMap): Handler = {
+	def getHandlerFor(typeKey: TypeKey, handlersMap: HandlersMap): Handler = {
 		handlersMap.get(typeKey) match {
 			case None =>
 				val typeKeyIndex = handlersMap.size;
@@ -100,7 +101,7 @@ object Handler {
 				handler
 
 			case Some(handler) =>
-				handler.clear(handlersMap);
+//				handler.clear(handlersMap); // TODO analyse if this line is still needed.
 				handler
 		}
 	}
