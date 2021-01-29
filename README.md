@@ -31,9 +31,9 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 	- [Usage](#usage)
 		- [Convert an ADT (algebraic data type) instance to JSON representation.](#convert-an-adt-algebraic-data-type-instance-to-json-representation)
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
-		- [Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-ever-or-only-when-its-necessary)
+		- [Choose the name of the discriminator field and if it must be appended always or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-always-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
-		- [Use the `CoproductTranslatorBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproducttranslatorbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
+		- [Use the `CoproductTranslatorsBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproducttranslatorsbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
 		- [Implement a parser/appender for a non algebraic concrete data type.](#implement-a-parserappender-for-a-non-algebraic-concrete-data-type)
 		- [Implement a parser/appender for a non algebraic abstract data type.](#implement-a-parserappender-for-a-non-algebraic-abstract-data-type)
 	- [Why?](#why)
@@ -79,7 +79,7 @@ println(foosParsed); // out: Right(List(Bar(Vector(one, two)), Qux(3,Some(12.3))
 
 assert(Right(foos) == foosParsed) // OK
 ```
-### Choose the name of the discriminator field and if it must be appended ever or only when it's necessary.
+### Choose the name of the discriminator field and if it must be appended always or only when it's necessary.
 
 By default the discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`). 
 ```scala
@@ -165,7 +165,7 @@ Note that the keys are JSON enconded in the JSON object's field names.
 
 The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
 
-### Use the `CoproductTranslatorBuilder` to create a parser and/or appender for a non sealed data type.
+### Use the `CoproductTranslatorsBuilder` to create a parser and/or appender for a non sealed data type.
 ```scala
 import jsfacile.api._
 
@@ -179,7 +179,7 @@ case class Box(length: Distance, weight: Float) extends Thing
 case class Ball(radius: Distance, weight: Float) extends Thing
 
 // create the builder for the `Thing` type.
-val builder = new CoproductTranslatorBuilder[Thing]
+val builder = new CoproductTranslatorsBuilder[Thing]
 // specify which are the subtypes of `Thing` that will be considered by the resulting appender/parser.
 builder.add[Box]
 builder.add[Ball]
@@ -212,9 +212,13 @@ And there is no `java.time` parsers/appenders bundled in the *json-facile* libra
 
 So, suppouse the front end your scala service is communicating with is a single page application, and you don't need the `Instant` values be JSON-represented in a human readable format. Then you can encode them in a JSON number with the milliseconds since 1970, which is how the browsers represents it internally.
 ```scala
+import java.time.Instant
+import jsfacile.api._
+import jsfacile.api.builder._
+
 // Implement an [[Appender]] of [[Instant]] and put an instance of it in the implicit scope.
 implicit val instantAppender: Appender[Instant] =
-	(record, instant) => record.append(instant.toEpochMilli);
+	(record, instant) => record.append(instant.toEpochMilli)
 
 // Implement a [[Parser]] of [[Instant]] and put an instance of it in the implicit scope.
 implicit val instantParser: Parser[Instant] =
@@ -222,7 +226,7 @@ implicit val instantParser: Parser[Instant] =
 
 val instant = java.time.Instant.now()
 val json = instant.toJson // this uses the `instanceAppender` 
-println(json);
+println(json)
 val parsedInstant = json.fromJson[Instant] // this uses the `instantParser`
 assert(Right(instant) == parsedInstant)
 ```
@@ -230,16 +234,23 @@ assert(Right(instant) == parsedInstant)
 ### Implement a parser/appender for a non algebraic abstract data type.
 The automatic derivation of translators (`Appender`/`Parser`) works only for algebraic data types. And most of the types of the java library are not algebraic. For instance, the `java.time.temporal.Temporal` and all its subclasses.
 If we need to translate instances of them, we have to build the translators by hand.
+
 An alternative would be to use a scala implementation of the `java.time` library like [scala-java-time](https://cquiroz.github.io/scala-java-time/), whose data types are algebraic.
 But for an academic purpose, let's create translators by hand.
 
 Suppose our domain needs to translate instances of the abstract type `java.time.temporal.Temporal`. And suppose also, that our domain only uses two subclases of it: `Instant` and `Year`.
 Let's create the translators for `Temporal` with the help of a `CoproductTranslatorsBuilder`.
 ```scala
+import java.time._
+import java.time.temporal._
+import jsfacile.api._
+import jsfacile.api.builder._
+
 val temporalTranslatorsBuilder = new CoproductTranslatorsBuilder[Temporal]
 ```
 To build the translators of an abstract type the builder needs to know which concrete subtypes of said abstract type it has to consider, how to discriminate them, and how to translate each of them.
 Given our domain uses only the `Instant` and `Year` subtypes of `java.time.temporal.Temporal`, it is sufficient to inform the builder about them only.
+
 Let's start with the `Instant` type.
 The next commented line would do all the job if the primary constructor of `Instant` included all the persistent fields.
 ```scala
@@ -277,13 +288,13 @@ val instantAppendingInfo = {
 	val appendingInfoBuilder = temporalTranslatorsBuilder.productAppendingInfoBuilder[Instant];
 	appendingInfoBuilder.add[Long]("seconds", _.getEpochSecond)
 	appendingInfoBuilder.add[Int]("nanos", _.getNano)
-	appendingInfoBuilder.complete;
+	appendingInfoBuilder.complete
 }
 ```
 Having all the information required by the `CoproductTranslatorsBuilder` about the `java.time.Instant` type, let's supply it.
 ```scala
 temporalTranslatorsBuilder.add[Instant](
-	instantAppendingInfo, // ProductAppendingInfo[Instant](Appender.convert[Map[String, Long], Instant](i => Map("instant" -> i.toEpochMilli)))("instant"),
+	instantAppendingInfo,
 	instantParsingInfo
 )
 ```
