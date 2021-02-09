@@ -7,11 +7,11 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 
 * Type-class based conversion (no runtime reflection, no intrusion).
 
-* Automatic derivation: the conversion type-classes of custom ADTs (algebraic data types) are automaticaly generated at compile-time by macros. Zero boilerplate.
+* Automatic derivation: the conversion type-classes of custom ADTs (algebraic data types) are automatically generated at compile-time by macros. Zero boilerplate.
 
 * An efficient JSON parser. Substantially faster than [spray] (around 80%), although considerably slower than [jsoniter] (around 35%). If the JSON contains ignored fields the difference against parsers that use intermediate representations is even greater.
 
-* The automatic derivation works also for non algebraic data types if the primary constructor contains all the persistent fields. It's not required to be a case class nor inherit `scala.Product`.
+* The automatic derivation works also for non-algebraic data types if the primary constructor contains all the persistent fields. It's not required to be a case class nor inherit `scala.Product`.
 
 	The fields names, types, and encoding order is determined by, and extracted from, the concrete type's primary constructor.
 	
@@ -28,6 +28,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 # Table of content
 - [json-facile](#json-facile)
 - [Table of content](#table-of-content)
+	- [Installation](#installation)
 	- [Usage](#usage)
 		- [Convert an ADT (algebraic data type) instance to JSON representation.](#convert-an-adt-algebraic-data-type-instance-to-json-representation)
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
@@ -43,6 +44,30 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 	- [Any question or idea?](#any-question-or-idea)
 	- [Credits](#credits)
 
+
+## Installation
+There are still no `json-facile` artifacts published in a public repository (like maven). So you have to create them locally.
+
+1- Make a copy of the `json-facile` library to your machine, either cloning the whole repository
+```
+git clone https://github.com/readren/json-facile.git
+```
+or downloading and uncompressing the [zip with the last version](https://github.com/readren/json-facile/archive/master.zip).
+
+2- Navigate to the folder where you put it and run `sbt publishLocal`.
+
+Having the `json-facile` artifacts in your local Ivy repository, you may add the dependencies to them.
+
+The library is separated in two artifacts because one is needed at compile time only.
+Add the core library with a "compile" scope and the macros library with "compile-internal" or "provided" scopes to your list of dependencies:
+
+```scala
+libraryDependencies ++= Seq(
+	"org.readren.json-facile" %% "core" % "0.2.0-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.2.0-SNAPSHOT" % "compile-internal"
+)
+
+```
 
 ## Usage
 _json-facile_ is really easy to use.
@@ -81,7 +106,7 @@ assert(Right(foos) == foosParsed) // OK
 ```
 ### Choose the name of the discriminator field and if it must be appended always or only when it's necessary.
 
-By default the discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`). 
+By default, the discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`). 
 ```scala
 import jsfacile.api._
 
@@ -161,22 +186,24 @@ prints
 ```json
 {"{\"id\":1,\"value\":false}":"one","{\"id\":2,\"value\":true}":"two"}
 ```
-Note that the keys are JSON enconded in the JSON object's field names.
+Note that the keys are JSON encoded in the JSON object's field names.
 
-The fields order is ever determined by the primary constructor's parameters order. Therefore the keys equality remains stable.
+The fields order is ever determined by the primary constructor's parameters order. Therefore, the keys' equality remains stable.
 
-### Use the `CoproductTranslatorsBuilder` to create a parser and/or appender for a non sealed data type.
+### Build a translator for a type defined with a non-sealed trait.
+The automatic derivation of translators (`Appender`/`Parser`) works for algebraic data types; and a type defined with a non-sealed trait is not algebraic.
+
+In this case the translators have to be done manually with the help of the `CoproductTranslatorBuilder`.
+
+The following example shows how to build the translators for an abstract data type whose unique missing part to be algebraic is the `sealed` keyword. That is the case for type hierarchies that are spread along many files.
+
 ```scala
 import jsfacile.api._
-
-object DistanceUnit extends Enumeration {
-	val Meter, Millimeter = Value;
-}
-case class Distance(value: Double, unit: DistanceUnit.Value)
+import jsfacile.api.builder._
 
 trait Thing // Note that `Thing` is not sealed.
-case class Box(length: Distance, weight: Float) extends Thing
-case class Ball(radius: Distance, weight: Float) extends Thing
+case class Box(length: Double, weight: Float) extends Thing
+case class Ball(radius: Double, weight: Float) extends Thing
 
 // create the builder for the `Thing` type.
 val builder = new CoproductTranslatorsBuilder[Thing]
@@ -190,8 +217,8 @@ implicit val thingParser: Parser[Thing] = builder.parser;
 
 // a list of `Thing` instances fort testing
 val things = List[Thing](
-	new Box(Distance(1.23, DistanceUnit.Meter), 32.1f),
-	new Ball(Distance(4.56, DistanceUnit.Millimeter), 3)
+	new Box(1.23, 32.1f),
+	new Ball(4.56, 3)
 )
 val json = things.toJson
 println(json)
@@ -201,16 +228,16 @@ assert(result == Right(things))
 ```
 prints
 ```json
-[{"length":{"value":1.23,"unit":"Meter"},"weight":32.1},{"radius":{"value":4.56,"unit":"Millimeter"},"weight":3.0}]
+[{"length":1.23,"weight":32.1},{"radius":4.56,"weight":3.0}]
 ```
 
 
-### Implement a parser/appender for a non algebraic concrete data type.
-The automatic derivation relies on the primary constructor having all non transint fields of the data type. And that is not the case for many java standard library classes. For example `java.time.Instant`.
+### Build the translators for a non-algebraic concrete data type.
+The automatic derivation relies on the primary constructor having all non-transient fields of the data type. That is not the case for much java standard library's classes. For example `java.time.Instant`.
 
-And there is no `java.time` parsers/appenders bundled in the *json-facile* library because, in my opinion, the most convenient way to encode temporals in JSON is domain dependent.
+There is no `java.time` parsers/appenders bundled in the *json-facile* library because, in my opinion, the most convenient way to encode temporals in JSON is domain dependent.
 
-So, suppouse the front end your scala service is communicating with is a single page application, and you don't need the `Instant` values be JSON-represented in a human readable format. Then you can encode them in a JSON number with the milliseconds since 1970, which is how the browsers represents it internally.
+So, suppose the front end your scala service is communicating with is a single page application, and you don't need the `Instant` values be JSON-represented in a human-readable format. Then you can encode them in a JSON number with the milliseconds since 1970, which is how the browsers represents it internally.
 ```scala
 import java.time.Instant
 import jsfacile.api._
@@ -231,14 +258,14 @@ val parsedInstant = json.fromJson[Instant] // this uses the `instantParser`
 assert(Right(instant) == parsedInstant)
 ```
 
-### Implement a parser/appender for a non algebraic abstract data type.
+### Build the translators for a non-algebraic abstract data type.
 The automatic derivation of translators (`Appender`/`Parser`) works only for algebraic data types. And most of the types of the java library are not algebraic. For instance, the `java.time.temporal.Temporal` and all its subclasses.
 If we need to translate instances of them, we have to build the translators by hand.
 
 An alternative would be to use a scala implementation of the `java.time` library like [scala-java-time](https://cquiroz.github.io/scala-java-time/), whose data types are algebraic.
-But for an academic purpose, let's create translators by hand.
+For an academic sake, let's create translators by hand.
 
-Suppose our domain needs to translate instances of the abstract type `java.time.temporal.Temporal`. And suppose also, that our domain only uses two subclases of it: `Instant` and `Year`.
+Suppose our domain needs to translate instances of the abstract type `java.time.temporal.Temporal`. Suppose also, that our domain only uses two subclases of it: `Instant` and `Year`.
 Let's create the translators for `Temporal` with the help of a `CoproductTranslatorsBuilder`.
 ```scala
 import java.time._
@@ -246,7 +273,7 @@ import java.time.temporal._
 import jsfacile.api._
 import jsfacile.api.builder._
 
-val temporalTranslatorsBuilder = new CoproductTranslatorsBuilder[Temporal]
+val temporalTranslatorsBuilder = new CoproductTranslatorsBuilder[Temporal];
 ```
 To build the translators of an abstract type the builder needs to know which concrete subtypes of said abstract type it has to consider, how to discriminate them, and how to translate each of them.
 Given our domain uses only the `Instant` and `Year` subtypes of `java.time.temporal.Temporal`, it is sufficient to inform the builder about them only.
@@ -254,7 +281,7 @@ Given our domain uses only the `Instant` and `Year` subtypes of `java.time.tempo
 Let's start with the `Instant` type.
 The next commented line would do all the job if the primary constructor of `Instant` included all the persistent fields.
 ```scala
-// builder.add[Instant];
+// temporalTranslatorsBuilder.add[Instant]
 ```
 Because in that case all the information the builder needs about `Instant` would be obtained automatically.
 But the primary constructor of the `java.time.Instant` type is empty. So we have to supply the builder with the information it needs. The `add` method is overloaded with versions that receive said information.
@@ -268,8 +295,8 @@ To build a `ProductParsingInfo` instance, the `ProductParsingInfoBuilder` needs 
 ```scala
 val instantParsingInfo = {
 	val parsingInfoBuilder = temporalTranslatorsBuilder.productParsingInfoBuilder[Instant];
-	parsingInfoBuilder.add[Long]("seconds")
-	parsingInfoBuilder.add[Int]("nanos")
+	parsingInfoBuilder.add[Long]("seconds");
+	parsingInfoBuilder.add[Int]("nanos");
 	parsingInfoBuilder.complete(args => Instant.ofEpochSecond(args(0).asInstanceOf[Long], args(1).asInstanceOf[Int]))
 }
 ```
@@ -286,8 +313,8 @@ To build a `ProductAppendingInfo` instance, the `ProductAppendingInfoBuilder` ne
 ```scala
 val instantAppendingInfo = {
 	val appendingInfoBuilder = temporalTranslatorsBuilder.productAppendingInfoBuilder[Instant];
-	appendingInfoBuilder.add[Long]("seconds", _.getEpochSecond)
-	appendingInfoBuilder.add[Int]("nanos", _.getNano)
+	appendingInfoBuilder.add[Long]("seconds", _.getEpochSecond);
+	appendingInfoBuilder.add[Int]("nanos", _.getNano);
 	appendingInfoBuilder.complete
 }
 ```
@@ -303,7 +330,7 @@ The parsing info construction has no difference with the one for the `Instant` p
 ```scala
 val yearParsingInfo = {
 	val parsingInfoBuilder = temporalTranslatorsBuilder.productParsingInfoBuilder[Year];
-	parsingInfoBuilder.add[Int]("year")
+	parsingInfoBuilder.add[Int]("year");
 	parsingInfoBuilder.complete("Year")(args => Year.of(args(0).asInstanceOf[Int]))
 }
 ```
@@ -315,12 +342,12 @@ Given the names of the fields we chose for `Instant` and `Year` are different, t
 
 Assuming that knowledge is centralized in an implicit `DiscriminatorDecider`, let's ask it.
 ```scala
-val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = implicitly[DiscriminatorDecider[Temporal]]
+val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = implicitly[DiscriminatorDecider[Temporal]];
 ```
 Having all we need to implement the `Appender[Year]`, let's do it.
 ```scala
 val yearAppender = Appender[Year] { (record, year) =>
-	val yearField = s""" "year":${year.getValue}"""
+	val yearField = s""" "year":${year.getValue}""";
 	if(temporalDiscriminatorDecider.required) {
 		record.append(
 			s"""
@@ -346,12 +373,12 @@ The information about the two subtypes of `Temporal` used in our domain were sup
 implicit val temporalAppender: Appender[Temporal] = temporalTranslatorsBuilder.appender;
 implicit val temporalParser: Parser[Temporal] = temporalTranslatorsBuilder.parser;
 
-val set = Set[Temporal](Instant.now, Year.now)
+val set = Set[Temporal](Instant.now, Year.now);
 
-val json = set.toJson
-println(json)
-val result = json.fromJson[Set[Temporal]]
-assert(result == Right(set))
+val json = set.toJson;
+println(json);
+val result = json.fromJson[Set[Temporal]];
+assert(result == Right(set));
 ```
 prints something like
 ```json
@@ -362,12 +389,12 @@ prints something like
 If I had known about the existence of [jsoniter], this library would not have existed. And by the time I found out, its development was too advanced to abandon it. Also, I think there are some use cases where *json-facile* is more convenient.
 
 *json-facile* is significantly faster than all JSON libraries I know except [jsoniter] whose speed is unreachable. But they achieved that crazy speed at cost of weight and some inflexibility.
-If I am not wrong, [jsoniter] allows to encode to and/or decode from `Array[byte]`, `InputStream`, and `java.nio.ByteBuffer` easily. But it's difficult to use other kind of source/sink.
+If I am not wrong, [jsoniter] allows encoding to and/or decoding from `Array[byte]`, `InputStream`, and `java.nio.ByteBuffer` easily; but it's difficult to use another kind of source/sink.
 
 With *Json-facile*, instead, it is easy to implement a custom source or sink. Just extend `jsfacile.read.AbstractCursor` for the source, and/or `jsfacile.write.Record` for the sink. The `Cursor` API was designed to minimize the amount of JSON data that needs to be holded in memory.
 
 Other good features found in *json-facile* are:
-1. Its flexibility to represent scala map-like collections. The keys may be of any type even when represented as a JSON object.
+1. Its flexibility to represent map-like collections. The keys may be of any type even when represented as a JSON object.
 2. The easy thing is to implement custom parsers using either the `jsfacile.read.Parser` combinators or the low-level `jsfacile.read.Cursor` API.
 
 ## More examples
@@ -555,11 +582,12 @@ implicit val bigDecimalCustomParser: Parser[BigDecimal] = cursor => {
 Fell free to ask question in [chat](https://gitter.im/json-facile/community#), open issues, or contribute by creating pull requests.
 
 ## Credits
-1. To [Dymitro Mitin] who helped me innumerable times with his astonushing good answers in stackoverflow.com
+1. To [Dymitro Mitin] who helped me innumerable times with his astonishing good answers in stackoverflow.com
 
 ###To be continued...
 
   [JSON]: http://json.org
+  [SBT]: https://www.scala-sbt.org/
   [spray]: https://github.com/spray/spray-json
   [circe]: https://circe.github.io/circe/
   [jsoniter]: https://github.com/plokhotnyuk/jsoniter-scala
