@@ -7,7 +7,8 @@ import jsfacile.macros.macrosEntrance
  *
  * The names of the type parameters `P` and `C` stand for "product" and "coproduct" respectively. A product is a concrete data type. A coproduct is an abstract data type.
  *
- * Caution: The state of instances of the same type is shared. Therefore, at most one instance of this class per type of the `C` parameter should be used simultaneously.
+ * Caution: The state of instances of the same type is shared. Therefore, at most one instance of this class per type of the `C` parameter should be used simultaneously. Use the [[clear]] method if you need to build two different translators for the same type.
+ * TODO Use vampire methods (https://meta.plasm.us/posts/2013/07/12/vampire-methods-for-structural-types/) to remove the weird behaviour and limitations of this class.
  *
  * @define addProduct Adds the concrete data type `P` to the set of considered subtypes of `C`
  *
@@ -112,10 +113,18 @@ class CoproductTranslatorsBuilder[C] {
 	 * */
 	def add[P](appendingInfo: ProductAppendingInfo[P], parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithBoth[C, P];
 
-	/** Creates a [[Parser]][C] considering the information previously supplied with the [[add*]] methods calls. */
+	/** Clears all the information supplied to this builder, leaving it as if it were just created.
+	 *
+	 * Useful when you want to build two or more different translators for the same type. Note that using another instance would not work because the state of all instances of [[CoproductTranslatorsBuilder]][X] is shared. This is an extraordinary behaviour.
+	 * */
+	def clear(): Unit = macro macrosEntrance.clearCases[C];
+
+	/** Creates a [[Parser]][C] considering the information previously supplied with the [[add*]] methods calls.
+	 * Limitation: Only are considered the calls to [[add*]] that were compiled before this method call. Passing an instance of this builder to a function whose body calls some [[add]] method has an unspecified behaviour. */
 	def parser: Parser[C] = macro macrosEntrance.sealParser[C];
 
-	/** Creates an [[Appender]][C] considering the information previously supplied with the [[add*]] methods calls. */
+	/** Creates an [[Appender]][C] considering the information previously supplied with the [[add*]] methods calls.
+	* Limitation: Only are considered the calls to [[add*]] that were compiled before this method call. Passing an instance of this builder to a function whose body calls some [[add]] method has an unspecified behaviour. */
 	def appender: Appender[C] = macro macrosEntrance.sealAppender[C];
 
 }

@@ -34,9 +34,9 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
 		- [Choose the name of the discriminator field and if it must be appended always or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-always-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
-		- [Use the `CoproductTranslatorsBuilder` to create a parser and/or appender for a non sealed data type.](#use-the-coproducttranslatorsbuilder-to-create-a-parser-andor-appender-for-a-non-sealed-data-type)
-		- [Implement a parser/appender for a non algebraic concrete data type.](#implement-a-parserappender-for-a-non-algebraic-concrete-data-type)
-		- [Implement a parser/appender for a non algebraic abstract data type.](#implement-a-parserappender-for-a-non-algebraic-abstract-data-type)
+		- [Build a translator for a type defined with a non-sealed trait.](#build-a-translator-for-a-type-defined-with-a-non-sealed-trait)
+		- [Build the translators for a non-algebraic concrete data type.](#build-the-translators-for-a-non-algebraic-concrete-data-type)
+		- [Build the translators for a non-algebraic abstract data type.](#build-the-translators-for-a-non-algebraic-abstract-data-type)
 	- [Why?](#why)
 	- [More examples](#more-examples)
 	- [Edge cases](#edge-cases)
@@ -63,8 +63,8 @@ Add the core library with a "compile" scope and the macros library with "compile
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.2.0-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.2.0-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.2.1-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.2.1-SNAPSHOT" % "compile-internal"
 )
 
 ```

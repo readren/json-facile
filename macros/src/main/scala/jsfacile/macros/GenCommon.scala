@@ -175,6 +175,14 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 		ctx.Expr[Unit](q"()");
 	}
 
+	def clearCases(coproductType: Type): ctx.Expr[Unit] = {
+		getClassSymbol(coproductType);
+
+		val coproductTypeKey = new TypeKey(coproductType);
+		coproductsBuildersStates.put(coproductTypeKey, new CoproductTranslatorsBuilderState)
+		ctx.Expr[Unit](q"()");
+	}
+
 	////////////////////
 
 	/** Checks if there is no macro call under the top of the macro call stack that satisfies the received predicate on the called macro full name.

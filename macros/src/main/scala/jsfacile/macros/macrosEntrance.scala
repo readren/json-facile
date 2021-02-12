@@ -55,66 +55,71 @@ object macrosEntrance {
 	//////////////////////////
 
 	def addFieldToParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String]): ctx.Expr[Unit] = {
-		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, None)
+		val bundle = new ParserBuilderMacro[C, ctx.type](ctx);
+		bundle.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, None)
 	}
 
 	def addFieldToParsingInfoWithDefaultValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], defaultValue: ctx.Expr[F]): ctx.Expr[Unit] = {
-		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, Some(defaultValue))
+		val bundle = new ParserBuilderMacro[C, ctx.type](ctx);
+		bundle.addFieldToParsingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, Some(defaultValue))
 	}
 
 	def completeProductParsingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
-		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, None)
+		val bundle = new ParserBuilderMacro[C, ctx.type](ctx);
+		bundle.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, None)
 	}
 
 	def completeProductParsingInfoSpecifyingDiscriminatorValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(discriminatorValue: ctx.Expr[String])(ctor: ctx.Expr[Seq[Any] => P]): ctx.Expr[ProductParsingInfo[P]] = {
-		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, Some(discriminatorValue))
+		val bundle = new ParserBuilderMacro[C, ctx.type](ctx);
+		bundle.completeProductParsingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctor, Some(discriminatorValue))
 	}
 
 	def addFieldToAppendingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag, F: ctx.WeakTypeTag](ctx: blackbox.Context)(name: ctx.Expr[String], accessor: ctx.Expr[P => F]): ctx.Expr[Unit] = {
-		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
-		builder.addFieldToAppendingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, accessor)
+		val bundle = new AppenderBuilderMacro[C, ctx.type](ctx);
+		bundle.addFieldToAppendingInfo[P, F](ctx.weakTypeOf[C], ctx.weakTypeOf[P], ctx.weakTypeOf[F], name, accessor)
 	}
 
 	def completeProductAppendingInfo[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[ProductAppendingInfo[P]] = {
-		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
-		builder.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None)
+		val bundle = new AppenderBuilderMacro[C, ctx.type](ctx);
+		bundle.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None)
 	}
 	def completeProductAppendingInfoSpecifyingDiscriminatorValue[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(discriminatorValue: ctx.Expr[String]): ctx.Expr[ProductAppendingInfo[P]] = {
-		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
-		builder.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(discriminatorValue))
+		val bundle = new AppenderBuilderMacro[C, ctx.type](ctx);
+		bundle.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(discriminatorValue))
 	}
 
 	def addCase[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Unit] = {
-		val builder = new GenCommon[ctx.type](ctx);
-		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, None)
+		val bundle = new GenCommon[ctx.type](ctx);
+		bundle.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, None)
 	}
 
 	def addCaseWithAppender[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(appendingInfo: ctx.Expr[ProductAppendingInfo[P]]): ctx.Expr[Unit] = {
-		val builder = new GenCommon[ctx.type](ctx);
-		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), None)
+		val bundle = new GenCommon[ctx.type](ctx);
+		bundle.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), None)
 	}
 
 	def addCaseWithParser[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(parsingInfo: ctx.Expr[ProductParsingInfo[P]]): ctx.Expr[Unit] = {
-		val builder = new GenCommon[ctx.type](ctx);
-		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, Some(parsingInfo))
+		val bundle = new GenCommon[ctx.type](ctx);
+		bundle.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, Some(parsingInfo))
 	}
 
 	def addCaseWithBoth[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(appendingInfo: ctx.Expr[ProductAppendingInfo[P]], parsingInfo: ctx.Expr[ProductParsingInfo[P]]): ctx.Expr[Unit] = {
-		val builder = new GenCommon[ctx.type](ctx);
-		builder.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), Some(parsingInfo))
+		val bundle = new GenCommon[ctx.type](ctx);
+		bundle.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(appendingInfo), Some(parsingInfo))
+	}
+
+	def clearCases[C: ctx.WeakTypeTag](ctx: blackbox.Context)(): ctx.Expr[Unit] = {
+		val bundle = new GenCommon[ctx.type](ctx);
+		bundle .clearCases(ctx.weakTypeOf[C])
 	}
 
 	def sealParser[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Parser[C]] = {
-		val builder = new ParserBuilderMacro[C, ctx.type](ctx);
-		builder.sealParser(ctx.weakTypeOf[C])
+		val bundle = new ParserBuilderMacro[C, ctx.type](ctx);
+		bundle.sealParser(ctx.weakTypeOf[C])
 	}
 
 	def sealAppender[C: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Appender[C]] = {
-		val builder = new AppenderBuilderMacro[C, ctx.type](ctx);
-		builder.sealAppender(ctx.weakTypeOf[C])
+		val bundle = new AppenderBuilderMacro[C, ctx.type](ctx);
+		bundle.sealAppender(ctx.weakTypeOf[C])
 	}
 }
