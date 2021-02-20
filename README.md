@@ -59,14 +59,13 @@ or downloading and uncompressing the [zip with the last version](https://github.
 Having the `json-facile` artifacts in your local Ivy repository, you may add the dependencies to them.
 
 The library is separated in two artifacts because one is needed at compile time only.
-Add the core library with a "compile" scope and the macros library with "compile-internal" or "provided" scopes to your list of dependencies:
+Add the `core` artifact with a "compile" scope and the `macros` artifact with "compile-internal" or "provided" scope to your list of dependencies:
 
 ```scala
 libraryDependencies ++= Seq(
 	"org.readren.json-facile" %% "core" % "0.2.2-SNAPSHOT",
 	"org.readren.json-facile" %% "macros" % "0.2.2-SNAPSHOT" % "compile-internal"
 )
-
 ```
 
 ## Usage
