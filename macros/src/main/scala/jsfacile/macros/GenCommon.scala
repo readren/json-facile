@@ -1,11 +1,13 @@
 package jsfacile.macros
 
+import java.io.{PrintWriter, StringWriter}
+
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.api.builder.{ProductAppendingInfo, ProductParsingInfo}
-import jsfacile.macros.GenCommon.{CoproductTranslatorsBuilderState, ProductAppendingInfoDigested_handmade, ProductAppendingInfoDigested_fromBuilder, ProductCustomization, ProductParsingInfoDigested, TypeKey, coproductsBuildersStates}
+import jsfacile.macros.GenCommon.{CoproductTranslatorsBuilderState, ProductAppendingInfoDigested_fromBuilder, ProductAppendingInfoDigested_handmade, ProductCustomization, ProductParsingInfoDigested, TypeKey, coproductsBuildersStates}
 
 /**Contains classes whose instances are shared between macro executions.
  * Some of said instances contain information that depends on the context of the macro that created them. It is responsibility of said macros to limit themselves on which of said instances are they able to access to comply with the encapsulation established by the scala language access scope.
@@ -114,6 +116,45 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 		}
 		symbol.asClass
 	}
+
+	/** Type-checks the received [[Tree]] with the sole purpose of perceiving the side effects (elements added to the [[Handler.parserHandlersMap]] and/or [[Handler.appenderHandlersMap]]) of the invocations of the macros contained in the received [[Tree]]. */
+	protected def expandNestedMacros(tree: Tree, mode: ctx.TypecheckMode = ctx.TERMmode): Unit = {
+		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and the caller macro execution may need to know of them later.
+		try ctx.typecheck(tree /*.duplicate*/, mode) // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
+		catch { // this catch is necessary because the scala compiler admits only one error message per line of code. Without this catch this error would be suppressed.
+			case tce: Throwable =>
+				val stringWriter = new StringWriter();
+				val printWriter = new PrintWriter(stringWriter);
+				// append the throwable message
+				printWriter.println(tce.toString);
+				// append the causes
+				var e = tce
+				var cause = e.getCause
+				while(cause != null && cause != e) {
+					printWriter.println(s"Cause: ${cause.getMessage}")
+					e = cause
+					cause = e.getCause
+				}
+				// append the types handlers
+				printWriter.print("\nAppender's type handlers map:")
+				printWriter.println(Handler.show(Handler.appenderHandlersMap, _=>true))
+				printWriter.print("\nParser's type handlers map:")
+				printWriter.println(Handler.show(Handler.parserHandlersMap, _=>true))
+				// append the macro calls' stack trace
+				printWriter.println(showEnclosingMacros)
+//				// append implicit resolutions' stack trace
+//				val eclosingImplicits: String = GetEnclosingImplicits.apply()
+//				printWriter.println(eclosingImplicits);
+				// append the compiler's stack trace
+				printWriter.print("\nCompiler's stack trace:")
+				tce.printStackTrace(printWriter)
+				val msj = stringWriter.toString;
+				ctx.echo(ctx.enclosingPosition, msj); // unfortunately the error is shown as an info. If the [[error]] method was used, the log message would be suppressed by other error in the same line.
+				throw tce
+		}
+	}
+
+	////
 
 	def addCase[P](coproductType: Type, productType: Type, oAppendingInfo: Option[Expr[ProductAppendingInfo[P]]], oParsingInfo: Option[Expr[ProductParsingInfo[P]]]): ctx.Expr[Unit] = {
 
@@ -270,6 +311,6 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 				   |  		hashCode   : ${ctx.hashCode}
 				   |	}""".stripMargin
 			}
-		}.mkString("\nmacros stack trace: [", ", ", "]")
+		}.mkString("\nmacros stack trace: [", ", ", "]\n----")
 	}
 }

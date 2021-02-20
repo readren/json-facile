@@ -2,7 +2,7 @@ package jsfacile.util
 
 import scala.collection.{SortedMapFactory, immutable, mutable}
 
-/** A non variant holder of an [[SortedMapFactory]][SMC] instance. Used to suppress the covariant behaviour of the [[SortedMapFactory]] trait.
+/** A non variant holder of an [[scala.collection.SortedMapFactory]][SMC] instance. Used to suppress the covariant behaviour of the [[scala.collection.SortedMapFactory]] trait.
  *
  * @tparam SMC the type constructor of the sorted map collection for which the wrapped factory generates builders. */
 class NonVariantHolderOfASortedMapFactory[SMC[_, _]](val factory: SortedMapFactory[SMC]);

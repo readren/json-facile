@@ -38,14 +38,14 @@ class CoproductTranslatorsBuilder[C] {
 		/**Creates a [[ProductParsingInfo]][P] which is a container of the information collected by this builder. Said container is what the [[CoproductTranslatorsBuilder.add*]] methods take to customize the parsing.
 		 * The value of the discriminator field associated to the subtype `P` would be the name of the class that constructs it. Note that the name of the discriminator field is governed by the [[jsfacile.api.DiscriminatorDecider]][P] in the implicit scope.
 		 *
-		 * @ctor a function that takes the values parsed from the fields specified by the previous calls to the [[add*]] methods; and returns an instance of `P`. The order of the parameters is determined by the order of the calls to the [[add*]] methods.
+		 * @param ctor a function that takes the values parsed from the fields specified by the previous calls to the [[add*]] methods; and returns an instance of `P`. The order of the parameters is determined by the order of the calls to the [[add*]] methods.
 		 * */
 		def complete(ctor: Seq[Any] => P): ProductParsingInfo[P] = macro macrosEntrance.completeProductParsingInfo[C, P]
 
 		/**Creates a [[ProductParsingInfo]][P] which is a container of the information collected by this builder. Said container is what the [[CoproductTranslatorsBuilder.add*]] methods take to customize the parsing.
 		 *
-		 * @ctor a function that takes the values parsed from the fields specified by the previous calls the [[add*]] methods; and returns an instance of `P`. The order of the parameters is determined by the order of the calls to the [[add*]] methods.
-		 * @discriminatorValue the discriminator field value associated to the product `P`. When the JSON object being parsed contains a discriminator field and its value equals the value of this parameter, the [[CoproductParser]][C] will use the [[ProductParsingInfo]] returned by this method to create the instance of `P`. This name must be unique between all the considered subtypes of the coproduct. Note that the name of the discriminator field is governed by the [[jsfacile.api.DiscriminatorDecider]][P] in the implicit scope.
+		 * @param ctor a function that takes the values parsed from the fields specified by the previous calls the [[add*]] methods; and returns an instance of `P`. The order of the parameters is determined by the order of the calls to the [[add*]] methods.
+		 * @param discriminatorValue the discriminator field value associated to the product `P`. When the JSON object being parsed contains a discriminator field and its value equals the value of this parameter, the [[CoproductParser]][C] will use the [[ProductParsingInfo]] returned by this method to create the instance of `P`. This name must be unique between all the considered subtypes of the coproduct. Note that the name of the discriminator field is governed by the [[jsfacile.api.DiscriminatorDecider]][P] in the implicit scope.
 		 * */
 		def complete(discriminatorValue: String)(ctor: Seq[Any] => P): ProductParsingInfo[P] = macro macrosEntrance.completeProductParsingInfoSpecifyingDiscriminatorValue[C, P]
 	}
@@ -68,7 +68,7 @@ class CoproductTranslatorsBuilder[C] {
 
 		/**Creates a [[ProductAppendingInfo]][P] which is a container of the information collected by this builder. Said container is what the [[CoproductTranslatorsBuilder.add*]] methods take to customize the appending.
 		 *
-		 * @discriminatorValue the discriminator field value associated to the subtype `P`. This value must be unique between all the considered subtypes of the coproduct `C`. Note that the inclusion of the discriminator in the JSON document is governed by the [[jsfacile.api.DiscriminatorDecider]][P] in the implicit scope.
+		 * @param discriminatorValue the discriminator field value associated to the subtype `P`. This value must be unique between all the considered subtypes of the coproduct `C`. Note that the inclusion of the discriminator in the JSON document is governed by the [[jsfacile.api.DiscriminatorDecider]][P] in the implicit scope.
 		 * */
 		def complete(discriminatorValue: String): ProductAppendingInfo[P] = macro macrosEntrance.completeProductAppendingInfoSpecifyingDiscriminatorValue[C, P]
 	}
@@ -120,7 +120,7 @@ class CoproductTranslatorsBuilder[C] {
 	def clear(): Unit = macro macrosEntrance.clearCases[C];
 
 	/** Creates a [[Parser]][C] considering the information previously supplied with the [[add*]] methods calls.
-	 * Limitation: Only are considered the calls to [[add*]] that were compiled before this method call. Passing an instance of this builder to a function whose body calls some [[add]] method has an unspecified behaviour. */
+--	 * Limitation: Only are considered the calls to [[add*]] that were compiled before this method call. Passing an instance of this builder to a function whose body calls some [[add]] method has an unspecified behaviour. */
 	def parser: Parser[C] = macro macrosEntrance.sealParser[C];
 
 	/** Creates an [[Appender]][C] considering the information previously supplied with the [[add*]] methods calls.

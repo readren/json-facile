@@ -99,11 +99,11 @@ import _root_.jsfacile.macros.LazyParser;
 
 				productHandler.creationTreeOrErrorMsg = Some(Right(createParserCodeLines));
 
-				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}: ${show(createParserCodeLines)}\n------${Handler.showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
+				ctx.info(ctx.enclosingPosition, s"product parser unchecked builder for ${show(productType)}:\n${show(createParserCodeLines)}\n------${Handler.showParserDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
-				ctx.typecheck(createParserCodeLinesWithContext/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.
+				expandNestedMacros(createParserCodeLinesWithContext);
 				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
+//				ctx.info(ctx.enclosingPosition, s"product parser after builder check for ${show(productType)}", force = false);
 
 				productHandler
 

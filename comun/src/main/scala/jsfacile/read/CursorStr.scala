@@ -2,7 +2,7 @@ package jsfacile.read
 
 import jsfacile.read.Parser.{Elem, Pos}
 
-/** A [[Cursor]] whose content is all contained in a single [[String]]. */
+/** A [[Cursor]] whose content is all contained in a single [[java.lang.String]]. */
 class CursorStr(content: Array[Char]) extends AbstractCursor {
 
 	def this(content: String) = this(content.toCharArray);

@@ -89,12 +89,12 @@ import _root_.jsfacile.write.{Appender, Record};
 
 (appendersBuffer: Array[LazyAppender]) => $createAppenderCodeLines""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} : ${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
+				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
-				ctx.typecheck(createAppenderCodeLinesWithContext/*.duplicate*/);
+				expandNestedMacros(createAppenderCodeLinesWithContext/*.duplicate*/);
 				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
-				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
+//				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
 
 				productHandler
 

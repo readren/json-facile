@@ -101,11 +101,11 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(parserCreationTree));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} : ${show(parserCreationTree)}\n------${Handler.showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} :\n${show(parserCreationTree)}\n------${Handler.showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
-		ctx.typecheck(parserCreationTreeWithContext/*.duplicate*/); // the duplicate is necessary because, according to Dymitro Mitin, the `typeCheck` method mutates its argument sometimes.
+		expandNestedMacros(parserCreationTreeWithContext);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-		ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(initialCoproductType)}", force = false);
+//		ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(initialCoproductType)}", force = false);
 	}
 
 

@@ -2,7 +2,7 @@ package jsfacile.util
 
 import scala.collection.{MapFactory, immutable, mutable}
 
-/** A non variant holder of an [[MapFactory]][UMC] instance. Used to suppress the covariant behaviour of the [[MapFactory]] trait.
+/** A non variant holder of an [[scala.collection.MapFactory]][UMC] instance. Used to suppress the covariant behaviour of the [[scala.collection.MapFactory]] trait.
  *
  * @tparam UMC the type constructor of the unsorted map collection for which the wrapped factory generates builders. */
 class NonVariantHolderOfAMapFactory[UMC[_, _]](val factory: MapFactory[UMC]);

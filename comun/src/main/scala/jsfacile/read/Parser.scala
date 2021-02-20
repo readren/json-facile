@@ -123,8 +123,10 @@ object Parser {
 		}
 	}
 
-	/** Type class summoner */
-	def apply[T](implicit parserT: Parser[T]): Parser[T] = parserT;
+	/** Type class summoner.
+	 *
+	 * This is the only method in the whole library that uses by name implicit parameter of type [[Parser]][T]. All [[Parser]] summoning for a type `T` that is potentially recursive should use it.*/
+	def apply[T](implicit parserT: => Parser[T]): Parser[T] = parserT;
 }
 
 /** A parser combinator that minimizes the creation of new object in order to improve speed efficiency, at the cost code legibility.

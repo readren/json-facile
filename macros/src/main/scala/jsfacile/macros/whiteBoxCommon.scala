@@ -5,7 +5,13 @@ import scala.reflect.macros.whitebox
 object whiteBoxCommon {
 
 	def showOpenImplicitsAndMacros(ctx: whitebox.Context): String = {
-		val implicits = ctx.enclosingImplicits.map { ic =>
+		val implicits = getEnclosingImplicits(ctx);
+
+		s"${new GenCommon(ctx).showEnclosingMacros}\n$implicits\n"
+	}
+
+	def getEnclosingImplicits(ctx: whitebox.Context): String = {
+		ctx.openImplicits.map { ic =>
 			s"""|
 				|	provider prefix: ${ic.pre},
 				|	provider symbol: ${ic.sym.fullName},
@@ -13,6 +19,5 @@ object whiteBoxCommon {
 				|	invoker code   : ${ic.tree}
 				|""".stripMargin
 		}.mkString("\nimplicits stack trace: [{", "},{", "}]")
-		s"${new GenCommon(ctx).showEnclosingMacros}\n$implicits\n"
 	}
 }

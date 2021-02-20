@@ -177,11 +177,11 @@ import _root_.jsfacile.macros.LazyAppender;
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender unchecked builder for ${show(coproductType)} : ${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		ctx.info(ctx.enclosingPosition, s"coproduct appender builder for ${show(coproductType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
-		ctx.typecheck(createAppenderCodeLinesWithContext /*.duplicate*/);
+		expandNestedMacros(createAppenderCodeLinesWithContext);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-		ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
+//		ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
 	}
 
 

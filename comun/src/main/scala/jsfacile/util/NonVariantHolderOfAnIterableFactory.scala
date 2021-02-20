@@ -2,7 +2,7 @@ package jsfacile.util
 
 import scala.collection.{IterableFactory, immutable, mutable}
 
-/** A non variant holder of an [[IterableFactory]][IC] instance. Used to suppress the covariant behaviour of the [[IterableFactory]] trait.
+/** A non variant holder of an [[scala.collection.IterableFactory]][IC] instance. Used to suppress the covariant behaviour of the [[scala.collection.IterableFactory]] trait.
  *
  *  @tparam IC the type constructor of the iterable collection for which the wrapped factory generates builders. */
 class NonVariantHolderOfAnIterableFactory[IC[_]](val factory: IterableFactory[IC]) {

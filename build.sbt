@@ -1,13 +1,16 @@
 ThisBuild / organization := "org.readren.json-facile"
-ThisBuild / version      := "0.2.1-SNAPSHOT"
+ThisBuild / version      := "0.2.2-SNAPSHOT"
+ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / scalaVersion := "2.13.4"
-ThisBuild / autoAPIMappings := true
+ThisBuild / autoAPIMappings := true // Enables automatic linking to the external Scaladoc of managed dependencies
 // ThisBuild / apiURL := Some(url(s"file:${(baseDirectory).value.getAbsolutePath}/target/scala-${scalaVersion.value.take(4)}/api"))
 
 lazy val akkaHttpVersion = "10.2.0"
 
+//// Inter-project dependencies and packaging settings
+
 lazy val jsfacile = (project in file("."))
-	.aggregate(core, macros, comun)
+	.aggregate(core, macros, common)
 	.settings(
 		publish / skip := true,
 	)
@@ -15,30 +18,34 @@ lazy val jsfacile = (project in file("."))
 lazy val core = (project in file("core"))
 	.dependsOn(
 		macros,
-		comun % "compile-internal, test-internal" // the "compile-internal" removes `common` from the set of dependencies for publishing because its content is provided by the artifact of this package. See the mappings below. Also see "https://www.scala-sbt.org/1.x/docs/Macro-Projects.html"
+		common % "compile-internal, test-internal" // the "compile-internal" removes `common` from the set of dependencies for publishing because its content is provided by the artifact of this package. See the mappings below. Also see "https://www.scala-sbt.org/1.x/docs/Macro-Projects.html"
 	) 
 	.settings(
-		// append the content of the common binary package to the core binary package
-		Compile / packageBin / mappings ++= (comun / Compile / packageBin / mappings).value,
-		// append the content of the common source package to the core source package 
-		Compile / packageSrc / mappings ++= (comun / Compile / packageSrc / mappings).value,
-		// append the content of the common javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work. 
-		Compile / doc / sources ++= (comun / Compile / doc / sources).value,
-		// append the content of the macros javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work. 
+		// append the content of the common subproject's binary package to the core's binary package. This library users don't require the `core` and `common` binary artifacts be separated. This setting merges them.
+		Compile / packageBin / mappings ++= (common / Compile / packageBin / mappings).value,
+		// append the content of the common subproject's source package to the core's source package. This library users don't require the `core` and `common` source artifacts be separated. This setting merges them.
+		Compile / packageSrc / mappings ++= (common / Compile / packageSrc / mappings).value,
+		// append the content of the common subproject's javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work.
+		Compile / doc / sources ++= (common / Compile / doc / sources).value,
+		// append the content of the macros subproject's javadoc package to the core javadoc package. This is convenient and also necessary for the doc links between projects to work.
 		Compile / doc / sources ++= (macros / Compile / doc / sources).value,
 	)
 
-lazy val macros = (project in file("macros")).dependsOn(comun % "compile-internal, test-internal") // the "compile-internal" removes `common` from the set of dependencies for publishing because it is provided by the core artifact.
+lazy val macros = (project in file("macros"))
+	.dependsOn(
+		common % "compile-internal, test-internal", // the "compile-internal" removes `common` from the set of dependencies for publishing because its content is provided by the core artifact. See the mappings of the `core` subproject.
+	)
 	.settings(
-		// the content of the macros project's javadoc package is appended to the core project's javadoc package. This setting avoids to publish the javadoc of this project.
+		// do not publish the javadoc artifact of this project. It's content is appended to the core project's javadoc package.
 		Compile / packageDoc / publishArtifact := false,
 	)
 
-lazy val comun = (project in file("comun"))
+lazy val common = (project in file("comun"))
 	.settings(
-		name := "common",
-		publish / skip := true,
+		publish / skip := true,  // don't publish any artifact of this subproject because their content is provided by the `core` subproject's artifacts.
 	)
+
+//// Library dependencies ////
 
 ThisBuild / libraryDependencies ++= Seq(
 	// test dependencies
@@ -56,6 +63,8 @@ macros / libraryDependencies ++= Seq(
 	// scala reflection required for macros and annotations
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
 )
+
+//// scalac options ////
 
 ThisBuild / scalacOptions ++= Seq(
 	"-deprecation",

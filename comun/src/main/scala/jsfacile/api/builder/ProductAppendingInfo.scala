@@ -15,5 +15,5 @@ object ProductAppendingInfo {
 
 
 
-/** Knows the information that a [[jsfacile.builder.CoproductTranslatorsBuilder]][C] needs about the product `P`, which must be a direct subtype of `C`, to build an [[Appender]][C]. `P` stands for "product" and `C` stands for "coproduct" */
+/** Knows the information that a [[jsfacile.api.builder.CoproductTranslatorsBuilder]][C] needs about the product `P`, which must be a direct subtype of `C`, to build an [[Appender]][C]. `P` stands for "product" and `C` stands for "coproduct" */
 trait ProductAppendingInfo[P]

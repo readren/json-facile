@@ -65,6 +65,9 @@ class AppenderBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Cop
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val coproductTranslatorsBuilderState = getCoproductTranslatorsBuilderStateOf(coproductTypeKey);
+
+		ctx.info(ctx.enclosingPosition, s"Creating an Appender[$coproductType] considering the following subtypes: ${coproductTranslatorsBuilderState.productsCollector.keys.map{x => x.toString}.toSeq.sorted.mkString("{\n", ",\n","\n}\n----")}", true)
+
 		val coproductHandler = Handler.getHandlerFor(coproductTypeKey, appenderHandlersMap)
 
 		val productsInfoCollector: mutable.ArrayBuffer[ProductInfo] = mutable.ArrayBuffer.empty;

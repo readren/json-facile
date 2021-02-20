@@ -70,6 +70,9 @@ class ParserBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Copro
 
 		val coproductTypeKey = new TypeKey(coproductType);
 		val translatorsBuilderState = getCoproductTranslatorsBuilderStateOf(coproductTypeKey);
+
+		ctx.info(ctx.enclosingPosition, s"Creating a Parser[$coproductType] considering the following subtypes: ${translatorsBuilderState.productsCollector.keys.map{x => x.toString}.toSeq.sorted.mkString("{\n", ",\n","\n}\n----")}", true)
+
 		val coproductHandler = Handler.getHandlerFor(coproductTypeKey, Handler.parserHandlersMap);
 
 		val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
