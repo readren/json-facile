@@ -63,8 +63,8 @@ Add the core library with a "compile" scope and the macros library with "compile
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.2.1-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.2.1-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.2.2-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.2.2-SNAPSHOT" % "compile-internal"
 )
 
 ```
