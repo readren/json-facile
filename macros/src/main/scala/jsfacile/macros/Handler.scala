@@ -13,9 +13,9 @@ class Handler(val typeIndex: TypeIndex) {
 	/** The code lines that creates a [[jsfacile.read.Parser]] or a [[jsfacile.write.Appender]].*/
 	var creationTreeOrErrorMsg: Option[Either[String, univ#Tree]] = None;
 
-	/** Is 'true' while this [[Handler]] is open to add more dependencies to its dependency set.
+	/** Is 'true' while this [[jsfacile.macros.Handler]] is open to add more dependencies to its dependency set.
 	 * Tells the [[Handler.registerDependency]] method that it have to add any [[TypeIndex]] it receives to the [[dependencies]] set of this [[Handler]].
-	 * This flag is set to `false` by the macro when it knows that the handlers of all the inner types have been created and added to the corresponding [[HandlersMap]]. */
+	 * This flag is set to `false` by the macro when it knows that the handlers of all the inner types have been created and added to the corresponding [[Handler.HandlersMap]]. */
 	var isCapturingDependencies: Boolean = true;
 
 	/** the set indexes of the handlers on which this handled  depends, including himself. A handler depends on other handler when the type definition associated to the first contains a reference to the type definition associated to the second. */

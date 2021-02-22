@@ -88,7 +88,7 @@ object macrosEntrance {
 		bundle.completeProductAppendingInfo[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], Some(discriminatorValue))
 	}
 
-	def addCase[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context): ctx.Expr[Unit] = {
+	def addCase[C: ctx.WeakTypeTag, P: ctx.WeakTypeTag](ctx: blackbox.Context)(): ctx.Expr[Unit] = {
 		val bundle = new GenCommon[ctx.type](ctx);
 		bundle.addCase[P](ctx.weakTypeOf[C], ctx.weakTypeOf[P], None, None)
 	}

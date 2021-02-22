@@ -5,7 +5,7 @@ import scala.language.implicitConversions
 
 object Parser {
 
-	/** The type of the input elements. [[Int]] was chosen because it is the type that the standard java library uses to represent Unicode code points.
+	/** The type of the input elements. [[scala.Int]] was chosen because it is the type that the standard java library uses to represent Unicode code points.
 	 * It is not abstract to support other uses because abstract type parameters don't allow specialization and would provoque extra boxing. */
 	type Elem = Char
 	type Pos = Int
@@ -66,7 +66,7 @@ object Parser {
 			IGNORED_ELEM
 		}
 	}
-	/** Creates a [[Parser]] that hits if the pointed element equals the received [[Char]]. In that case advances the [[Cursor]] one position. */
+	/** Creates a [[Parser]] that hits if the pointed element equals the received [[scala.Char]]. In that case advances the [[Cursor]] one position. */
 	implicit def acceptChar(char: Char): Parser[Elem] = acceptElem(char)
 
 	def pick: Parser[Elem] = { cursor =>
@@ -79,7 +79,7 @@ object Parser {
 		}
 	}
 
-	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the same [[String]]. */
+	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[java.lang.String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[java.lang.String]] length positions and returns the same [[java.lang.String]]. */
 	implicit def acceptStr(seq: String): Parser[String] = { (cursor: Cursor) =>
 		if (cursor.comes(seq)) {
 			seq
@@ -89,7 +89,7 @@ object Parser {
 		}
 	}
 
-	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[String]] length positions and returns the received `opaque` argument. */
+	/** Creates a [[Parser]] that hits if the sequence starting at the pointed element equals the received [[java.lang.String]] and misses otherwise. In the hit case the [[Cursor]] is advanced the expected [[java.lang.String]] length positions and returns the received `opaque` argument. */
 	def expectStr[A](str: String, opaque: A): Parser[A] = { cursor =>
 		if (!cursor.comes(str)) {
 			cursor.miss(s"A $str was expected.")
@@ -138,7 +138,7 @@ object Parser {
 trait Parser[@specialized(Int, Char) A] { self =>
 	import Parser._
 
-	/** The implementation should never call another [[Parser]] instance passing the cursor in failed or missed state. And therefore, can asume that the received cursor is {{{cursor.ok == true}}}. */
+	/** The implementation should never call another [[jsfacile.read.Parser]] instance passing the cursor in failed or missed state. And therefore, can asume that the received cursor is {{{cursor.ok == true}}}. */
 	def parse(cursor: Cursor): A
 
 	def map[@specialized(Int, Char) B](f: A => B): Parser[B] = { (cursor: Cursor) =>
@@ -309,7 +309,7 @@ trait Parser[@specialized(Int, Char) A] { self =>
 	}
 	def repN(n: Int): Parser[List[A]] = repNGen(n, () => List.newBuilder)
 
-	/** Set the failure flag if this [[Parser]] misses. */
+	/** Set the failure flag if this [[jsfacile.read.Parser]] misses. */
 	def orFail(cause: AnyRef): Parser[A] = { (cursor: Cursor) =>
 		val a = self.parse(cursor);
 		if (cursor.missed) {
@@ -327,8 +327,8 @@ trait Parser[@specialized(Int, Char) A] { self =>
 		a
 	}
 
-	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and hits returning the received value.
-	 * TODO: take a [[PartialFunction]][AnyRef, B] instead */
+	/** Gives a parser that behaves like this except when the [[jsfacile.read.Cursor]] is in failure state. In that case it clears said flag and hits returning the received value.
+	 * TODO: take a [[scala.PartialFunction]][AnyRef, B] instead */
 	def recover[B >: A](b: B): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {
@@ -339,8 +339,8 @@ trait Parser[@specialized(Int, Char) A] { self =>
 		}
 	}
 
-	/** Gives a parser that behaves like this except when the [[Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser.
-	 * TODO: take a [[PartialFunction]][[[AnyRef]], [[Parser]][B] instead. */
+	/** Gives a parser that behaves like this except when the [[jsfacile.read.Cursor]] is in failure state. In that case it clears said flag and later behaves like the received parser.
+	 * TODO: take a [[scala.PartialFunction]][AnyRef, Parser[B]] instead. */
 	def recoverWith[B >: A](iB: Parser[B]): Parser[B] = { cursor =>
 		val a = self.parse(cursor);
 		if (cursor.failed) {

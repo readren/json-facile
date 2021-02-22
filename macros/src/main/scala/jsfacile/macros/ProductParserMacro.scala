@@ -7,7 +7,7 @@ import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.read.Parser
 
 
-/** @tparam P the type of the concrete data type for which this macro materializes a [[Parser]]*/
+/** @tparam P the type of the concrete data type for which this macro materializes a [[jsfacile.read.Parser]]*/
 class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
@@ -18,7 +18,7 @@ class ProductParserMacro[P, Ctx <: blackbox.Context](context: Ctx) extends Parse
 
 		val isOuterMacroInvocation = isOuterParserMacroInvocation;
 		if(isOuterMacroInvocation) {
-			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
+			/** Discard the [[jsfacile.read.Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
 			Handler.parserHandlersMap.clear();
 		}
 

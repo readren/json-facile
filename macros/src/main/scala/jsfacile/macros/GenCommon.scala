@@ -16,7 +16,7 @@ import jsfacile.macros.GenCommon.{CoproductTranslatorsBuilderState, ProductAppen
 object GenCommon {
 	import scala.reflect.{api => sra};
 
-	/** Wraps a [[blackbox.Context.Type]] in order to be usable as a map key.
+	/** Wraps a [[scala.reflect.macros.blackbox.Context.Type]] in order to be usable as a map key.
 	 *
 	 * Note: instances of this class exists only during compilation time.
 	 *
@@ -59,13 +59,13 @@ object GenCommon {
 	}
 
 
-	/**Digested version of [[ProductParsingInfo]].
+	/**Digested version of [[jsfacile.api.builder.ProductParsingInfo]].
 	 * Knows the information that a [[ParserBuilderMacro.sealParser]] macro method needs about one of the products added with customized [[jsfacile.read.Parser]] derivation.
 	 *
 	 * $compileTimeOnly */
 	class ProductParsingInfoDigested(val discriminatorValue: String, val tpe: sra.Types#Type, val fieldsInfo: Iterable[FieldParsingInfo], val ctor: sra.Trees#Tree);
 
-	/**Digested version of the argument assigned to the `appendingInfo` parameter of the `jsfacile.builder.CoproductTranslatorsBuilder.add*]] method.
+	/**Digested version of the argument assigned to the `appendingInfo` parameter of the [[jsfacile.builder.CoproductTranslatorsBuilder.add*]] methods.
 	 * Knows the information that a [[AppenderBuilderMacro.sealAppender]] macro method needs about one of the products added with customized [[jsfacile.write.Appender]] derivation.
 	 *
 	 * $compileTimeOnly */
@@ -117,7 +117,7 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 		symbol.asClass
 	}
 
-	/** Type-checks the received [[Tree]] with the sole purpose of perceiving the side effects (elements added to the [[Handler.parserHandlersMap]] and/or [[Handler.appenderHandlersMap]]) of the invocations of the macros contained in the received [[Tree]]. */
+	/** Type-checks the received [[scala.reflect.api.Trees.Tree]] with the sole purpose of perceiving the side effects (elements added to the [[Handler.parserHandlersMap]] and/or [[Handler.appenderHandlersMap]]) of the invocations of the macros contained in the received [[scala.reflect.api.Trees.Tree]]. */
 	protected def expandNestedMacros(tree: Tree, mode: ctx.TypecheckMode = ctx.TERMmode): Unit = {
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and the caller macro execution may need to know of them later.
 		try ctx.typecheck(tree /*.duplicate*/, mode) // the duplicate is necessary because, according to Dymitro Mitin, the typeCheck method mutates its argument sometimes.

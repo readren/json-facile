@@ -11,7 +11,7 @@ import jsfacile.util.BitSet
 import jsfacile.util.BitSet.BitSlot
 
 
-/** @tparam C the type of the sealed abstract data type for which this macro materializes a [[Parser]]. */
+/** @tparam C the type of the sealed abstract data type for which this macro materializes a [[jsfacile.read.Parser]]. */
 class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
@@ -20,7 +20,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 	 * @param fieldType the type of the field
 	 * @param firstOwnerName the TypeSymbol of the first product that contains a field named as the key specifies.
 	 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
-	 * @param bitSlot the [[BitSlot]] assigned to this considered field*/
+	 * @param bitSlot the [[jsfacile.util.BitSet.BitSlot]] assigned to this considered field*/
 	case class ConsideredField(fieldType: Type, firstOwnerName: String, consideredFieldIndex: Int, bitSlot: BitSlot)
 
 	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
@@ -205,7 +205,7 @@ state.productFieldsBuilder.clear();"""
 
 	/** State shared between calls to the [[addField]] method. */
 	protected class InterAddFieldCallsState(var nextBitSlot: BitSlot) {
-		/** the [[Seq]] builder where the "add field" code snippets are collected */
+		/** the [[scala.Seq]] builder where the "add field" code snippets are collected */
 		val addFieldTreeSeqBuilder: mutable.Builder[ctx.Tree, Seq[ctx.Tree]] = Seq.newBuilder[ctx.Tree];
 		var requiredFieldsAccum: BitSet = BitSet.empty(nextBitSlot.shardIndex + 1);
 		var requiredFieldsCounter: Int = 0;

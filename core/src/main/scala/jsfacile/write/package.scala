@@ -78,7 +78,7 @@ package object write extends PriorityMediumAppenders with DefaultsRules {
 	//////////////////////////////
 	//// JSON string enconders ////
 
-	/** Encodes the received [[Char]] in order to be part of a JSON string
+	/** Encodes the received [[scala.Char]] in order to be part of a JSON string
 	 * Surrogate chars are not altered. */
 	def encodeStringChar[R <: Record](r: R, char: Char): R = {
 		if (char == '"') {
@@ -105,7 +105,7 @@ package object write extends PriorityMediumAppenders with DefaultsRules {
 		}
 	}
 
-	/** Encodes the received [[CharSequence]] in order to be part of a JSON string.
+	/** Encodes the received [[java.lang.CharSequence]] in order to be part of a JSON string.
 	 * Surrogate pairs sanity is not checked. */
 	def encodeStringCharSequence[R <: Record](r: R, csq: CharSequence): R = {
 		var index = 0;

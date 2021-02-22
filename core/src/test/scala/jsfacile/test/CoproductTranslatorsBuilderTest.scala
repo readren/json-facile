@@ -25,9 +25,9 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			val things = List[Thing](Box(Distance(1.23, DistanceUnit.Meter), 32.1f), Ball(Distance(4.56, DistanceUnit.Millimeter), 3), One, Two, Block(7))
 
 			val thingTranslatorsBuilder = new CoproductTranslatorsBuilder[Thing]
-			thingTranslatorsBuilder.add[Box]
-			thingTranslatorsBuilder.add[Ball]
-			thingTranslatorsBuilder.add[One.type]
+			thingTranslatorsBuilder.add[Box]()
+			thingTranslatorsBuilder.add[Ball]()
+			thingTranslatorsBuilder.add[One.type]()
 
 			val twoParsingInfoBuilder = thingTranslatorsBuilder.productParsingInfoBuilder[Two.type]
 			twoParsingInfoBuilder.add[Null]("two")
@@ -63,10 +63,10 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			import ParserMacrosTest._
 
 			val ctb = new CoproductTranslatorsBuilder[A[String]];
-			ctb.add[A1[String]]
-			ctb.add[B1[String]]
-			ctb.add[C1[String]]
-			ctb.add[C2.type]
+			ctb.add[A1[String]]()
+			ctb.add[B1[String]]()
+			ctb.add[C1[String]]()
+			ctb.add[C2.type]()
 			implicit val appender: Appender[A[String]] = ctb.appender;
 			implicit val parser: Parser[A[String]] = ctb.parser;
 

@@ -19,7 +19,7 @@ trait Cursor {
 	def missed: Boolean;
 	/** The element being pointed by this [[Cursor]]. Assumes this cursor is pointing to an element of the content. */
 	@inline def pointedElem: Elem
-	/** If the received [[String]] matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received [[String]]) and returns true. Otherwise nothing is changed and returns false. */
+	/** If the received [[java.lang.String]] matches the content subsequence starting at the [[pointedElem]], then said subsequence is consumed (the cursor advances the length of the received [[java.lang.String]]) and returns true. Otherwise nothing is changed and returns false. */
 	def comes(expected: String): Boolean
 	/** Increments the position.
 	 *
@@ -50,11 +50,11 @@ trait Cursor {
 	def attempt[@specialized(Int, Char) X](block: Cursor => X): X
 
 	/** The implementation should execute the received block and, if after that this [[Cursor]]:
-	 * - is [[ok]], should return a [[String]] containing the code points consumed by the block;
+	 * - is [[ok]], should return a [[java.lang.String]] containing the code points consumed by the block;
 	 * - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
 	 * - is failed, should return `null`.
 	 *
-	 * @return a [[String]] containing the elements consumed by the `consumer` if the cursor is [[ok]] after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
+	 * @return a [[java.lang.String]] containing the elements consumed by the `consumer` if the cursor is [[ok]] after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
 	def stringConsumedBy(consumer: Cursor => Unit): String
 
 	/** If the cursor [[have]] and the pointed element equals the received char, advances to next position and returns [[have]]. Else does nothing and returns false.
@@ -68,7 +68,7 @@ trait Cursor {
 	def consumeCharIf(predicate: CharPredicate): Boolean;
 
 	/** If the cursor [[have]] and the pointed element is a digit, advances to next position and returns [[have]]. Else does nothing and returns false.
-	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[Float]], [[Double]], [[BigInt]], and [[BigDecimal]].
+	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[scala.Float]], [[scala.Double]], [[scala.BigInt]], and [[scala.BigDecimal]].
 	 *
 	 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
 	def consumeCharIfDigit(): Boolean
@@ -90,7 +90,7 @@ trait Cursor {
 	def consumeWhile(predicate: CharPredicate): Boolean;
 
 	/** Advances the cursor position while it [[have]] and the pointed element is a digit.
-	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[Float]], [[Double]], [[BigInt]], and [[BigDecimal]]. *
+	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[scala.Float]], [[scala.Double]], [[scala.BigInt]], and [[scala.BigDecimal]]. *
 	 *
 	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
 	def consumeWhileDigit(): Boolean
