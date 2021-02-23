@@ -34,7 +34,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			val twoParsingInfo = twoParsingInfoBuilder.complete(_ => Two)
 
 			thingTranslatorsBuilder.add[Two.type](
-				ProductAppendingInfo[Two.type](Appender.convert[JsObject, Two.type](_ => new JsObject("two" -> JsNull)))("two"),
+				ProductAppendingInfo[Two.type](Appender.convert[JsObject, Two.type](_ => JsObject("two" -> JsNull)))("two"),
 				twoParsingInfo
 			)
 
@@ -42,7 +42,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			blockParsingInfoBuilder.add[Float]("weight")
 			val blockParsingInfo = blockParsingInfoBuilder.complete(args => Block(args(0).asInstanceOf[Float]))
 			thingTranslatorsBuilder.add[Block](
-				ProductAppendingInfo[Block](Appender.convert[JsObject, Block](x => new JsObject("weight" -> JsNumber(x.value))))("weight"),
+				ProductAppendingInfo[Block](Appender.convert[JsObject, Block](x => JsObject("weight" -> JsNumber(x.value))))("weight"),
 				blockParsingInfo
 			)
 

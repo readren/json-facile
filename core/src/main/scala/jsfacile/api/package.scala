@@ -44,6 +44,9 @@ package object api {
 			at.append(r, obj);
 			r.sb.toString
 		}
+
+		@inline
+		def toJsDocument(implicit at: Appender[T]): JsDocument = JsDocument(this.toJson(at))
 	}
 
 	/** Adds the [[fromJson]] method to String */

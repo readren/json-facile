@@ -18,7 +18,10 @@ import _root_.jsfacile.read.{Parser, Cursor};
 import _root_.jsfacile.macros.Probe;
 
 new Parser[Nothing] {
-	override def parser(cursor: Cursor): Nothing = throw new RuntimeException("It's not possible to to parse `Nothing`");
+	override def parser(cursor: Cursor): Nothing = {
+		cursor.fail("It's not possible to create an instance of `Nothing`.");
+  		jsfacile.read.Parser.ignored[Nothing]
+  	}
 }"""
 		ctx.Expr[Parser[Nothing]](body)
 	}

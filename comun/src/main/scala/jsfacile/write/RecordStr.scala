@@ -1,6 +1,7 @@
 package jsfacile.write
 
 class RecordStr(val sb: java.lang.StringBuilder) extends Record {
+	var failures: List[Exception] = Nil;
 
 	override def appendCodePoint(codePoint: Int): this.type = {
 		sb.appendCodePoint(codePoint);
@@ -44,6 +45,11 @@ class RecordStr(val sb: java.lang.StringBuilder) extends Record {
 	}
 	override def append(double: Double): this.type = {
 		sb.append(double);
+		this
+	}
+
+	override def fail(failure: Exception): RecordStr.this.type = {
+		this.failures = failure :: this.failures;
 		this
 	}
 }

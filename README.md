@@ -63,8 +63,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.3.0-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.3.0-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.3.1-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.3.1-SNAPSHOT" % "compile-internal"
 )
 ```
 

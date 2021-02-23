@@ -72,7 +72,7 @@ class CoproductAppender[C](fullName: String, productsInfo: Array[CahProductInfo[
 		if(productInfo != null) {
 			productInfo.appender.append(record, product)
 		} else {
-			throw new UnexpectedProductTypeException(fullName, productName)
+			record.fail(new UnexpectedProductTypeException(fullName, productName))
 		}
 	}
 }

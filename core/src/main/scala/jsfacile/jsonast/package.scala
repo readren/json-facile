@@ -6,15 +6,17 @@ import jsfacile.api.{Appender, Parser, parserOf}
 
 package object jsonast {
 
-	sealed trait JsValue
-	case class JsObject(fields: generic.Map[String, JsValue]) extends JsValue {
-		def this(elems: (String, JsValue)*) = this(generic.Map.from(elems))
+	sealed trait JsValue extends Any
+	case class JsObject(fields: generic.Map[String, JsValue]) extends AnyVal with JsValue
+	object JsObject {
+		def apply(elems: (String, JsValue)*): JsObject = JsObject(generic.Map.from(elems))
 	}
-	case class JsArray(array: generic.Iterable[JsValue]) extends JsValue {
-		def this(elems: JsValue*) = this(elems)
+	case class JsArray(array: generic.Iterable[JsValue]) extends AnyVal with JsValue
+	object JsArray {
+		def apply(elems: JsValue*): JsArray = JsArray(elems)
 	}
-	case class JsString(string: String) extends JsValue
-	case class JsNumber(number: BigDecimal) extends JsValue
+	case class JsString(string: String) extends AnyVal with JsValue
+	case class JsNumber(number: BigDecimal) extends AnyVal with JsValue
 	object JsBoolean {def apply(value: Boolean): JsBoolean = if (value) JsTrue else JsFalse}
 	sealed trait JsBoolean extends JsValue {def value: Boolean}
 	case object JsTrue extends JsBoolean {override def value = true}

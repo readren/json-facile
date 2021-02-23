@@ -129,16 +129,20 @@ object Parser {
 	def apply[T](implicit parserT: => Parser[T]): Parser[T] = parserT;
 }
 
-/** A parser combinator that minimizes the creation of new object in order to improve speed efficiency, at the cost code legibility.
- * Both the methods of this trait and the [[Parser]]s given by them are thread safe (or should be).
- * 
+/** Models a representation translator from JSON document to scala object instance, and also implements many parsing combinators.
+ *
+ * This trait is designed favoring speed efficiency at the cost of code legibility. Combinator implementations usually avoid the creation of new objects at the cost of more code lines.
+ *
+ * Both the combinators defined in this trait and the [[Parser]]s given by them are thread safe (or should be).
+ *
  * Note that the type parameter is non variant because, if it were, the covariance would cause trouble when using this trait as a type class contract, because Parser[B] is not necessarily a replacement of Parser[A] even if `B <: A`. For example, if A where `Iterable[(String, Int)]` and B where `Map[String, Int]`, the json parser for maps `Parser[Map[String, Int]]` won't be a good replacement of the json parser for iterables `Parser[Iterable[String, Int]]` because the first produces a HashMap and the second a List of tuples, and despite the first have all the functionality of the second, the performance of some operations is worst. Also, the covariance in type clases causes ambiguity problems with non linear hierarchies.
  * A better solution would be to make this trait covariant and wrap it with a non variant wrapper when used as type class contract, but that would be more boilerplate. And the cost of making this trait non variant is low (I believe).
  * */
 trait Parser[@specialized(Int, Char) A] { self =>
 	import Parser._
 
-	/** The implementation should never call another [[jsfacile.read.Parser]] instance passing the cursor in failed or missed state. And therefore, can asume that the received cursor is {{{cursor.ok == true}}}. */
+	/** The implementation should always terminate normally (never throw an exception) and never call another [[jsfacile.read.Parser]] instance passing the cursor in failed or missed state. Therefore, it can asume that the received cursor is always {{{cursor.ok == true}}}.
+	 * Missings and failures are signaled changing the state of the [[Cursor]]. In these cases the return value is any instance of `A`, which should be ignored.*/
 	def parse(cursor: Cursor): A
 
 	def map[@specialized(Int, Char) B](f: A => B): Parser[B] = { (cursor: Cursor) =>
