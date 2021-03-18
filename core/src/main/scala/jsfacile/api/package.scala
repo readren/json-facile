@@ -49,8 +49,18 @@ package object api {
 		def toJsDocument(implicit at: Appender[T]): JsDocument = JsDocument(this.toJson(at))
 	}
 
-	/** Adds the [[fromJson]] method to String */
-	implicit class FromJsonConvertible(val jsonDoc: String) extends AnyVal {
+	/** Adds the [[fromJson]] method to instances of [[String]]. */
+	implicit class FromJsonStringConvertible(val jsonDoc: String) extends AnyVal {
+		/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
+		 *
+		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
+		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
+			new FromJsonCharArrayConvertible(jsonDoc.toCharArray).fromJson[T](pt)
+		}
+	}
+
+	/** Adds the [[fromJson]] method to instances of [[Array]][Char].*/
+	implicit class FromJsonCharArrayConvertible(val jsonDoc: Array[Char]) extends AnyVal {
 		/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
 		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
@@ -59,19 +69,21 @@ package object api {
 			val result = pt.parse(cursor);
 			if (cursor.ok) {
 				if (cursor.isPointing)
-					Left(ParseIncomplete(jsonDoc, cursor.pos));
+					Left(ParseIncomplete(new String(jsonDoc), cursor.pos));
 				else
 					Right(result)
 			} else if (cursor.failed) {
-				Left(ParseFailure(jsonDoc, cursor.pos, cursor.failureCause))
+				Left(ParseFailure(new String(jsonDoc), cursor.pos, cursor.failureCause))
 			} else {
 				val missCause =
 					if (cursor.missCause != null) cursor.missCause
 					else "The json representation is not compatible with the expected type"
-				Left(ParseMiss(jsonDoc, cursor.pos, missCause));
+				Left(ParseMiss(new String(jsonDoc), cursor.pos, missCause));
 			}
 		}
 	}
+
+
 
 	trait ParseError {
 		def jsonDoc: String

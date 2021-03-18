@@ -1,16 +1,17 @@
 ThisBuild / organization := "org.readren.json-facile"
-ThisBuild / version      := "0.3.1-SNAPSHOT"
+ThisBuild / version      := "0.3.2-SNAPSHOT"
 ThisBuild / versionScheme := Some("early-semver")
-ThisBuild / scalaVersion := "2.13.4"
+ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / autoAPIMappings := true // Enables automatic linking to the external Scaladoc of managed dependencies
 // ThisBuild / apiURL := Some(url(s"file:${(baseDirectory).value.getAbsolutePath}/target/scala-${scalaVersion.value.take(4)}/api"))
 
-lazy val akkaHttpVersion = "10.2.0"
+lazy val akkaVersion = "2.6.13"
+lazy val akkaHttpVersion = "10.2.4"
 
 //// Inter-project dependencies and packaging settings
 
 lazy val jsfacile = (project in file("."))
-	.aggregate(core, macros, common)
+	.aggregate(core, macros, common, akkaHttp)
 	.settings(
 		publish / skip := true,
 	)
@@ -45,6 +46,12 @@ lazy val common = (project in file("comun"))
 		publish / skip := true,  // don't publish any artifact of this subproject because their content is provided by the `core` subproject's artifacts.
 	)
 
+lazy val akkaHttp = (project in file("akka-http"))
+	.dependsOn(
+		core,
+		common % "compile-internal, test-internal" // the "compile-internal" removes `common` from the set of dependencies for publishing because its content is provided by the `core` artifact. See the `core` mappings. Also see "https://www.scala-sbt.org/1.x/docs/Macro-Projects.html"
+	)
+
 //// Library dependencies ////
 
 ThisBuild / libraryDependencies ++= Seq(
@@ -64,6 +71,11 @@ macros / libraryDependencies ++= Seq(
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
 )
 
+akkaHttp / libraryDependencies ++= Seq(
+	"com.typesafe.akka" %% "akka-stream" % akkaVersion,
+	"com.typesafe.akka" %% "akka-http-core" % akkaHttpVersion,
+	"com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+)
 //// scalac options ////
 
 ThisBuild / scalacOptions ++= Seq(

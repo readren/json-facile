@@ -154,12 +154,11 @@ class CoproductParser[C](
 
 					var have = cursor.consumeWhitespaces();
 					while (have && cursor.pointedElem != '}') {
-						have = false;
 						val fieldName = BasicParsers.jpString.parse(cursor);
-						if (cursor.consumeWhitespaces() &&
-							cursor.consumeChar(':') &&
-							cursor.consumeWhitespaces()
-						) {
+						have = cursor.consumeWhitespaces() &&
+							   cursor.consumeChar(':') &&
+							   cursor.consumeWhitespaces();
+						if (have) {
 							if (fieldName == discriminator) {
 								val productName = BasicParsers.jpString.parse(cursor);
 								chosenManager = BinarySearch.find(wp.managers)(_.name.compareTo(productName));

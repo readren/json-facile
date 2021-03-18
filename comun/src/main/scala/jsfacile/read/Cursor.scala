@@ -7,7 +7,9 @@ import jsfacile.util.CharPredicate
  * The [[Parser.parse]] method receives an instance of this class from which it extracts the input elements and to which it mutates to communicate the parsing progress to the next parser.
  * This trait models the requirements that said cursor should obey. */
 trait Cursor {
-	/** Current cursor position */
+	/** Current cursor position.
+	 *
+	 * CAUTION: the value returned by this method is not necessarily the number of consumed chars. It may depend on the way the content is stored by this trait implementation. It is only meaningful for this instance, and is intended to be used only as argument for methods of this instance (like [[consumeStringUntil]]). */
 	@inline def pos: Pos;
 	/** This cursor missed and failed flags are not set. */
 	@inline def ok: Boolean;
@@ -23,7 +25,10 @@ trait Cursor {
 	def comes(expected: String): Boolean
 	/** Increments the position.
 	 *
-	 * @param steps number of steps to advance. Should be a positive number.
+	 * @param steps number of [[Char]]s to advance. Should be a positive number.
+	 *
+	 * Note that advancing X chars does not necessarily increases the [[pos]] in the same amount.
+	 * @see [[pos]].
 	 * @return true if after the advance this cursor is pointing to an element of the content (same as [[isPointing]]). */
 	def advance(steps: Int = 1): Boolean
 	/** Sets the missed flag. Parsers set this flag when they miss. The [[Parser.orElse]] operator clears this flag before applying the second parser, when the first has missed. */
@@ -114,5 +119,5 @@ trait Cursor {
 	 * Designed to be called after [[posOfNextEscapeOrClosingQuote]] when the ending char is an escape.
 	 * Calling this method is equivalent to calling [[consumeStringUntil]] and then decrementing the [[pos]] by one.
 	 * This method is rarely called. Only when the string contains an escape char and the first occurrence is far away from starting pointed position. */
-	def consumeStringTo(pot: Pos): String
+	def consumeStringTo(pos: Pos): String
 }

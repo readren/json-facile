@@ -36,12 +36,11 @@ class ProductParser[P](helper: PpHelper[P]) extends Parser[P] {
 
 				var have = cursor.consumeWhitespaces();
 				while (have && cursor.pointedElem != '}') {
-					have = false;
 					val fieldName = BasicParsers.jpString.parse(cursor);
-					if (cursor.consumeWhitespaces() &&
-						cursor.consumeChar(':') &&
-						cursor.consumeWhitespaces()
-					) {
+					have = cursor.consumeWhitespaces() &&
+							   cursor.consumeChar(':') &&
+							   cursor.consumeWhitespaces();
+					if (have) {
 						val fieldInfo = BinarySearch.find[PpFieldInfo](helper.fieldsInfo) {_.name.compare(fieldName)}
 						if (fieldInfo == null) {
 							Skip.jsValue(cursor);

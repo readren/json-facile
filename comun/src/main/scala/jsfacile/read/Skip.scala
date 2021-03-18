@@ -89,14 +89,18 @@ object Skip {
 	 * @return true iff an object was consumed and the cursor is [[Cursor.ok]] */
 	def jsObject(cursor: Cursor): Boolean = {
 		if(cursor.consumeChar('{')) {
-			var ok = cursor.consumeWhitespaces();
-			while (ok && cursor.pointedElem != '}') {
-				jsString(cursor)
-				cursor.consumeWhitespaces()
-				cursor.consumeChar(':')
-				ok = cursor.consumeWhitespaces() && (cursor.consumeChar(',') && cursor.consumeWhitespaces() || cursor.pointedElem == '}')
+			var have = cursor.consumeWhitespaces();
+			while (have && cursor.pointedElem != '}') {
+				have =
+					Skip.jsString(cursor) &&
+					cursor.consumeWhitespaces() &&
+					cursor.consumeChar(':') &&
+					cursor.consumeWhitespaces() &&
+					Skip.jsValue(cursor) &&
+					cursor.consumeWhitespaces() &&
+					(cursor.consumeChar(',') && cursor.consumeWhitespaces() || cursor.pointedElem == '}')
 			}
-			if(ok) {
+			if(have) {
 				cursor.advance()
 			} else {
 				cursor.fail("Invalid json object syntax found while skipping")

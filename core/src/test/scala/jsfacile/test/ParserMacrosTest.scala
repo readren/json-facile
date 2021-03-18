@@ -2,6 +2,7 @@ package jsfacile.test
 
 import scala.annotation.tailrec
 
+import jsfacile.api.JsDocument
 import jsfacile.read.Parser
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
@@ -29,6 +30,11 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 	sealed trait Arbol[V];
 	case class Rama[V](a: Arbol[V], b: Arbol[V]) extends Arbol[V];
 	case class Hoja[V](v: V) extends Arbol[V];
+
+	//////////////////////////////////
+	// JsDocument sample data types //
+
+	case class MixedDto(id: Int, name: String, jsonData: JsDocument)
 
 	/////////////////////////////////////////////////////////
 	// data type hierarchy with directly nested coproducts //
@@ -133,7 +139,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 	}
 
 	object `Json interpretation should work ...` {
-		import jsfacile.api.FromJsonConvertible
+		import jsfacile.api.FromJsonStringConvertible
 
 		def `for a simple product`(): Unit = {
 			val simpleParsed = simpleJson.fromJson[Simple]
@@ -181,6 +187,15 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			val presentationDataJson = presentationDataOriginal.toJson
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
+		}
+
+		def `for JsDocument`(): Unit = {
+			import jsfacile.api._
+
+			val mixedDtoOriginal = MixedDto(123, "John Galt", presentationDataOriginal.toJsDocument )
+			val mixedDtoJson = mixedDtoOriginal.toJson
+			val mixedDtoParsed = mixedDtoJson.fromJson[MixedDto]
+			assertResult(Right(mixedDtoOriginal))(mixedDtoParsed)
 		}
 
 		def `with HLists`(): Unit = {

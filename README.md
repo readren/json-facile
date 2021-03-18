@@ -34,6 +34,7 @@ _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementat
 		- [Convert a JSON string document back to an ADT instance.](#convert-a-json-string-document-back-to-an-adt-instance)
 		- [Choose the name of the discriminator field and if it must be appended always or only when it's necessary.](#choose-the-name-of-the-discriminator-field-and-if-it-must-be-appended-always-or-only-when-its-necessary)
 		- [Choose how scala maps are represented in JSON.](#choose-how-scala-maps-are-represented-in-json)
+		- [Handle JSON data directly](#handle-json-data-directly)
 		- [Build a translator for a type defined with a non-sealed trait.](#build-a-translator-for-a-type-defined-with-a-non-sealed-trait)
 		- [Build the translators for a non-algebraic concrete data type.](#build-the-translators-for-a-non-algebraic-concrete-data-type)
 		- [Build the translators for a non-algebraic abstract data type.](#build-the-translators-for-a-non-algebraic-abstract-data-type)
@@ -63,8 +64,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.3.1-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.3.1-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.3.2-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.3.2-SNAPSHOT" % "compile-internal"
 )
 ```
 
@@ -87,8 +88,12 @@ val foos: List[Foo] = List(
 	Qux(3, Some(12.3))
 )
 
-val json: String = foos.toJson
-println(json)
+// Convert the ADT to JsDocument
+val jsonDoc: JsDocument = foos.toJsDocument
+println(jsonDoc.value)
+// or directly to a String
+val jsonString: String = foos.toJson
+println(jsonString)
 ```
 prints
 
@@ -121,8 +126,8 @@ val accessories: List[Accessory] = List(
 )
 
 {
-	val json1: String = accessories.toJson
-	println(json1);
+	val json1: JsDocument = accessories.toJsDocument
+	println(json1.value);
 
 	val parsed1: Either[ParseError, List[Accessory]] = json1.fromJson[List[Accessory]]
 	assert(parsed1 == Right(accessories))
@@ -140,8 +145,8 @@ implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory]
 	override def required: Boolean = true
 }
 
-val json2: String = accessories.toJson
-println(json2);
+val json2: JsDocument = accessories.toJsDocument
+println(json2.value);
 
 val parsed2: Either[ParseError, List[Accessory]] = json2.fromJson[List[Accessory]]
 assert(parsed2 == Right(accessories))
@@ -189,6 +194,27 @@ Note that the keys are JSON encoded in the JSON object's field names.
 
 The fields order is ever determined by the primary constructor's parameters order. Therefore, the keys' equality remains stable.
 
+### Handle JSON data directly
+Sometimes you need/prefer to keep some fields of a DTO (data transfer object) in JSON format. You can do that declaring them with the `JsDocument` type.
+```scala
+import jsfacile.api._
+
+case class MixedDto(id: Int, name: String, jsonData: JsDocument)
+
+val mixedDto = MixedDto(123, "John Galt", JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
+val json = mixedDto.toJson
+println(json)
+val parsed = json.fromJson[MixedDto]
+assert(Right(mixedDto) == parsed, json)
+```
+prints
+```json
+{"id":123,"name":"John Galt","jsonData":{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}}
+```
+You may convert any algebraic data type to `JsDocument` with the `ToJsonConvertible.toJsDocument` method.
+```scala
+val aJsDocument: JsDocument = Map("age" -> 40, "weight" -> 80).toJsDocument
+```
 ### Build a translator for a type defined with a non-sealed trait.
 The automatic derivation of translators (`Appender`/`Parser`) works for algebraic data types; and a type defined with a non-sealed trait is not algebraic.
 

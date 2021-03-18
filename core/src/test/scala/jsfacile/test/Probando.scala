@@ -19,6 +19,8 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 	case object One extends Thing
 	case object Two extends Thing
 
+	case class MixedDto(id: Int, name: String, jsonData: JsDocument)
+
 	//	object DistanceUnit extends Enumeration {
 	//		val Meter, Millimeter = Value;
 	//	}
@@ -30,6 +32,23 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 	//	case class Ball(radius: Distance, weight: Float) extends Thing
 
 	def main(args: Array[String]): Unit = {
+
+		///////////////
+
+
+		{
+			import jsfacile.api._
+			val mixedDto = MixedDto(123, "John Galt", JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
+			println("mixedDto: " + mixedDto)
+			val json = mixedDto.toJson
+			println("json: " + json)
+			val parsed = json.fromJson[MixedDto]
+			println("parsed: " + parsed)
+			assert(Right(mixedDto) == parsed, json)
+
+			val aJsDocument: JsDocument = Map("age" -> 40, "weight" -> 80).toJsDocument
+			println(aJsDocument)
+		}
 
 		////////////////////////////////////////////////
 

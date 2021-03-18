@@ -2,10 +2,14 @@ package jsfacile.read
 
 import jsfacile.read.Parser.{Elem, Pos}
 
-/** A [[Cursor]] whose content is all contained in a single [[java.lang.String]]. */
+/** A [[Cursor]] whose content is all contained in a single array of [[Char]]s.
+ *
+ * This type of [[Cursor]]s has the particularity that the [[pos]] method returns the number of consumed chars. */
 class CursorStr(content: Array[Char]) extends AbstractCursor {
 
 	def this(content: String) = this(content.toCharArray);
+
+	def this(content: CharSequence) = this(content.toString.toCharArray)
 
 	protected var cursorPos: Int = 0;
 
