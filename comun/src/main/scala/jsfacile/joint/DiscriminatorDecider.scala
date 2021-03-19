@@ -12,12 +12,6 @@ trait DiscriminatorDecider[-C] {
 
 object DiscriminatorDecider {
 
-	/** The default [[DiscriminatorDecider]]. */
-	implicit val defaultDiscriminatorDecider: DiscriminatorDecider[Any] = new DiscriminatorDecider[Any] {
-		override val fieldName: String = "?"
-		override val required: Boolean = false
-	}
-
 	/** Summons an instance of [[DiscriminatorDecider]] for the specified type from the implicit scope. */
 	def apply[C](implicit dd: DiscriminatorDecider[C]): DiscriminatorDecider[C] = dd;
 }

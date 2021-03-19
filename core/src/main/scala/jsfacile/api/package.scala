@@ -22,7 +22,15 @@ package object api {
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
 	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
 
+	/** The default [[DiscriminatorDecider]]. */
+	implicit val defaultDiscriminatorDecider: DiscriminatorDecider[Any] = new DiscriminatorDecider[Any] {
+		override val fieldName: String = "?"
+		override val required: Boolean = false
+	}
+
 	type MapFormatDecider[K, V, MC[_, _]] = jsfacile.write.MapFormatDecider[K, V, MC];
+
+	type JsDocument = jsfacile.jsonast.JsDocument;
 
 	///////////////////
 	//// Summoners ////
@@ -46,7 +54,7 @@ package object api {
 		}
 
 		@inline
-		def toJsDocument(implicit at: Appender[T]): JsDocument = JsDocument(this.toJson(at))
+		def toJsDocument(implicit at: Appender[T]): JsDocument = new JsDocument(this.toJson(at))
 	}
 
 	/** Adds the [[fromJson]] method to instances of [[String]]. */

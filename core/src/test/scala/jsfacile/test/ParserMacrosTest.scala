@@ -2,8 +2,7 @@ package jsfacile.test
 
 import scala.annotation.tailrec
 
-import jsfacile.api.JsDocument
-import jsfacile.read.Parser
+import jsfacile.api.{JsDocument, Parser, defaultDiscriminatorDecider}
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec

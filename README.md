@@ -64,8 +64,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.3.2-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.3.2-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.3.3-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.3.3-SNAPSHOT" % "compile-internal"
 )
 ```
 
@@ -201,7 +201,7 @@ import jsfacile.api._
 
 case class MixedDto(id: Int, name: String, jsonData: JsDocument)
 
-val mixedDto = MixedDto(123, "John Galt", JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
+val mixedDto = MixedDto(123, "John Galt", new JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
 val json = mixedDto.toJson
 println(json)
 val parsed = json.fromJson[MixedDto]
@@ -211,10 +211,25 @@ prints
 ```json
 {"id":123,"name":"John Galt","jsonData":{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}}
 ```
-You may convert any algebraic data type to `JsDocument` with the `ToJsonConvertible.toJsDocument` method.
+Any algebraic data type can be converted to `JsDocument` with the `ToJsonConvertible.toJsDocument` method.
 ```scala
-val aJsDocument: JsDocument = Map("age" -> 40, "weight" -> 80).toJsDocument
+case class Foo(id: Int, name: String)
+
+val aJsDocument: JsDocument = Foo(40, "foo").toJsDocument
 ```
+
+`JsDocument` is also part of the `JsValue` abstract syntax tree, so it can be combined with other `JsValue` instances.
+```scala
+import jsfacile.jsonast._
+
+val aJsValue: JsValue = JsObject("id" -> JsNumber(3), "data" -> JsDocument("""[true, "hello"]"""))
+println(aJsValue.toJson)
+```
+prints
+```json
+{"id":3,"data":[true, "hello"]}
+```
+
 ### Build a translator for a type defined with a non-sealed trait.
 The automatic derivation of translators (`Appender`/`Parser`) works for algebraic data types; and a type defined with a non-sealed trait is not algebraic.
 
