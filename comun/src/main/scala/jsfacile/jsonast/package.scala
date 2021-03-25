@@ -2,8 +2,10 @@ package jsfacile
 
 import scala.{collection => generic}
 
-import jsfacile.api.{Appender, FromJsonCharArrayConvertible, JsDocument, ParseError, Parser, parserOf}
-import jsfacile.read.Skip
+import jsfacile.api.ParseError
+import jsfacile.read.{BasicParsers, IterableParser, MapParser, Parser, Skip}
+import jsfacile.write.{Appender, BasicAppenders, IterableAppender, MapAppender, MapFormatDecider}
+import jsfacile.util.NonVariantHolderOfAMapFactory
 
 package object jsonast {
 
@@ -28,11 +30,11 @@ package object jsonast {
 	 *
 	 * Useful for fields that are already a JSON document. */
 	case class JsDocument(value: String) extends AnyVal with JsValue {
-		/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
+		/** Tries to create an instance of the specified type with the value represented by this [[jsfacile.jsonast.JsDocument]] in JSON format.
 		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
-			new FromJsonCharArrayConvertible(value.toCharArray).fromJson[T](pt)
+			Parser.parse(value.toCharArray)(pt)
 		}
 	}
 
@@ -49,10 +51,20 @@ package object jsonast {
 			JsFalse
 		}
 	}
-	implicit val jpAstNumber: Parser[JsNumber] = parserOf[BigDecimal] ^^ JsNumber.apply
-	implicit val jpAstString: Parser[JsString] = parserOf[String] ^^ JsString.apply
-	implicit val jpAstArray: Parser[JsArray] = parserOf[generic.Iterable[JsValue]] ^^ JsArray.apply
-	implicit val jpAstObject: Parser[JsObject] = parserOf[generic.Map[String, JsValue]] ^^ JsObject.apply
+	implicit val jpAstNumber: Parser[JsNumber] = BasicParsers.jpBigDecimal ^^ JsNumber.apply
+	implicit val jpAstString: Parser[JsString] = BasicParsers.jpString ^^ JsString.apply
+
+	implicit val jpAstArray: Parser[JsArray] = new IterableParser[generic.Iterable, JsValue](
+		jpAstValue,
+		jsfacile.util.NonVariantHolderOfAnIterableFactory.genIterableFactory
+	) ^^ JsArray.apply
+
+	implicit val jpAstObject: Parser[JsObject] = new MapParser[generic.Map[String, JsValue], String, JsValue](
+		BasicParsers.jpString,
+		jpAstValue,
+		BasicParsers.jpString,
+		() => NonVariantHolderOfAMapFactory.genericMapFactory.factory.newBuilder
+	) ^^ JsObject.apply
 
 	implicit lazy val jpAstValue: Parser[JsValue] = Parser.pick >> { char =>
 		val parser: Parser[_ <: JsValue] = char match {
@@ -83,10 +95,10 @@ package object jsonast {
 	implicit val jaAstTrue: Appender[JsTrue.type] = (r, _) => r.append("true");
 	implicit val jaAstFalse: Appender[JsFalse.type] = (r, _) => r.append("false");
 	implicit val jaAstBoolean: Appender[JsBoolean] = (r, a) => r.append {if (a.value) "true" else "false"}
-	implicit val jaAstNumber: Appender[JsNumber] = (r, a) => r.appendSummoned[BigDecimal](a.number)
-	implicit val jaAstString: Appender[JsString] = (r, a) => r.appendSummoned[String](a.string)
-	implicit val jaAstArray: Appender[JsArray] = (r, a) => r.appendSummoned[generic.Iterable[JsValue]](a.array)
-	implicit val jaAstObject: Appender[JsObject] = (r, a) => r.appendSummoned[generic.Map[String, JsValue]](a.fields)
+	implicit val jaAstNumber: Appender[JsNumber] = (r, a) => r.appendSummoned[BigDecimal](a.number)(BasicAppenders.jaBigDecimal)
+	implicit val jaAstString: Appender[JsString] = (r, a) => r.appendSummoned[String](a.string)(BasicAppenders.jaString)
+	implicit val jaAstArray: Appender[JsArray] = (r, a) => r.appendSummoned[generic.Iterable[JsValue]](a.array)(arrayIterableAppender)
+	implicit val jaAstObject: Appender[JsObject] = (r, a) => r.appendSummoned[generic.Map[String, JsValue]](a.fields)(objectMapAppender)
 	implicit val jaJsDocument: Appender[JsDocument] = (r, jd) => r.append(jd.value);
 
 	implicit lazy val jaAstValue: Appender[JsValue] = { (r, a) =>
@@ -103,5 +115,10 @@ package object jsonast {
 		appender.asInstanceOf[Appender[JsValue]].append(r, a)
 	}
 
+	private val arrayIterableAppender: Appender[generic.Iterable[JsValue]] = IterableAppender.apply[JsValue, generic.Iterable](jaAstValue)
 
+	private val objectMapFormatDecider: MapFormatDecider[String, JsValue, generic.Map] = new MapFormatDecider[String, JsValue, generic.Map] {
+		override val useObject: Boolean = true
+	}
+	private val objectMapAppender: Appender[generic.Map[String, JsValue]] = new MapAppender[String, JsValue, generic.Map](BasicAppenders.jaString, jaAstValue, BasicAppenders.jaCharSequence, objectMapFormatDecider)
 }

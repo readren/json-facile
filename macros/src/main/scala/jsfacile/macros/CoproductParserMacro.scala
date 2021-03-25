@@ -26,7 +26,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
 	def materializeImpl(initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol): ctx.Expr[Parser[C]] = {
 
-//		ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
+		//	ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
 
 		val isOuterMacroInvocation = isOuterParserMacroInvocation;
 		if(isOuterMacroInvocation) {
@@ -43,7 +43,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 				Handler.parserHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
-					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductTranslatorsBuilder`.";
+					val errorMsg = s"No parser for `$initialCoproductType` was found in the implicit scope, and it can't be automatically derived because `$initialCoproductClassSymbol` is not sealed.\nIf a parser for `$initialCoproductType` exists, make sure it is in the implicit scope and also that all its implicit parameters are resolvable. A common cause of this error is the failure to resolve one of said implicit parameters.\nIf your intention is to rely on the automatic derivation, seal the `$initialCoproductClassSymbol` and make all its subtypes be arithmetic.\nIf you are planning to build a custom parser, consider the use of a `CoproductTranslatorsBuilder`.";
 					coproductHandler.setFailed(errorMsg)
 					ctx.abort(ctx.enclosingPosition, errorMsg)
 				}
@@ -64,12 +64,12 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 
 	protected def buildParserCreationTreeOn(coproductHandler: Handler, initialCoproductType: Type, initialCoproductClassSymbol: ClassSymbol, productAdditionTrees: Iterable[Tree], numberOfShards: Int): Unit = {
 
-		// Get the discriminator field name and requirement from the coproduct annotation, or from the `DiscriminatorDecider` in the implicit scope if it isn't annotated.
+		// Gets the type-discriminator field's name from the type's annotation or, by default, from the `DiscriminatorDecider` in the implicit scope.
 		val discriminatorFieldName: Tree = {
 			discriminatorField.parse(ctx)(initialCoproductClassSymbol) match {
 				case Some(discriminatorConf) => Literal(Constant(discriminatorConf.fieldName))
 
-				case None => q"DiscriminatorDecider[$initialCoproductType].fieldName"
+				case None => q"DiscriminatorDecider.apply[$initialCoproductType].fieldName"
 			}
 		};
 
@@ -101,11 +101,11 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(parserCreationTree));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} :\n${show(parserCreationTree)}\n------${Handler.showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		//	ctx.info(ctx.enclosingPosition, s"coproduct parser unchecked builder for ${show(initialCoproductType)} :\n${show(parserCreationTree)}\n------${Handler.showParserDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[parserHandlersMap]], and this macro execution needs to know of them later.
 		expandNestedMacros(parserCreationTreeWithContext);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-//		ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(initialCoproductType)}", force = false);
+		//	ctx.info(ctx.enclosingPosition, s"coproduct parser after builder check for ${show(initialCoproductType)}", force = false);
 	}
 
 
@@ -173,7 +173,7 @@ state.addProduct(CpProductInfo[$coproductType](
 								for (param <- params) yield {
 									val fieldType = param.typeSignature.dealias;
 									val oDefaultValue = None; // TODO obtain it from the scala parameter default value
-									addField(productType, subtypeClassSymbol, param.name.toString, param.typeSignature.dealias, oDefaultValue, initialCoproductType, initialHandler, metaConsideredFields, ics);
+									addField(productType, subtypeClassSymbol, param.name.toString, fieldType, oDefaultValue, initialCoproductType, initialHandler, metaConsideredFields, ics);
 
 									q"args(${ics.argIndex}).asInstanceOf[$fieldType]";
 								}
@@ -243,12 +243,12 @@ state.productFieldsBuilder.clear();"""
 		val addProductField_snippet =
 			metaConsideredFields.get(fieldName) match {
 
-				case Some(ConsideredField(fieldType, firstOwnerName, consideredFieldIndex, consideredFieldBitSlot)) =>
+				case Some(ConsideredField(aaFieldType, firstOwnerName, consideredFieldIndex, consideredFieldBitSlot)) =>
 					if (isRequired) {
 						ics.requiredFieldsAccum = ics.requiredFieldsAccum.add(consideredFieldBitSlot);
 					}
 
-					if (fieldType =:= fieldType) {
+					if (aaFieldType =:= fieldType) {
 						q"""state.addProductField(CpFieldInfo($fieldName, $consideredFieldIndex, ${ics.argIndex}, $defaultValue_expression));"""
 					} else {
 						val msg = s"""Unsupported situation while building a `Parser[$initialCoproductType]`: two implementations, `$productClassSymbol` and `$firstOwnerName`, have a field with the same name ("$fieldName") but different type."""

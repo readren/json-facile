@@ -4,6 +4,7 @@ import java.time.Instant
 
 import jsfacile.api._
 import jsfacile.api.builder.CoproductTranslatorsBuilder
+import jsfacile.jsonast.JsObject
 import jsfacile.test.SampleADT.DistanceUnit.{Meter, Millimeter}
 //import jsfacile.macros.Probe
 import jsfacile.test.SampleADT._
@@ -32,6 +33,12 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 	def main(args: Array[String]): Unit = {
 
 		///////////////
+		{
+			val json = """{"info":"{\"k\":\"Dqoo\"}"}"""
+			val jsObject = json.fromJson[JsObject]
+			println(jsObject)
+
+		}
 
 
 		{

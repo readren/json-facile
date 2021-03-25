@@ -1,13 +1,13 @@
 package jsfacile.jsonast
 
+import jsfacile.api.{FromJsonStringConvertible, ToJsonConvertible}
+import jsfacile.jsonast.JsonGen._
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class JsonAstTest extends RefSpec with ScalaCheckDrivenPropertyChecks {
 
 	object `Given an AST ...` {
-		import jsfacile.api._
-		import JsonGen._
 
 		def `translating it to json and back to AST should give the original AST`(): Unit = {
 

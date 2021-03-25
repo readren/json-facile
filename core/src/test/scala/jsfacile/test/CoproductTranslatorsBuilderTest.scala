@@ -1,7 +1,8 @@
 package jsfacile.test
 
-import jsfacile.api.{DiscriminatorDecider, _}
+import jsfacile.api._
 import jsfacile.api.builder._
+import jsfacile.joint.DiscriminatorDecider
 import jsfacile.jsonast.{JsNull, JsNumber, JsObject}
 import jsfacile.test.SampleADT.{Distance, DistanceUnit}
 import org.scalatest.matchers.should.Matchers
@@ -157,7 +158,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			Given the names of the fields we chose for `Instant` and `Year` are different, there is no ambiguity, and the discriminator field is necessary only if the resulting JSON document will be read by a JSON library that requires them.
 			Assuming that knowledge is centralized in an implicit `DiscriminatorDecider`, let's ask it.
 			 */
-			val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = implicitly[DiscriminatorDecider[Temporal]]
+			val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = DiscriminatorDecider.apply[Temporal]
 			/*
 			Having all we need to implement the `Appender[Year]`, let's do it.
 			 */

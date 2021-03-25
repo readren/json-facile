@@ -5,11 +5,13 @@ import jsfacile.util.CharPredicate
 
 /** The low-level API on which [[Parser]] implementations are built.
  * The [[Parser.parse]] method receives an instance of this class from which it extracts the input elements and to which it mutates to communicate the parsing progress to the next parser.
- * This trait models the requirements that said cursor should obey. */
+ * This trait models the requirements that said cursor should obey.
+ * @define posCaution CAUTION: the value returned by this method is not necessarily the number of consumed chars. It may depend on the way the content is stored by the implementation. It is only meaningful for this instance, and is intended to be used only as argument for methods of this instance (like [[consumeStringTo]]).
+ * */
 trait Cursor {
 	/** Current cursor position.
 	 *
-	 * CAUTION: the value returned by this method is not necessarily the number of consumed chars. It may depend on the way the content is stored by this trait implementation. It is only meaningful for this instance, and is intended to be used only as argument for methods of this instance (like [[consumeStringUntil]]). */
+	 * $posCaution */
 	@inline def pos: Pos;
 	/** This cursor missed and failed flags are not set. */
 	@inline def ok: Boolean;
@@ -55,9 +57,9 @@ trait Cursor {
 	def attempt[@specialized(Int, Char) X](block: Cursor => X): X
 
 	/** The implementation should execute the received block and, if after that this [[Cursor]]:
-	 * - is [[ok]], should return a [[java.lang.String]] containing the code points consumed by the block;
-	 * - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
-	 * - is failed, should return `null`.
+	 *  - is [[ok]], should return a [[java.lang.String]] containing the code points consumed by the block;
+	 *  - is missed but not failed, should recover the position it had before the block had been executed and return `null`;
+	 *  - is failed, should return `null`.
 	 *
 	 * @return a [[java.lang.String]] containing the elements consumed by the `consumer` if the cursor is [[ok]] after the `consumer` block execution. `null` otherwise. The consumer may and usually does mutate this cursor. */
 	def stringConsumedBy(consumer: Cursor => Unit): String
@@ -73,6 +75,7 @@ trait Cursor {
 	def consumeCharIf(predicate: CharPredicate): Boolean;
 
 	/** If the cursor [[have]] and the pointed element is a digit, advances to next position and returns [[have]]. Else does nothing and returns false.
+	 *
 	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[scala.Float]], [[scala.Double]], [[scala.BigInt]], and [[scala.BigDecimal]].
 	 *
 	 * @return true if and only if the element was consumed and after that the cursor is pointing to an element of the content (implies that both the missed and failed flags are false because otherwise the element won't be consumed). In other word, returns [[have]] if the element was consumed, false otherwise. */
@@ -84,40 +87,41 @@ trait Cursor {
 	def consumeCharIfEither(a: Char, b: Char): Boolean;
 
 	/** If the cursor [[have]] and the pointed element is a whitespace char, advances positions until the first non whitespace char after it. Else sets the missed flag.
+	 *
 	 * Equivalent to {{{consumeWhile(_.isWhitespace)}}}
 	 *
-	 * @return true if the cursor is pointing to an element of the content independently if whitespaces were consumed or not. In other words, return [[have]] */
+	 * @return true if the cursor is pointing to an element of the content independently if whitespaces were consumed or not. In other words, returns the new state of [[have]] */
 	def consumeWhitespaces(): Boolean
 
 	/** Advances the cursor position while it [[have]] and the pointed element satisfies the predicate.
 	 *
-	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
+	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, returns the new state of [[have]] */
 	def consumeWhile(predicate: CharPredicate): Boolean;
 
 	/** Advances the cursor position while it [[have]] and the pointed element is a digit.
+	 *
 	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse [[scala.Float]], [[scala.Double]], [[scala.BigInt]], and [[scala.BigDecimal]]. *
 	 *
-	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, return [[have]] */
+	 * @return true if the cursor is pointing to an element of the content and both the missed and failed flags are false. In other words, returns the new state of [[have]] */
 	def consumeWhileDigit(): Boolean
 
 	/** If the pointed element isn't a quote, returns 0. If it is a quote, gives the position of the first occurrence of either, a quote, a escape, or the content end (length of the content).
+	 *
 	 * Asumes that the cursor [[isPointing]].
+	 *
 	 * This method does not mutate this instance.
-	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse every string, including field names. */
+	 *
+	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse every string, including field names.
+	 *
+	 * $posCaution*/
 	def posOfNextEscapeOrClosingQuote: Pos
 
-	/** Takes the substring of the content that starts at the pointed position (exclusive), and ends at the specified `pos` (exclusive); and consumes said sequence plus one character.
-	 * This method ever exits with [[Cursor.pos]] equal to the received `pos` plus one.
-	 * Assumes that the specified `pos` is greater than this [[Cursor.pos]] and less than the content length.
-	 * Designed to be called after [[posOfNextEscapeOrClosingQuote]] when the ending char is a quote.
+	/** Takes the substring of the content that starts at the pointed position (exclusive), and ends at the specified `pos` (exclusive).
+	 *
+	 * This method always exits with [[Cursor.pos]] equal to the received `pos`.
+	 *
+	 * Assumes that the specified `pos` is greater than this [[Cursor.pos]] and less than the content length. It is designed to be called after [[posOfNextEscapeOrClosingQuote]].
+	 *
 	 * VERY IMPORTANT: this method should be extremely efficient. It is used to parse every string, including field names. */
-	def consumeStringUntil(pos: Pos): String;
-
-	/** Takes the substring of the content that starts at the pointed position (exclusive), and ends at the specified `pos` (exclusive); and consumes said sequence.
-	 * This method ever exits with [[Cursor.pos]] equal to the received `pos`.
-	 * Assumes that the specified `pos` is greater than this [[Cursor.pos]] and less than the content length.
-	 * Designed to be called after [[posOfNextEscapeOrClosingQuote]] when the ending char is an escape.
-	 * Calling this method is equivalent to calling [[consumeStringUntil]] and then decrementing the [[pos]] by one.
-	 * This method is rarely called. Only when the string contains an escape char and the first occurrence is far away from starting pointed position. */
 	def consumeStringTo(pos: Pos): String
 }

@@ -80,15 +80,9 @@ class CursorStr(content: Array[Char]) extends AbstractCursor {
 		} else 0
 	}
 
-	override def consumeStringUntil(pos: Pos): String = {
-		val start = this.cursorPos + 1;
-		val s = new String(this.content, start, pos - start);
-		this.cursorPos = pos + 1;
-		s
-	}
 	override def consumeStringTo(pos: Pos): String = {
-		val s = this.consumeStringUntil(pos);
-		this.cursorPos -= 1;
-		s
+		val start = this.cursorPos + 1;
+		this.cursorPos = pos;
+		new String(this.content, start, pos - start);
 	}
 }

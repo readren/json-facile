@@ -7,12 +7,13 @@ import scala.reflect.macros.blackbox
 import jsfacile.annotations.discriminatorField
 import jsfacile.joint.DiscriminatorConf
 import jsfacile.macros.GenCommon.TypeKey
-import jsfacile.write.Appender
+import jsfacile.write.PrefixInserter.CoproductsOnly
+import jsfacile.write.{Appender, PrefixInserter}
 
 class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
 	import ctx.universe._
 
-	/** Knows information pertaining to a concrete subtype of `C`*/
+	/** Knows information pertaining to a concrete subtype of `C` */
 	protected trait ProductInfo {
 		var isAmbiguous: Boolean;
 		def tpe: Type;
@@ -32,7 +33,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		//	ctx.info(ctx.enclosingPosition, s"coproduct appender start for ${show(coproductType)}", force = false);
 
 		val isOuterMacroInvocation = isOuterAppenderMacroInvocation;
-		if(isOuterMacroInvocation) {
+		if (isOuterMacroInvocation) {
 			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
 			Handler.appenderHandlersMap.clear()
 		}
@@ -47,7 +48,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 				Handler.appenderHandlersMap.put(coproductTypeKey, coproductHandler);
 
 				if (!initialCoproductClassSymbol.isSealed) {
-					val errorMsg = s"`$initialCoproductClassSymbol` is not sealed. Automatic derivation requires that abstract types be sealed. Seal it or use the `CoproductTranslatorsBuilder`.";
+					val errorMsg = s"No appender for `$initialCoproductType` was found in the implicit scope, and it can't be automatically derived because `$initialCoproductClassSymbol` is not sealed.\nIf an appender for `$initialCoproductType` exists, make sure it is in the implicit scope and also that all its implicit parameters are resolvable. A common cause of this error is the failure to resolve one of said implicit parameters.\nIf your intention is to rely on the automatic derivation, seal the `$initialCoproductClassSymbol` and make all its subtypes be arithmetic.\nIf you are planning to build a custom appender, consider the use of a `CoproductTranslatorsBuilder`.";
 					coproductHandler.setFailed(errorMsg)
 					ctx.abort(ctx.enclosingPosition, errorMsg)
 				}
@@ -95,6 +96,9 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 			}
 		}
 
+		val prefixInserterType = appliedType(typeOf[PrefixInserter[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
+		val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true)
+
 		// for every product, generate the code lines that creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
 		val addProductInfo_codeLines =
 			for {
@@ -107,8 +111,21 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 						q"""productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, ${customProductInfo.appenderTree}));"""
 
 					case derivedProductInfo: DerivedProductInfo =>
-						val discriminatorFieldValue = s"""":"${derivedProductInfo.discriminatorValue}${if (derivedProductInfo.appendField_codeLines.isEmpty) "\"" else "\","}""";
 
+						val appendNonDiscriminatorFields_codeLines =
+							if (prefixInserterInstance == EmptyTree) {
+								q"..${derivedProductInfo.appendField_codeLines}"
+							} else if (derivedProductInfo.appendField_codeLines.isEmpty) {
+								q"$prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminatorValue})"
+							} else {
+								q"""
+if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminatorValue})) {
+	r.append(',');
+}
+..${derivedProductInfo.appendField_codeLines}"""
+							}
+
+						val discriminatorFieldValue = s"""":"${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
 						val appendDiscriminator_codeLine = discriminatorOverride match {
 							case Some(discriminatorAnnotation) =>
 								if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
@@ -120,11 +137,12 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 
 							case None =>
 								if (productInfo.isAmbiguous) {
-									q"""r.append(discrimPrefix).append($discriminatorFieldValue)"""
+									q"""r.append(discrimName).append($discriminatorFieldValue)"""
 								} else {
-									q"""if (discrimRequired) { r.append(discrimPrefix).append($discriminatorFieldValue) }"""
+									q"""if (discrimRequired) { r.append(discrimName).append($discriminatorFieldValue) }"""
 								}
 						}
+
 
 						q"""
 val productAppender: _root_.jsfacile.write.Appender[${derivedProductInfo.tpe}] = { (r, p) =>
@@ -132,7 +150,7 @@ val productAppender: _root_.jsfacile.write.Appender[${derivedProductInfo.tpe}] =
 
 	$appendDiscriminator_codeLine
 
-	..${derivedProductInfo.appendField_codeLines}
+ 	$appendNonDiscriminatorFields_codeLines
 
 	r.append('}')
 }
@@ -143,14 +161,13 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 		val discriminatorDecider_valsCodeLines =
 			if (discriminatorOverride.isEmpty) {
 				q"""
-val discrimDecider = DiscriminatorDecider[$coproductType];
+val discrimDecider = DiscriminatorDecider.apply[$coproductType];
 val discrimRequired = discrimDecider.required;
-val discrimPrefix = "\"" + discrimDecider.fieldName;
+val discrimName = "\"" + discrimDecider.fieldName;
 """
 			} else {
 				q""
 			}
-
 
 		val createAppenderCodeLines =
 			q"""
@@ -177,11 +194,12 @@ import _root_.jsfacile.macros.LazyAppender;
 
 		coproductHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 
-		ctx.info(ctx.enclosingPosition, s"coproduct appender builder for ${show(coproductType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+		//	ctx.info(ctx.enclosingPosition, s"coproduct appender builder for ${show(coproductType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(coproductHandler)}\n$showEnclosingMacros", force = false);
+
 		// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
 		expandNestedMacros(createAppenderCodeLinesWithContext);
 		coproductHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
-//		ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
+		//	ctx.info(ctx.enclosingPosition, s"coproduct appender after builder check for ${show(coproductType)}", force = false);
 	}
 
 

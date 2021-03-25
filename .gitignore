@@ -9,7 +9,6 @@
 /node_modules
 
 # IDEs and editors
-/.idea
 .project
 .classpath
 .c9/
@@ -21,6 +20,36 @@
 /.cache-tests
 /.worksheet/
 .ammonite/
+
+# IntelliJ IDEA user-specific
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/dictionaries/
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml
+
+# IntelliJ IDEA Gradde 
+.idea/gradle.xml
+.idea/libraries/
+*.iml
+.idea/modules.xml
+.idea/dictionaries/
+
+# IntelliJ IDEA Sensitive or high-churn files:
+.idea/dataSources.ids
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+
+# IntelliJ IDEA my decision because I think they are redundant
+.idea/misc.xml
+.idea/scala_settings.xml
+.idea/scala_compiler.xml
+
 
 # IDE - VSCode
 .vscode/*

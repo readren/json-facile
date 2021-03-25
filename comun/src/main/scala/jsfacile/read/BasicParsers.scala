@@ -2,7 +2,7 @@ package jsfacile.read
 
 import jsfacile.read.Parser._
 
-object BasicParsers {
+object BasicParsers extends BasicParsers {
 
 	private val MAX_BYTE_DIV_10 = java.lang.Byte.MAX_VALUE / 10;
 	private val MAX_BYTE_DIGITS = MAX_BYTE_DIV_10.toString.length;
@@ -14,86 +14,86 @@ object BasicParsers {
 	private val MAX_LONG_DIV_10 = java.lang.Long.MAX_VALUE / 10;
 	private val MAX_LONG_DIGITS = MAX_LONG_DIV_10.toString.length;
 
-	private val THRESHOLD = 40; // length of the string chunk above which it is faster to create an append a string than to append the contained characters one by one. TODO calculate the THRESHOLD
+}
+
+trait BasicParsers {
+	import BasicParsers._
 
 	/** A [[Parser]] of JSON strings.
 	 * Used to parse the JSON field names and string values. */
-	object jpString extends Parser[String] {
+	implicit object jpString extends Parser[String] {
 		override def parse(cursor: Cursor): String = {
-			if (cursor.have) {
+			if (cursor.isPointing) {
 				val nextSingularityPos = cursor.posOfNextEscapeOrClosingQuote;
 				if (nextSingularityPos == 0) { // nextPos == 0 <=> cursor.pointedElem != '"'
-					cursor.miss();
+					cursor.miss(); // because string must start with a quote.
 					ignored[String];
-				} else if (cursor.isPointing) {
-					if (cursor.pointedElem == '"') {
-						cursor.consumeStringUntil(nextSingularityPos)
+				} else {
+					val pf = cursor.consumeStringTo(nextSingularityPos)
+					if (!cursor.isPointing) {
+						cursor.fail("unclosed string")
+						ignored[String]
 					} else {
-						// reaches here if at the `nextSingularityPos` is an escape '\' char
-						val distance = nextSingularityPos - cursor.pos;
-						val sb = new java.lang.StringBuilder(distance + 16)
-						if (distance > THRESHOLD) {
-							sb.append(cursor.consumeStringTo(nextSingularityPos))
-							// here the pointedElem should be an escape char '\'.
-						}
 						var pe = cursor.pointedElem;
-						while (pe != '"') {
-							if (pe == '\\') {
+						if (pe == '"') {
+							cursor.advance(); // consume closing quote char
+							pf
+						} else {
+							// reaches here when the pointed element is an escape char '\'
+							val sb = new java.lang.StringBuilder(pf)
+							while (pe != '"') {
+								if (pe == '\\') {
+									if (!cursor.advance()) {
+										cursor.fail("unfinished string escape");
+										return ignored[String]
+									}
+									cursor.pointedElem match {
+										case '"' => sb.append('"')
+										case '\\' => sb.append('\\')
+										case '/' => sb.append('/')
+										case 'b' => sb.append('\b')
+										case 'f' => sb.append('\f')
+										case 'n' => sb.append('\n')
+										case 'r' => sb.append('\r')
+										case 't' => sb.append('\t')
+										case 'u' =>
+											var counter = 4;
+											var hexCode: Int = 0;
+											do {
+												if (!cursor.advance()) {
+													cursor.fail("unfinished string hex code escape");
+													return ignored[String]
+												}
+												hexCode *= 16;
+												pe = cursor.pointedElem;
+												if ('0' <= pe & pe <= '9') {
+													hexCode += pe - '0'
+												} else if ('a' <= pe && pe <= 'f') {
+													hexCode += pe - 'a' + 10
+												} else if ('A' <= pe && pe <= 'F') {
+													hexCode += pe - 'A' + 10
+												} else {
+													cursor.fail("invalid hex code");
+													return ignored[String]
+												}
+												counter -= 1;
+											} while (counter > 0)
+											sb.appendCodePoint(hexCode)
+									}
+								} else {
+									sb.append(pe)
+								}
+
 								if (!cursor.advance()) {
-									cursor.fail("unfinished string escape");
+									cursor.fail("unclosed string");
 									return ignored[String]
 								}
-								cursor.pointedElem match {
-									case '"' => sb.append('"')
-									case '\\' => sb.append('\\')
-									case '/' => sb.append('/')
-									case 'b' => sb.append('\b')
-									case 'f' => sb.append('\f')
-									case 'n' => sb.append('\n')
-									case 'r' => sb.append('\r')
-									case 't' => sb.append('\t')
-									case 'u' =>
-										var counter = 4;
-										var hexCode: Int = 0;
-										do {
-											if (!cursor.advance()) {
-												cursor.fail("unfinished string hex code escape");
-												return ignored[String]
-											}
-											hexCode *= 16;
-											pe = cursor.pointedElem;
-											if ('0' <= pe & pe <= '9') {
-												hexCode += pe - '0'
-											} else if ('a' <= pe && pe <= 'f') {
-												hexCode += pe - 'a' + 10
-											} else if ('A' <= pe && pe <= 'F') {
-												hexCode += pe - 'A' + 10
-											} else {
-												cursor.fail("invalid hex code");
-												return ignored[String]
-											}
-											counter -= 1;
-										} while (counter > 0)
-										sb.appendCodePoint(hexCode)
-								}
-							} else {
-								sb.append(pe)
+								pe = cursor.pointedElem;
 							}
-
-							if (!cursor.advance()) {
-								cursor.fail("unclosed string");
-								return ignored[String]
-							}
-							pe = cursor.pointedElem
+							cursor.advance() // consume closing quote char
+							sb.toString
 						}
-						cursor.advance() // consume closing quote char
-						sb.toString
 					}
-
-
-				} else {
-					cursor.fail("unclosed string")
-					ignored[String]
 				}
 			} else {
 				cursor.miss()
@@ -102,12 +102,13 @@ object BasicParsers {
 		}
 	}
 
+	implicit val jpCharSequence: Parser[CharSequence] = jpString.asInstanceOf[Parser[CharSequence]]
 
-	val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) withMissCause "A null was expected";
+	implicit val jpUnit: Parser[Unit] = (acceptStr("null") ^^^ ()) withMissCause "A null was expected";
 
-	val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) withMissCause "A null was expected";
+	implicit val jpNull: Parser[Null] = (acceptStr("null") ^^^ null) withMissCause "A null was expected";
 
-	object jpBoolean extends Parser[Boolean] {
+	implicit object jpBoolean extends Parser[Boolean] {
 		override def parse(cursor: Cursor): Boolean =
 			if (cursor.comes("true")) {
 				true
@@ -119,7 +120,7 @@ object BasicParsers {
 			}
 	}
 
-	object jpByte extends Parser[Byte] {
+	implicit object jpByte extends Parser[Byte] {
 		override def parse(cursor: Cursor): Byte = {
 			if (cursor.isPointing) {
 				cursor.attempt(jpInteger("Byte", MAX_BYTE_DIGITS, MAX_BYTE_DIV_10)).toByte
@@ -130,7 +131,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpShort extends Parser[Short] {
+	implicit object jpShort extends Parser[Short] {
 		override def parse(cursor: Cursor): Short = {
 			if (cursor.isPointing) {
 				cursor.attempt {jpInteger("Short", MAX_SHORT_DIGITS, MAX_SHORT_DIV_10)}.toShort
@@ -141,7 +142,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpInt extends Parser[Int] {
+	implicit object jpInt extends Parser[Int] {
 		override def parse(cursor: Cursor): Int = {
 			if (cursor.isPointing) {
 				cursor.attempt(jpInteger("Int", MAX_INT_DIGITS, MAX_INT_DIV_10))
@@ -203,7 +204,7 @@ object BasicParsers {
 	}
 
 
-	object jpLong extends Parser[Long] {
+	implicit object jpLong extends Parser[Long] {
 		override def parse(cursor: Cursor): Long = {
 			var have = cursor.have;
 			if (have) {
@@ -263,7 +264,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpBigInt extends Parser[BigInt] {
+	implicit object jpBigInt extends Parser[BigInt] {
 		override def parse(cursor: Cursor): BigInt = {
 			val integer = cursor.stringConsumedBy(Skip.integer)
 			if (cursor.ok && integer.nonEmpty) {
@@ -275,7 +276,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpBigDecimal extends Parser[BigDecimal] {
+	implicit object jpBigDecimal extends Parser[BigDecimal] {
 		override def parse(cursor: Cursor): BigDecimal = {
 			val number = cursor.stringConsumedBy(Skip.jsNumber)
 			if (cursor.ok) {
@@ -287,7 +288,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpDouble extends Parser[Double] {
+	implicit object jpDouble extends Parser[Double] {
 		override def parse(cursor: Cursor): Double = {
 			if (cursor.comes("null")) {
 				Double.NaN
@@ -303,7 +304,7 @@ object BasicParsers {
 		}
 	}
 
-	object jpFloat extends Parser[Float] {
+	implicit object jpFloat extends Parser[Float] {
 		override def parse(cursor: Cursor): Float = {
 			if (cursor.comes("null")) {
 				Float.NaN
@@ -319,7 +320,7 @@ object BasicParsers {
 		}
 	}
 
-	def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = { cursor =>
+	implicit def jpOption[E](implicit pE: Parser[E]): Parser[Option[E]] = { cursor =>
 		if (cursor.comes("null")) {
 			None
 		} else {
@@ -327,9 +328,9 @@ object BasicParsers {
 		}
 	}
 
-	def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = { cursor => Some(pE.parse(cursor)) }
+	implicit def jpSome[E](implicit pE: Parser[E]): Parser[Some[E]] = { cursor => Some(pE.parse(cursor)) }
 
-	object jpNone extends Parser[None.type] {
+	implicit object jpNone extends Parser[None.type] {
 		override def parse(cursor: Cursor): None.type = {
 			if (!cursor.comes("null")) {
 				cursor.miss("A null was expected while trying to parse a None")
@@ -340,7 +341,7 @@ object BasicParsers {
 
 	/** The right parser has priority. If it hits the left parser is ignored.
 	 * Implemented with an optimized versión of {{{(pR ^^ { r => Right[L, R](r).asInstanceOf[Either[L, R]] }) | (pL ^^ { l => Left[L, R](l).asInstanceOf[Either[L, R]] })}}} */
-	def jpEither[L, R](implicit pL: Parser[L], pR: Parser[R]): Parser[Either[L, R]] = { cursor =>
+	implicit def jpEither[L, R](implicit pL: Parser[L], pR: Parser[R]): Parser[Either[L, R]] = { cursor =>
 		val r = cursor.attempt(pR.parse);
 		if (cursor.ok) {
 			Right(r)
@@ -350,7 +351,7 @@ object BasicParsers {
 		}
 	}
 
-	def jpLeft[L, R](implicit pL: Parser[L]): Parser[Left[L, R]] = pL ^^ Left[L, R]
-	def jpRight[L, R](implicit pR: Parser[R]): Parser[Right[L, R]] = pR ^^ Right[L, R]
+	implicit def jpLeft[L, R](implicit pL: Parser[L]): Parser[Left[L, R]] = pL ^^ Left[L, R]
+	implicit def jpRight[L, R](implicit pR: Parser[R]): Parser[Right[L, R]] = pR ^^ Right[L, R]
 
 }

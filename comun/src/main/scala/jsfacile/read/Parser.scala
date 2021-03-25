@@ -3,6 +3,8 @@ package jsfacile.read
 import scala.collection.mutable
 import scala.language.implicitConversions
 
+import jsfacile.api.{ParseError, ParseFailure, ParseMiss, ParseIncomplete}
+
 object Parser {
 
 	/** The type of the input elements. [[scala.Int]] was chosen because it is the type that the standard java library uses to represent Unicode code points.
@@ -127,6 +129,29 @@ object Parser {
 	 *
 	 * This is the only method in the whole library that uses by name implicit parameter of type [[Parser]][T]. All [[Parser]] summoning for a type `T` that is potentially recursive should use it.*/
 	def apply[T](implicit parserT: => Parser[T]): Parser[T] = parserT;
+
+
+	/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
+	 *
+	 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
+	def parse[T](arrayDoc: Array[Char])(implicit pt: Parser[T]): Either[ParseError, T] = {
+		val cursor = new CursorStr(arrayDoc);
+		val result = pt.parse(cursor);
+		if (cursor.ok) {
+			if (cursor.isPointing)
+				Left(ParseIncomplete(new String(arrayDoc), cursor.pos));
+			else
+				Right(result)
+		} else if (cursor.failed) {
+			Left(ParseFailure(new String(arrayDoc), cursor.pos, cursor.failureCause))
+		} else {
+			val missCause =
+				if (cursor.missCause != null) cursor.missCause
+				else "The json representation is not compatible with the expected type"
+			Left(ParseMiss(new String(arrayDoc), cursor.pos, missCause));
+		}
+	}
+
 }
 
 /** Models a representation translator from JSON document to scala object instance, and also implements many parsing combinators.

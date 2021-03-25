@@ -2,7 +2,7 @@ package jsfacile.test
 
 import scala.annotation.tailrec
 
-import jsfacile.api.{JsDocument, Parser, defaultDiscriminatorDecider}
+import jsfacile.api.{JsDocument, Parser}
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -25,10 +25,6 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 	sealed trait Foo[T];
 	case class FooNext[T](next: Foo[T]) extends Foo[T];
 	case class FooBase[T](v: T) extends Foo[T];
-
-	sealed trait Arbol[V];
-	case class Rama[V](a: Arbol[V], b: Arbol[V]) extends Arbol[V];
-	case class Hoja[V](v: V) extends Arbol[V];
 
 	//////////////////////////////////
 	// JsDocument sample data types //

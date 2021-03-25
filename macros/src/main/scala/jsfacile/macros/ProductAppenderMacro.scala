@@ -3,6 +3,8 @@ package jsfacile.macros
 import scala.reflect.macros.blackbox
 
 import jsfacile.macros.GenCommon.TypeKey
+import jsfacile.write
+import jsfacile.write.PrefixInserter.ProductsOnly
 import jsfacile.write.Appender
 
 class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
@@ -10,10 +12,10 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 	def materializeImpl(productType: Type, productSymbol: ClassSymbol): ctx.Expr[Appender[P]] = {
 
-//		ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
+		//	ctx.info(ctx.enclosingPosition, s"product appender start for ${show(productType)}", force = false)
 
 		val isOuterMacroInvocation = isOuterAppenderMacroInvocation;
-		if(isOuterMacroInvocation) {
+		if (isOuterMacroInvocation) {
 			/** Discard the appenders generated in other code contexts. This is necessary because: (1) Since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Appender]]s depends on the context; and (2) the existence of an [[Appender]] in the implicit scope depends on the context. */
 			Handler.appenderHandlersMap.clear()
 		}
@@ -71,15 +73,33 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 					}
 
-				val createAppenderCodeLines =
+				val prefixInserterType = appliedType(typeOf[write.PrefixInserter[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
+				val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true)
+
+				val createAppenderCodeLines = {
+					val core = {
+						if (prefixInserterInstance == EmptyTree) {
+							q"..$appendField_codeLines"
+						} else if (appendField_codeLines.isEmpty) {
+							q"$prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})"
+						}
+						else {
+							q"""
+if($prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})) {
+	r.append(',');
+}
+..$appendField_codeLines"""
+						}
+					}
 					q"""
 new Appender[$productType] {
 	override def append(r: Record, p: $productType): Record = {
-		r.append('{')
-		..$appendField_codeLines
+		r.append('{');
+		$core
 		r.append('}');
 	}
-}""";
+}"""
+				}
 
 				val createAppenderCodeLinesWithContext =
 					q"""
@@ -89,12 +109,12 @@ import _root_.jsfacile.write.{Appender, Record};
 
 (appendersBuffer: Array[LazyAppender]) => $createAppenderCodeLines""";
 
-				ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
+				//	ctx.info(ctx.enclosingPosition, s"product appender unchecked builder for ${show(productType)} :\n${show(createAppenderCodeLines)}\n------${Handler.showAppenderDependencies(productHandler)}\n$showEnclosingMacros", force = false);
 				productHandler.creationTreeOrErrorMsg = Some(Right(createAppenderCodeLines));
 				// The result of the next type-check is discarded. It is called only to trigger the invocation of the macro calls contained in the given [[Tree]] which may add new [[Handler]] instances to the [[appenderHandlersMap]], and this macro execution needs to know of them later.
-				expandNestedMacros(createAppenderCodeLinesWithContext/*.duplicate*/);
-				productHandler.isCapturingDependencies = false;  // this line must be immediately after the manual type-check
-//				ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
+				expandNestedMacros(createAppenderCodeLinesWithContext /*.duplicate*/);
+				productHandler.isCapturingDependencies = false; // this line must be immediately after the manual type-check
+				//	ctx.info(ctx.enclosingPosition, s"product appender after builder check for ${show(productType)}", force = false);
 
 				productHandler
 

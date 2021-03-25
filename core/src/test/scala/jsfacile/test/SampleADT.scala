@@ -2,6 +2,10 @@ package jsfacile.test
 
 object SampleADT {
 
+	sealed trait Arbol[V];
+	case class Rama[V](a: Arbol[V], b: Arbol[V]) extends Arbol[V];
+	case class Hoja[V](v: V) extends Arbol[V];
+
 	object DistanceUnit extends Enumeration {
 		val Meter, Millimeter = Value;
 	}

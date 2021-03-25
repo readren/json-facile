@@ -22,12 +22,6 @@ package object api {
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
 	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
 
-	/** The default [[DiscriminatorDecider]]. */
-	implicit val defaultDiscriminatorDecider: DiscriminatorDecider[Any] = new DiscriminatorDecider[Any] {
-		override val fieldName: String = "?"
-		override val required: Boolean = false
-	}
-
 	type MapFormatDecider[K, V, MC[_, _]] = jsfacile.write.MapFormatDecider[K, V, MC];
 
 	type JsDocument = jsfacile.jsonast.JsDocument;
@@ -47,76 +41,41 @@ package object api {
 
 	/** Adds the [[toJson]] method to all objects */
 	implicit class ToJsonConvertible[T](val obj: T) extends AnyVal {
-		def toJson(implicit at: Appender[T]): String = {
+		/** Translates to JSON using the [[jsfacile.write.Appender]] of the specified supertype `S`.
+		 *
+		 * Useful to avoid the automatic derivation of an [[Appender]] for `T`` when one for `S` already exists.
+		 *
+		 * Also useful when it is necessary to include a discriminator, provided the [[jsfacile.api.DiscriminatorDecider]] for `S` has [[jsfacile.joint.DiscriminatorDecider.required]] `== true` */
+		def toJsonAs[S >: T](implicit as: Appender[S]): String = {
 			val r = new RecordStr(new java.lang.StringBuilder());
-			at.append(r, obj);
-			r.sb.toString
+			as.append(r, obj);
+			r.sb.toString;
 		}
+
+		@inline
+		def toJson(implicit at: Appender[T]): String = toJsonAs[T](at)
 
 		@inline
 		def toJsDocument(implicit at: Appender[T]): JsDocument = new JsDocument(this.toJson(at))
 	}
 
 	/** Adds the [[fromJson]] method to instances of [[String]]. */
-	implicit class FromJsonStringConvertible(val jsonDoc: String) extends AnyVal {
+	implicit class FromJsonStringConvertible(val stringDoc: String) extends AnyVal {
 		/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
 		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
-			new FromJsonCharArrayConvertible(jsonDoc.toCharArray).fromJson[T](pt)
+			Parser.parse(stringDoc.toCharArray)(pt)
 		}
 	}
 
 	/** Adds the [[fromJson]] method to instances of [[Array]][Char].*/
-	implicit class FromJsonCharArrayConvertible(val jsonDoc: Array[Char]) extends AnyVal {
+	implicit class FromJsonCharArrayConvertible(val arrayDoc: Array[Char]) extends AnyVal {
 		/** Tries to create an instance of the specified type with the value represented by this [[java.lang.String]] in JSON format.
 		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
-			val cursor = new CursorStr(jsonDoc);
-			val result = pt.parse(cursor);
-			if (cursor.ok) {
-				if (cursor.isPointing)
-					Left(ParseIncomplete(new String(jsonDoc), cursor.pos));
-				else
-					Right(result)
-			} else if (cursor.failed) {
-				Left(ParseFailure(new String(jsonDoc), cursor.pos, cursor.failureCause))
-			} else {
-				val missCause =
-					if (cursor.missCause != null) cursor.missCause
-					else "The json representation is not compatible with the expected type"
-				Left(ParseMiss(new String(jsonDoc), cursor.pos, missCause));
-			}
+			Parser.parse(arrayDoc)(pt)
 		}
-	}
-
-
-
-	trait ParseError {
-		def jsonDoc: String
-		def pos: Parser.Pos;
-		def toString: String
-		def visualizePos: String = {
-			val sb = new StringBuilder(jsonDoc);
-			sb.append('\n')
-			var count = pos;
-			while (count > 0) {
-				sb.append(' ')
-				count -= 1;
-			}
-			sb.append('^')
-			sb.append('\n')
-			sb.result();
-		}
-	}
-	case class ParseIncomplete(jsonDoc: String, pos: Parser.Pos) extends ParseError {
-		override def toString = s"""The json input was not entirely consumed. The parsing stopped at position $pos. The remaining fragment surrounded with '>' and '<' is: >${jsonDoc.substring(pos)}<.\nJSON document:\n$jsonDoc$visualizePos"""
-	}
-	case class ParseMiss(jsonDoc: String, pos: Parser.Pos, expected: String = null) extends ParseError {
-		override def toString = s"The parsing missed at position $pos. ${if (expected != null) expected else ""}\nJSON document:\n$jsonDoc$visualizePos"
-	}
-	case class ParseFailure(jsonDoc: String, pos: Parser.Pos, cause: AnyRef) extends ParseError {
-		override def toString = s"The parsing failed at position $pos. Cause: $cause\nJSON document:\n$jsonDoc$visualizePos"
 	}
 }

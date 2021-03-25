@@ -50,8 +50,9 @@ parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 				q"""parsersBuffer(${initialHandler.typeIndex}).get[$initialType]"""
 			}
 
-		ctx.info(ctx.enclosingPosition, s"Parser body for ${show(initialType)}: ${show(body)}\n------${Handler.showParserDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
-
+		if(isOuterMacroInvocation) {
+			ctx.info(ctx.enclosingPosition, s"Parser body for ${show(initialType)}: ${show(body)}\n------${Handler.showParserDependencies(initialHandler)}\n$showEnclosingMacros", force = false);
+		}
 		ctx.Expr[Parser[T]](body);
 	}
 

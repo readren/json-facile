@@ -64,8 +64,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.3.3-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.3.3-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.4.0-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.4.0-SNAPSHOT" % "compile-internal"
 )
 ```
 
@@ -382,7 +382,7 @@ Given the names of the fields we chose for `Instant` and `Year` are different, t
 
 Assuming that knowledge is centralized in an implicit `DiscriminatorDecider`, let's ask it.
 ```scala
-val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = implicitly[DiscriminatorDecider[Temporal]];
+val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = DiscriminatorDecider.apply[Temporal];
 ```
 Having all we need to implement the `Appender[Year]`, let's do it.
 ```scala
