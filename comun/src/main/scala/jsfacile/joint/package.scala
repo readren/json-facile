@@ -8,6 +8,10 @@ package object joint {
 
 	case class DiscriminatorConf(fieldName: String, required: Boolean) extends DiscriminatorDecider[Any];
 
+	sealed trait AnyAdt
+	final class CoproductsOnly extends AnyAdt
+	final class ProductsOnly extends AnyAdt
+
 	trait Named {
 		def name: String;
 	}

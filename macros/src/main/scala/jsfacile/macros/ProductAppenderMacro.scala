@@ -4,7 +4,7 @@ import scala.reflect.macros.blackbox
 
 import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.write
-import jsfacile.write.PrefixInserter.ProductsOnly
+import jsfacile.joint.ProductsOnly
 import jsfacile.write.Appender
 
 class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {

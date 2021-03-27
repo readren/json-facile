@@ -5,6 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
+import jsfacile.joint.{CoproductsOnly, DiscriminatorValueMapper}
 import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
@@ -15,12 +16,12 @@ import jsfacile.util.BitSet.BitSlot
 class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
-	/**Note: instances of this class exists only during compilation time.
+	/** Note: instances of this class exists only during compilation time.
 	 *
-	 * @param fieldType the type of the field
-	 * @param firstOwnerName the TypeSymbol of the first product that contains a field named as the key specifies.
+	 * @param fieldType            the type of the field
+	 * @param firstOwnerName       the TypeSymbol of the first product that contains a field named as the key specifies.
 	 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
-	 * @param bitSlot the [[jsfacile.util.BitSet.BitSlot]] assigned to this considered field*/
+	 * @param bitSlot              the [[jsfacile.util.BitSet.BitSlot]] assigned to this considered field */
 	case class ConsideredField(fieldType: Type, firstOwnerName: String, consideredFieldIndex: Int, bitSlot: BitSlot)
 
 	/** Macro implicit materializer of [[CoproductParserMacro]] instances. Ver [[https://docs.scala-lang.org/overviews/macros/implicits.html]] */
@@ -29,7 +30,7 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 		//	ctx.info(ctx.enclosingPosition, s"Coproduct parser helper start for ${show(initialCoproductType)}", force = false)
 
 		val isOuterMacroInvocation = isOuterParserMacroInvocation;
-		if(isOuterMacroInvocation) {
+		if (isOuterMacroInvocation) {
 			/** Discard the [[Parser]]s generated in other code contexts. This is necessary because: (1) since the existence of the [[jsfacile.api.builder.CoproductTranslatorsBuilder]] the derived [[Parser]]s depends on the context; and (2) the existence of an [[Parser]] in the implicit scope depends on the context. */
 			Handler.parserHandlersMap.clear();
 		}
@@ -48,8 +49,11 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 					ctx.abort(ctx.enclosingPosition, errorMsg)
 				}
 
+				val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(initialCoproductType, typeOf[CoproductsOnly]));
+				val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true)
+
 				val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
-				val lastConsideredFieldBit = addSubtypesOf(initialCoproductClassSymbol, initialCoproductType, initialCoproductType, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty, productAdditionTrees);
+				val lastConsideredFieldBit = addSubtypesOf(initialCoproductClassSymbol, initialCoproductType, initialCoproductType, discriminatorValueMapperInstance, coproductHandler, BitSet.FIRST_BIT_SLOT, mutable.Map.empty, productAdditionTrees);
 
 				buildParserCreationTreeOn(coproductHandler, initialCoproductType, initialCoproductClassSymbol, productAdditionTrees, lastConsideredFieldBit.shardIndex + 1)
 				coproductHandler
@@ -114,6 +118,7 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
 		initialCoproductType: Type, // the coproduct type received by this macro execution
+		discriminatorValueMapperInstance: Tree,
 		initialHandler: Handler, // the handler of the initial coproduct. This parameter may be mutated
 		startingBitSlot: BitSlot, // The bit slot that this method will assign to the first field added to the considered fields set.
 		metaConsideredFields: mutable.Map[String, ConsideredField], // the map where the info about the the fields, for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the `consideredFieldsBuilder` was already generated, is collected
@@ -121,7 +126,7 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 	): BitSlot = {
 		var nextBitSlot = startingBitSlot;
 		for (productSymbol <- coproductClassSymbol.knownDirectSubclasses) {
-			nextBitSlot = this.addSubtype(productSymbol.asClass, coproductClassSymbol, coproductType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
+			nextBitSlot = this.addSubtype(productSymbol.asClass, coproductClassSymbol, coproductType, initialCoproductType, discriminatorValueMapperInstance, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
 		}
 		nextBitSlot
 	}
@@ -132,6 +137,7 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 		coproductClassSymbol: ClassSymbol, // the starting coproduct symbol or, in deeper levels of recursion, an abstract extension of it
 		coproductType: Type, // the starting coproduct type or, in deeper levels of recursion, an abstract extension of it
 		initialCoproductType: Type, // the coproduct type received by this macro execution
+		discriminatorValueMapperInstance: Tree,
 		initialHandler: Handler, // the handler of the initial coproduct. This parameter may be mutated
 		startingBitSlot: BitSlot, // The bit slot that this method will assign to the first field added to the considered fields set.
 		metaConsideredFields: mutable.Map[String, ConsideredField], // the map where the info about the the fields, for with the [[Tree]] that adds an instance of [[CpConsideredField]] to the `consideredFieldsBuilder` was already generated, is collected
@@ -143,11 +149,19 @@ import CoproductParser.{CpProductInfo, CpFieldInfo, CpConsideredField};
 			case Right(productType) =>
 				if (productType <:< coproductType) { // this filter filters out the subclasses that are not assignable to the instantiation `C` of the type constructor from where these subclasses extends. This is and edge case that occurs when the subclasses extends the type constructor with different type arguments. Subclasses that are filtered out are ignored and, therefore, not added to the products info set.
 
+					val discriminatorValueTree =
+						if (discriminatorValueMapperInstance == EmptyTree) {
+							q"${subtypeClassSymbol.name.toString}"
+						} else {
+							q"$discriminatorValueMapperInstance.apply(${subtypeClassSymbol.name.toString})"
+						}
+
 					if (subtypeClassSymbol.isModuleClass) { // if the subclass is a singleton (a scala object), then add a product with no fields nor constructor.
+
 						productAdditionTrees.addOne(
 							q"""
 state.addProduct(CpProductInfo[$coproductType](
-	${subtypeClassSymbol.name.toString},
+	$discriminatorValueTree,
 	BitSet.empty(),
 	0,
 	Array.empty[CpFieldInfo],
@@ -157,7 +171,7 @@ state.addProduct(CpProductInfo[$coproductType](
 
 					} else if (subtypeClassSymbol.isAbstract) { // if the subclass is abstract (a scala abstract class or trait), then call `addProductsBelongingTo` recursively
 						if (subtypeClassSymbol.isSealed) {
-							nextBitSlot = addSubtypesOf(subtypeClassSymbol, productType, initialCoproductType, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
+							nextBitSlot = addSubtypesOf(subtypeClassSymbol, productType, initialCoproductType, discriminatorValueMapperInstance, initialHandler, nextBitSlot, metaConsideredFields, productAdditionTrees)
 						} else {
 							val msg = s"$subtypeClassSymbol should be sealed"
 							initialHandler.setFailed(msg);
@@ -184,7 +198,7 @@ state.addProduct(CpProductInfo[$coproductType](
 							q"""
 ..${ics.addFieldTreeSeqBuilder.result()}
 state.addProduct(CpProductInfo[$coproductType](
-	${subtypeClassSymbol.name.toString},
+	$discriminatorValueTree,
 	new BitSet(Array(..${new ArraySeq.ofLong(ics.requiredFieldsAccum.shards)})),
 	${ics.requiredFieldsCounter},
 	state.productFields,
@@ -196,7 +210,7 @@ state.productFieldsBuilder.clear();"""
 				}
 
 			case Left(freeTypeParams) =>
-				val msg =s"""The "$subtypeClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
+				val msg = s"""The "$subtypeClassSymbol", which is a subclass of "${coproductClassSymbol.fullName}", has at least one free type parameters (it does not depend on the supertype and, therefore, there is no way to determine its actual type knowing only the super type). The free type parameters are: ${freeTypeParams.mkString}."""
 				initialHandler.setFailed(msg);
 				ctx.abort(ctx.enclosingPosition, msg)
 		}

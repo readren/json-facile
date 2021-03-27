@@ -5,9 +5,8 @@ import scala.collection.IndexedSeq
 import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
-import jsfacile.joint.DiscriminatorConf
+import jsfacile.joint.{CoproductsOnly, DiscriminatorConf, DiscriminatorValueMapper}
 import jsfacile.macros.GenCommon.TypeKey
-import jsfacile.write.PrefixInserter.CoproductsOnly
 import jsfacile.write.{Appender, PrefixInserter}
 
 class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
@@ -99,6 +98,9 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		val prefixInserterType = appliedType(typeOf[PrefixInserter[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
 		val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true)
 
+		val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
+		val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true)
+
 		// for every product, generate the code lines that creates the [[CahProductInfo]] and adds it to the `productsInfoBuilder`
 		val addProductInfo_codeLines =
 			for {
@@ -125,21 +127,51 @@ if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminator
 ..${derivedProductInfo.appendField_codeLines}"""
 							}
 
-						val discriminatorFieldValue = s"""":"${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
 						val appendDiscriminator_codeLine = discriminatorOverride match {
-							case Some(discriminatorAnnotation) =>
+							case Some(discriminatorAnnotation) => // If the product is annotated with `@discriminatorField`
 								if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
-									val discriminatorField = s""""${discriminatorAnnotation.fieldName}$discriminatorFieldValue""";
-									q"r.append($discriminatorField)";
+									if(discriminatorValueMapperInstance == EmptyTree) {
+										val discriminatorField = s""""${discriminatorAnnotation.fieldName}":"${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
+										q"r.append($discriminatorField)";
+									} else {
+										val discriminatorFieldHead = s""""${discriminatorAnnotation.fieldName}":"""";
+										val discriminatorFieldTail =
+											if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
+												q"""r.append('"')"""
+											} else {
+												q"""r.append("\",");"""
+											}
+										q"""
+r.append($discriminatorFieldHead)
+	.append($discriminatorValueMapperInstance.apply(${derivedProductInfo.discriminatorValue}));
+$discriminatorFieldTail"""
+									}
 								} else {
 									q"";
 								}
 
-							case None =>
-								if (productInfo.isAmbiguous) {
-									q"""r.append(discrimName).append($discriminatorFieldValue)"""
-								} else {
-									q"""if (discrimRequired) { r.append(discrimName).append($discriminatorFieldValue) }"""
+							case None => // If the product is not annotated with `@discriminatorField`
+								if(discriminatorValueMapperInstance == EmptyTree) { // if no `DiscriminatorValueMapper` is found in the implicit scope
+									val discriminatorFieldValue = s"""${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
+									if (productInfo.isAmbiguous) {
+										q"""r.append(discrimName).append($discriminatorFieldValue)"""
+									} else {
+										q"""if (discrimRequired) { r.append(discrimName).append($discriminatorFieldValue) }"""
+									}
+								} else {  // if a `DiscriminatorValueMapper` is found in the implicit scope
+									val discriminatorFieldTail =
+										if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
+											q"""r.append('"');"""
+										} else {
+											q"""r.append("\",");"""
+										}
+									val discriminatorField = q"""r.append(discrimName).append($discriminatorValueMapperInstance.apply(${derivedProductInfo.discriminatorValue})); $discriminatorFieldTail """
+									if(productInfo.isAmbiguous) {
+										discriminatorField
+									} else {
+										q"""if (discrimRequired) $discriminatorField"""
+
+									}
 								}
 						}
 
@@ -163,7 +195,7 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 				q"""
 val discrimDecider = DiscriminatorDecider.apply[$coproductType];
 val discrimRequired = discrimDecider.required;
-val discrimName = "\"" + discrimDecider.fieldName;
+val discrimName = "\"" + discrimDecider.fieldName + "\":\"";
 """
 			} else {
 				q""

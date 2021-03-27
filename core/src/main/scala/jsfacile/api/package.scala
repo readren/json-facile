@@ -21,8 +21,14 @@ package object api {
 	type discriminatorField = jsfacile.annotations.discriminatorField;
 	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
 	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
+	type DiscriminatorValueMapper[C, F <: AnyAdt] = jsfacile.joint.DiscriminatorValueMapper[C, F]
+
+	type AnyAdt = jsfacile.joint.AnyAdt;
+	type ProductsOnly = jsfacile.joint.ProductsOnly;
+	type CoproductsOnly = jsfacile.joint.CoproductsOnly;
 
 	type MapFormatDecider[K, V, MC[_, _]] = jsfacile.write.MapFormatDecider[K, V, MC];
+	type PrefixInserter[A, F <: AnyAdt] = jsfacile.write.PrefixInserter[A, F]
 
 	type JsDocument = jsfacile.jsonast.JsDocument;
 
@@ -41,22 +47,32 @@ package object api {
 
 	/** Adds the [[toJson]] method to all objects */
 	implicit class ToJsonConvertible[T](val obj: T) extends AnyVal {
-		/** Translates to JSON using the [[jsfacile.write.Appender]] of the specified supertype `S`.
+		/** Translates to JSON [[java.lang.String]] using the [[jsfacile.write.Appender]] of the specified supertype `S`.
 		 *
 		 * Useful to avoid the automatic derivation of an [[Appender]] for `T`` when one for `S` already exists.
 		 *
-		 * Also useful when it is necessary to include a discriminator, provided the [[jsfacile.api.DiscriminatorDecider]] for `S` has [[jsfacile.joint.DiscriminatorDecider.required]] `== true` */
+		 * Also useful when it is necessary that the [[Appender]] includes a discriminator, provided the [[jsfacile.api.DiscriminatorDecider]] for `S` has [[jsfacile.joint.DiscriminatorDecider.required]] `== true` */
 		def toJsonAs[S >: T](implicit as: Appender[S]): String = {
 			val r = new RecordStr(new java.lang.StringBuilder());
 			as.append(r, obj);
 			r.sb.toString;
 		}
 
+		/** Translate to a JSON [[java.lang.String]]. */
 		@inline
 		def toJson(implicit at: Appender[T]): String = toJsonAs[T](at)
 
+		/** Translate to a [[JsDocument]] using the [[jsfacile.write.Appender]] of the specified supertype `S`.
+		 *
+		 * Useful to avoid the automatic derivation of an [[Appender]] for `T`` when one for `S` already exists.
+		 *
+		 * Also useful when it is necessary that the [[Appender]] includes a discriminator, provided the [[jsfacile.api.DiscriminatorDecider]] for `S` has [[jsfacile.joint.DiscriminatorDecider.required]] `== true` */
 		@inline
-		def toJsDocument(implicit at: Appender[T]): JsDocument = new JsDocument(this.toJson(at))
+		def toJsDocumentAs[S >: T](implicit as: Appender[S]): JsDocument = new JsDocument(this.toJsonAs[S](as))
+
+		/** Translate to a [[JsDocument]]. */
+		@inline
+		def toJsDocument(implicit at: Appender[T]): JsDocument = new JsDocument(this.toJsonAs[T](at))
 	}
 
 	/** Adds the [[fromJson]] method to instances of [[String]]. */

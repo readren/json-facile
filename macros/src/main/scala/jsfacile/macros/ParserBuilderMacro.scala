@@ -5,6 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.api.builder.ProductParsingInfo
+import jsfacile.joint.{CoproductsOnly, DiscriminatorValueMapper}
 import jsfacile.macros.GenCommon.{FieldParsingInfo, ProductCustomization, ProductParsingInfoBuilderState, TypeKey}
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
@@ -75,6 +76,9 @@ class ParserBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Copro
 
 		val coproductHandler = Handler.getHandlerFor(coproductTypeKey, Handler.parserHandlersMap);
 
+		val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
+		val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true)
+
 		val productAdditionTrees: mutable.ArrayBuffer[Tree] = mutable.ArrayBuffer.empty;
 		var nextBitSlot: BitSlot = BitSet.FIRST_BIT_SLOT;
 		val metaConsideredFields = mutable.Map.empty[String, ConsideredField];
@@ -84,7 +88,7 @@ class ParserBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Copro
 			productConfig.oParsingInfo match {
 
 				case None =>
-					nextBitSlot = this.addSubtype(productSymbol.asClass, coproductSymbol, coproductType, coproductType, coproductHandler, nextBitSlot, metaConsideredFields, productAdditionTrees);
+					nextBitSlot = this.addSubtype(productSymbol.asClass, coproductSymbol, coproductType, coproductType, discriminatorValueMapperInstance, coproductHandler, nextBitSlot, metaConsideredFields, productAdditionTrees);
 
 				case Some(parsingInfo) =>
 					val ics = new InterAddFieldCallsState(nextBitSlot);

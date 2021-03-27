@@ -1,12 +1,8 @@
 package jsfacile.write
 
-import jsfacile.write.PrefixInserter.AnyAdt
+import jsfacile.joint.AnyAdt
 
 object PrefixInserter {
-
-	sealed trait AnyAdt
-	final class CoproductsOnly extends AnyAdt
-	final class ProductsOnly extends AnyAdt
 
 	/** Summons an instance of [[PrefixInserter]] for the specified type `A`. */
 	def apply[A, F <: AnyAdt](implicit cfd: PrefixInserter[A, F]): PrefixInserter[A, F] = cfd
@@ -16,7 +12,7 @@ object PrefixInserter {
  * Useful to make the automatic [[Appender]] for concrete ADTs (products) include a discriminator, or fields that are common to a set of classes.
  * Note that this is not a low level replacement of [[jsfacile.joint.DiscriminatorDecider]] for abstract ADTs (coproducts).
  * @tparam A type for which the automatic [[Appender]] would be affected by this [[PrefixInserter]] instance. Subtypes are affected also.
- * @tparam F determines which kind of [[Appender]]s are affected: appenders for products ([[jsfacile.write.PrefixInserter.ProductsOnly]], for coproducts [[jsfacile.write.PrefixInserter.CoproductsOnly]], or both [[jsfacile.write.PrefixInserter.AnyAdt]]. */
+ * @tparam F determines which kind of [[Appender]]s are affected: appenders for products ([[jsfacile.joint.ProductsOnly]], for coproducts [[jsfacile.write.PrefixInserter.CoproductsOnly]], or both [[jsfacile.write.PrefixInserter.AnyAdt]]. */
 trait PrefixInserter[-A, -F <: AnyAdt] {
 
 	/** @param record     the record where the calling [[jsfacile.write.Appender]] is appending the value

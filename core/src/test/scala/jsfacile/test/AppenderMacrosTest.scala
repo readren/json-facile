@@ -3,7 +3,7 @@ package jsfacile.test
 import jsfacile.api.{DiscriminatorDecider, FromJsonStringConvertible, MapFormatDecider, Record, ToJsonConvertible}
 import jsfacile.test.SampleADT._
 import jsfacile.write.PrefixInserter
-import jsfacile.write.PrefixInserter.{CoproductsOnly, ProductsOnly}
+import jsfacile.joint.{CoproductsOnly, ProductsOnly}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
