@@ -34,12 +34,20 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 
 		///////////////
 		{
-			val json = """{"info":"{\"k\":\"Dqoo\"}"}"""
-			val jsObject = json.fromJson[JsObject]
-			println(jsObject)
+			implicit val thingsDiscriminatorDecider = new DiscriminatorDecider[Box, ProductsOnly] {
+				override def fieldName: String = "thing"
+				override def required: Boolean = false
+			}
+			implicit val discValueMapper = new DiscriminatorValueMapper[Box, AnyAdt] {
+				override def apply(symbolName: String): String = symbolName.substring(0, 2)
+			}
 
+			val box = Box(Distance(3, Meter), 4)
+			val boxJson = box.toJson;
+			println("boxJson:" + boxJson)
+			val boxParsed = boxJson.fromJson[Box]
+			println("boxParsed:" + boxParsed)
 		}
-
 
 		{
 			import jsfacile.api._

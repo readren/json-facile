@@ -64,8 +64,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.4.0-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.4.0-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.5.0-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.5.0-SNAPSHOT" % "compile-internal"
 )
 ```
 
@@ -108,9 +108,9 @@ println(foosParsed); // out: Right(List(Bar(Vector(one, two)), Qux(3,Some(12.3))
 
 assert(Right(foos) == foosParsed) // OK
 ```
-### Choose the name of the discriminator field and if it must be appended always or only when it's necessary.
+### Choose the name of the type discriminator field and if it must be appended always or only when it's necessary.
 
-By default, the discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`). 
+By default, the type discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`).
 ```scala
 import jsfacile.api._
 
@@ -119,10 +119,12 @@ sealed trait Accessory {
 }
 case class Mouse(description: String, wireless: Boolean) extends Accessory
 case class Keyboard(description: String, wireless: Boolean, hasNumPad: Boolean) extends Accessory
+case class Joystick(description: String, wireless: Boolean) extends Accessory
 
 val accessories: List[Accessory] = List(
 	Mouse("small", wireless = false),
-	Keyboard("cheap", wireless = true, hasNumPad = false)
+	Keyboard("cheap", wireless = true, hasNumPad = false),
+	Joystick("big", wireless = false)
 )
 
 {
@@ -135,17 +137,19 @@ val accessories: List[Accessory] = List(
 ```
 prints
 ```json
-[{"description":"small","wireless":false},{"description":"cheap","wireless":true,"hasNumPad":false}]
+[{"?":"Mouse","description":"small","wireless":false},{"description":"cheap","wireless":true,"hasNumPad":false},{"?":"Joystick","description":"big","wireless":false}]
 ```
-There are two ways to change the default behaviour: having an instance of the `jsfacile.api.DiscriminatorDecider` type-class in the implicit scope; or annotating the abstract type with the `jsfacile.api.discriminatorField` annotation. The second has precedense over the first. The first is inherited and the second not.
+Note that the `Keyboard` object has no type discriminator because no other subtype of `Accessory` has the same required (non-optional) fields names.
+
+There are two ways to change the default behaviour: having an instance of the `jsfacile.api.DiscriminatorDecider` type-class in the implicit scope when the appender is automatically derived; or annotating the abstract type with the `jsfacile.api.discriminatorField` annotation. The second has precedense over the first.
 
 ```scala
-implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory] {
+implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory, CoproductsOnly] {
 	override def fieldName: String = "type"
 	override def required: Boolean = true
 }
 
-val json2: JsDocument = accessories.toJsDocument
+val json2: JsDocument = accessories.toJsDocument // the appender is automatically derived here
 println(json2.value);
 
 val parsed2: Either[ParseError, List[Accessory]] = json2.fromJson[List[Accessory]]
@@ -153,10 +157,10 @@ assert(parsed2 == Right(accessories))
 ```
 prints
 ```json
-[{"type":"Mouse","description":"small","wireless":false},{"type":"Keyboard","description":"cheap","wireless":true,"hasNumPad":false}]
+[{"type":"Mouse","description":"small","wireless":false},{"type":"Keyboard","description":"cheap","wireless":true,"hasNumPad":false},{"type":"Joystick","description":"big","wireless":false}]
 ```
 
-The same result is acchieved with the annotation approach:
+The same result is achieved with the annotation approach:
 
 ```scala
 @jsfacile.annotations.discriminatorField("type", true) sealed trait Accessory {
@@ -164,6 +168,37 @@ The same result is acchieved with the annotation approach:
 }
 ```
 
+It is good to know that a `DiscriminatorDecider` in the implicit scope may also affect the automatic derivation of appenders for concrete types (products). The second type parameter determines which kind of appenders are affected by it: appenders for abstract ADTs (CoproductsOnly), appenders for concrete ADTs (ProductsOnly), or both (AnyAdt).
+```scala
+implicit def accessoryDiscriminatorDecider[A <: Accessory] = new DiscriminatorDecider[A, AnyAdt] {
+	override def fieldName: String = "type"
+	override def required: Boolean = true
+}
+
+println(Keyboard("cheap", wireless = true, hasNumPad = false).toJson)
+```
+prints
+```json
+{"type":"Keyboard","description":"cheap","wireless":true,"hasNumPad":false}
+```
+
+Automatically derived parsers are also affected by `DiscriminatorDecider` instances, but only to the type discriminator field name. The `required` property if ignored by them. 
+
+### Choose the value of the type discriminator field
+By default, the value of the type discriminator field is the name of the type symbol. To change that, a `DiscriminatorValueMapper` instance should be in the implicit scope when the translator is automatically derived.
+
+### Make the appenders for a set of types include fields common to said set.
+You can instruct the appenders for types that extend certain type (`Accessory` in the example) to include a prefix that is inserted after the type discriminator field, having an instance of `PrefixInserter` in the implicit scope when the appenders are automatically derived.  
+```scala
+	import jsfacile.api._
+
+	implicit val commonFieldsInserter: PrefixInserter[Accessory, AnyAdt] = (record: Record, value: Accessory, isCoproduct: Boolean, symbol: String) => {
+		record.append(s""" "shortDescription":"${accessory.description.substring(0, 10)}" """)
+		true // instructs to add a comma if there are fields to append after. 
+	}
+
+
+```
 ### Choose how scala maps are represented in JSON.
 
 By default maps whose declared keys type is `Char`, `Int`, `Long`, or extends `CharSequence` are represented with JSON objects. Otherwise the map is represented with a JSON arrays of pairs.
@@ -382,7 +417,7 @@ Given the names of the fields we chose for `Instant` and `Year` are different, t
 
 Assuming that knowledge is centralized in an implicit `DiscriminatorDecider`, let's ask it.
 ```scala
-val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal] = DiscriminatorDecider.apply[Temporal];
+val temporalDiscriminatorDecider: DiscriminatorDecider[Temporal, CoproductsOnly] = DiscriminatorDecider.apply[Temporal, CoproductsOnly];
 ```
 Having all we need to implement the `Appender[Year]`, let's do it.
 ```scala

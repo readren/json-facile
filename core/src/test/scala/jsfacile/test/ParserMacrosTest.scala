@@ -3,7 +3,6 @@ package jsfacile.test
 import scala.annotation.tailrec
 
 import jsfacile.api.{JsDocument, Parser}
-import jsfacile.joint.{CoproductsOnly, DiscriminatorValueMapper}
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -180,12 +179,15 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `for complex ADTs`(): Unit = {
 			import jsfacile.api._
 
-			implicit val dicriminatorValueMapper = new DiscriminatorValueMapper[Thing, CoproductsOnly] {
+			implicit val shapeDiscriminatorDecider = new DiscriminatorDecider[Shape, AnyAdt] {
+				override val fieldName: String = "shape"
+				override def required: Boolean = false
+			}
+			implicit val dicriminatorValueMapper = new DiscriminatorValueMapper[Thing, AnyAdt] {
 				override def apply(symbolName: String): String = symbolName.substring(0, 1)
 			}
 
 			val presentationDataJson = presentationDataOriginal.toJson
-			println(presentationDataJson)
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
 		}

@@ -5,7 +5,7 @@ import scala.collection.mutable
 import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
-import jsfacile.joint.{CoproductsOnly, DiscriminatorValueMapper}
+import jsfacile.joint.{CoproductsOnly, DiscriminatorDecider, DiscriminatorValueMapper}
 import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.read.Parser
 import jsfacile.util.BitSet
@@ -71,9 +71,18 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 		// Gets the type-discriminator field's name from the type's annotation or, by default, from the `DiscriminatorDecider` in the implicit scope.
 		val discriminatorFieldName: Tree = {
 			discriminatorField.parse(ctx)(initialCoproductClassSymbol) match {
-				case Some(discriminatorConf) => Literal(Constant(discriminatorConf.fieldName))
+				case Some(discriminatorConf) =>
+					Literal(Constant(discriminatorConf.fieldName))
 
-				case None => q"DiscriminatorDecider.apply[$initialCoproductType].fieldName"
+				case None =>
+					val discriminatorDeciderType = appliedType(typeOf[DiscriminatorDecider[_, _]].typeConstructor, List(initialCoproductType, typeOf[CoproductsOnly]));
+					val discriminatorDeciderInstance = ctx.inferImplicitValue(discriminatorDeciderType, silent = true, withMacrosDisabled = true)
+
+					if(discriminatorDeciderInstance == EmptyTree) {
+						q""" "?" """
+					} else {
+						q"$discriminatorDeciderInstance.fieldName"
+					}
 			}
 		};
 

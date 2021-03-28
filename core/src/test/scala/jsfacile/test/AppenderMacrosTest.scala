@@ -69,7 +69,7 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 		}
 
 		def `with prefix inserter`(): Unit = {
-			implicit val dd: DiscriminatorDecider[Simple[Int]] = new DiscriminatorDecider[Simple[Int]] {
+			implicit val dd: DiscriminatorDecider[Simple[Int], CoproductsOnly] = new DiscriminatorDecider[Simple[Int], CoproductsOnly] {
 				override def fieldName: String = "?"
 				override def required: Boolean = true
 			}

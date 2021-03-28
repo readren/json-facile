@@ -4,7 +4,7 @@ import scala.reflect.macros.blackbox
 
 import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.write
-import jsfacile.joint.ProductsOnly
+import jsfacile.joint.{DiscriminatorDecider, DiscriminatorValueMapper, ProductsOnly}
 import jsfacile.write.Appender
 
 class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends AppenderGenCommon(context) {
@@ -32,7 +32,7 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 				val paramsList = productSymbol.primaryConstructor.typeSignatureIn(productType).dealias.paramLists;
 
 				var isFirstField = true;
-				val appendField_codeLines =
+				val appendProductFields_codeLines =
 					for {
 						params <- paramsList
 						param <- params
@@ -74,13 +74,13 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 					}
 
 				val prefixInserterType = appliedType(typeOf[write.PrefixInserter[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
-				val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true)
+				val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true);
 
 				val createAppenderCodeLines = {
-					val core = {
+					val appendNonDiscriminatorFields_codeLines = {
 						if (prefixInserterInstance == EmptyTree) {
-							q"..$appendField_codeLines"
-						} else if (appendField_codeLines.isEmpty) {
+							q"..$appendProductFields_codeLines"
+						} else if (appendProductFields_codeLines.isEmpty) {
 							q"$prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})"
 						}
 						else {
@@ -88,14 +88,42 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 if($prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})) {
 	r.append(',');
 }
-..$appendField_codeLines"""
+..$appendProductFields_codeLines"""
 						}
 					}
+
+					val discriminatorDeciderType = appliedType(typeOf[DiscriminatorDecider[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
+					val discriminatorDeciderInstance = ctx.inferImplicitValue(discriminatorDeciderType, silent = true, withMacrosDisabled = true);
+
+					val appendDiscriminatorField_codeLine = {
+						if (discriminatorDeciderInstance == EmptyTree) {
+							q"r.append('{');"
+						} else {
+							val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
+							val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true);
+
+							val tail =
+								if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
+									"\""
+								} else {
+									"\","
+								}
+
+							if (discriminatorValueMapperInstance == EmptyTree) {
+								val body = s"""":"${productSymbol.name.toString}$tail"""
+								q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append($body)"""
+							} else {
+								val value = q"$discriminatorValueMapperInstance.apply(${productSymbol.name.toString})";
+								q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append("\":\"").append($value).append($tail);"""
+							}
+						}
+					}
+
 					q"""
 new Appender[$productType] {
 	override def append(r: Record, p: $productType): Record = {
-		r.append('{');
-		$core
+  		$appendDiscriminatorField_codeLine
+		$appendNonDiscriminatorFields_codeLines
 		r.append('}');
 	}
 }"""

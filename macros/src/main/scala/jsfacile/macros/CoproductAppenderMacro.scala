@@ -5,7 +5,7 @@ import scala.collection.IndexedSeq
 import scala.reflect.macros.blackbox
 
 import jsfacile.annotations.discriminatorField
-import jsfacile.joint.{CoproductsOnly, DiscriminatorConf, DiscriminatorValueMapper}
+import jsfacile.joint.{CoproductsOnly, DiscriminatorConf, DiscriminatorDecider, DiscriminatorValueMapper}
 import jsfacile.macros.GenCommon.TypeKey
 import jsfacile.write.{Appender, PrefixInserter}
 
@@ -19,7 +19,7 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		def requiredFieldNames: Set[String];
 	}
 	/** A [[ProductInfo]] obtained from the primary constructor of the subtype. */
-	protected case class DerivedProductInfo(discriminatorValue: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: Iterable[Tree]) extends ProductInfo {
+	protected case class DerivedProductInfo(symbolName: String, tpe: Type, requiredFieldNames: Set[String], appendField_codeLines: Iterable[Tree]) extends ProductInfo {
 		var isAmbiguous = false;
 	}
 	/** A [[ProductInfo]] specified by the library user by means of one of the [[jsfacile.api.builder.CoproductTranslatorsBuilder.add*]] methods that customize the parsing. */
@@ -98,6 +98,9 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 		val prefixInserterType = appliedType(typeOf[PrefixInserter[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
 		val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true)
 
+		val discriminatorDeciderType = appliedType(typeOf[DiscriminatorDecider[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
+		val discriminatorDeciderInstance = ctx.inferImplicitValue(discriminatorDeciderType, silent = true, withMacrosDisabled = true)
+
 		val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(coproductType, typeOf[CoproductsOnly]));
 		val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true)
 
@@ -118,10 +121,10 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 							if (prefixInserterInstance == EmptyTree) {
 								q"..${derivedProductInfo.appendField_codeLines}"
 							} else if (derivedProductInfo.appendField_codeLines.isEmpty) {
-								q"$prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminatorValue})"
+								q"$prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.symbolName})"
 							} else {
 								q"""
-if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminatorValue})) {
+if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.symbolName})) {
 	r.append(',');
 }
 ..${derivedProductInfo.appendField_codeLines}"""
@@ -131,7 +134,7 @@ if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminator
 							case Some(discriminatorAnnotation) => // If the product is annotated with `@discriminatorField`
 								if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
 									if(discriminatorValueMapperInstance == EmptyTree) {
-										val discriminatorField = s""""${discriminatorAnnotation.fieldName}":"${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
+										val discriminatorField = s""""${discriminatorAnnotation.fieldName}":"${derivedProductInfo.symbolName}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
 										q"r.append($discriminatorField)";
 									} else {
 										val discriminatorFieldHead = s""""${discriminatorAnnotation.fieldName}":"""";
@@ -143,7 +146,7 @@ if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.discriminator
 											}
 										q"""
 r.append($discriminatorFieldHead)
-	.append($discriminatorValueMapperInstance.apply(${derivedProductInfo.discriminatorValue}));
+	.append($discriminatorValueMapperInstance.apply(${derivedProductInfo.symbolName}));
 $discriminatorFieldTail"""
 									}
 								} else {
@@ -151,23 +154,30 @@ $discriminatorFieldTail"""
 								}
 
 							case None => // If the product is not annotated with `@discriminatorField`
-								if(discriminatorValueMapperInstance == EmptyTree) { // if no `DiscriminatorValueMapper` is found in the implicit scope
-									val discriminatorFieldValue = s"""${derivedProductInfo.discriminatorValue}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
+								if (discriminatorValueMapperInstance == EmptyTree) { // if no `DiscriminatorValueMapper` is found in the implicit scope
+									def discriminatorFieldValue = s"""${derivedProductInfo.symbolName}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
 									if (productInfo.isAmbiguous) {
-										q"""r.append(discrimName).append($discriminatorFieldValue)"""
+										q"""r.append(discrimHead).append($discriminatorFieldValue)"""
+									} else if (discriminatorDeciderInstance == EmptyTree) {
+										q""
 									} else {
-										q"""if (discrimRequired) { r.append(discrimName).append($discriminatorFieldValue) }"""
+										q"""if (discrimRequired) { r.append(discrimHead).append($discriminatorFieldValue) }"""
 									}
+
 								} else {  // if a `DiscriminatorValueMapper` is found in the implicit scope
-									val discriminatorFieldTail =
-										if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
-											q"""r.append('"');"""
-										} else {
-											q"""r.append("\",");"""
-										}
-									val discriminatorField = q"""r.append(discrimName).append($discriminatorValueMapperInstance.apply(${derivedProductInfo.discriminatorValue})); $discriminatorFieldTail """
+									def discriminatorField = {
+										val discriminatorFieldTail =
+											if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
+												q"""r.append('"');"""
+											} else {
+												q"""r.append("\",");"""
+											}
+										q"""r.append(discrimHead).append($discriminatorValueMapperInstance.apply(${derivedProductInfo.symbolName})); $discriminatorFieldTail """
+									}
 									if(productInfo.isAmbiguous) {
 										discriminatorField
+									} else if (discriminatorDeciderInstance == EmptyTree) {
+										q""
 									} else {
 										q"""if (discrimRequired) $discriminatorField"""
 
@@ -192,11 +202,17 @@ productsInfoBuilder.addOne(CahProductInfo($productClassNameAtRuntime, productApp
 			}
 		val discriminatorDecider_valsCodeLines =
 			if (discriminatorOverride.isEmpty) {
-				q"""
-val discrimDecider = DiscriminatorDecider.apply[$coproductType];
-val discrimRequired = discrimDecider.required;
-val discrimName = "\"" + discrimDecider.fieldName + "\":\"";
+				if(discriminatorDeciderInstance == EmptyTree) {
+					q"""
+val discrimRequired = false;
+val discrimHead = "\"?\":\""
 """
+				}  else {
+					q"""
+val discrimRequired = $discriminatorDeciderInstance.required;
+val discrimHead = "\"" + $discriminatorDeciderInstance.fieldName + "\":\"";
+"""
+				}
 			} else {
 				q""
 			}
@@ -217,7 +233,6 @@ new CoproductAppender[$coproductType](${coproductType.toString}, productsArray)"
 			q"""
 import _root_.scala.Array;
 import _root_.scala.collection.mutable.ArrayBuffer;
-import _root_.jsfacile.joint.DiscriminatorDecider;
 import _root_.jsfacile.write.CoproductAppender;
 import CoproductAppender.{CahProductInfo, productInfoComparator};
 import _root_.jsfacile.macros.LazyAppender;

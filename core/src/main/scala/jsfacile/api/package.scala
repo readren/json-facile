@@ -19,7 +19,7 @@ package object api {
 	type RecordStr = jsfacile.write.RecordStr;
 
 	type discriminatorField = jsfacile.annotations.discriminatorField;
-	type DiscriminatorDecider[C] = jsfacile.joint.DiscriminatorDecider[C]
+	type DiscriminatorDecider[C, F <: AnyAdt] = jsfacile.joint.DiscriminatorDecider[C, F]
 	type DiscriminatorConf = jsfacile.joint.DiscriminatorConf;
 	type DiscriminatorValueMapper[C, F <: AnyAdt] = jsfacile.joint.DiscriminatorValueMapper[C, F]
 
