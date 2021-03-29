@@ -13,6 +13,7 @@ class CoproductParserBuilderState[C] {
 
 	val productFieldsBuilder: mutable.ArrayBuffer[CpFieldInfo] = ArrayBuffer.empty;
 	def addProductField(field: CpFieldInfo): Unit = productFieldsBuilder.addOne(field);
+	/** @return a sorted array with the [[CpFieldInfo]] instances added with the [[addProductField]] method. The array is sorted by [[CpFieldInfo.name]] because the [[jsfacile.read.CoproductParser]] requires the ordering to narrow the binary-search of the field's info, after the type-discriminator's field has been parsed. */
 	def productFields: Array[CpFieldInfo] = productFieldsBuilder.sortInPlace()(namedOrdering[CpFieldInfo]).toArray;
 
 	val consideredFieldsBuilder: mutable.ArrayBuffer[CpConsideredField] = ArrayBuffer.empty;
@@ -20,6 +21,12 @@ class CoproductParserBuilderState[C] {
 	def consideredFields: Array[CpConsideredField] = consideredFieldsBuilder.sortInPlace()(namedOrdering).toArray;
 
 	val productsInfoBuilder: mutable.ArrayBuffer[CpProductInfo[C]] = ArrayBuffer.empty;
-	def addProduct(product: CpProductInfo[C]): Unit = productsInfoBuilder.addOne(product)
+	var maxNumberOfFields: Int = 0;
+	def addProduct(product: CpProductInfo[C]): Unit = {
+		productsInfoBuilder.addOne(product)
+		if(product.fields.length > maxNumberOfFields) {
+			this.maxNumberOfFields = product.fields.length
+		}
+	}
 	def productsInfo: Array[CpProductInfo[C]] = productsInfoBuilder.sortInPlace()(namedOrdering).toArray;
 }

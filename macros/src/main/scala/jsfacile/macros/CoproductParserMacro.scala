@@ -16,10 +16,11 @@ import jsfacile.util.BitSet.BitSlot
 class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends ParserGenCommon(context) {
 	import ctx.universe._
 
-	/** Note: instances of this class exists only during compilation time.
+	/** Contains the information needed to generate the code that builds a [[jsfacile.read.CoproductParser.CpConsideredField]]
+	 * Note: instances of this class exists only during compilation time.
 	 *
 	 * @param fieldType            the type of the field
-	 * @param firstOwnerName       the TypeSymbol of the first product that contains a field named as the key specifies.
+	 * @param firstOwnerName       the TypeSymbol`s name of the first product that contains a field named as the key associated with this instance in the `metaConsideredFields` map.
 	 * @param consideredFieldIndex the index of the field in the `consideredFields` parameter of the [[jsfacile.read.CoproductParser]] constructor.
 	 * @param bitSlot              the [[jsfacile.util.BitSet.BitSlot]] assigned to this considered field */
 	case class ConsideredField(fieldType: Type, firstOwnerName: String, consideredFieldIndex: Int, bitSlot: BitSlot)
@@ -97,7 +98,8 @@ class CoproductParserMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Par
 		$discriminatorFieldName,
 		state.productsInfo,
 		state.consideredFields,
-		$numberOfShards
+		$numberOfShards,
+  		state.maxNumberOfFields
 	);""";
 
 		val parserCreationTreeWithContext =

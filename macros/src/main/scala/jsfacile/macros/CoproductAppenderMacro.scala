@@ -119,7 +119,11 @@ class CoproductAppenderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends A
 
 						val appendNonDiscriminatorFields_codeLines =
 							if (prefixInserterInstance == EmptyTree) {
-								q"..${derivedProductInfo.appendField_codeLines}"
+								if (derivedProductInfo.appendField_codeLines.isEmpty) {
+									EmptyTree
+								} else {
+									q"..${derivedProductInfo.appendField_codeLines}"
+								}
 							} else if (derivedProductInfo.appendField_codeLines.isEmpty) {
 								q"$prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.symbolName})"
 							} else {
@@ -131,7 +135,7 @@ if($prefixInserterInstance.insert(r, p, true, ${derivedProductInfo.symbolName}))
 							}
 
 						val appendDiscriminator_codeLine = discriminatorOverride match {
-							case Some(discriminatorAnnotation) => // If the product is annotated with `@discriminatorField`
+							case Some(discriminatorAnnotation) => // If the initial coproduct is annotated with `@discriminatorField`
 								if (productInfo.isAmbiguous || discriminatorAnnotation.required) {
 									if(discriminatorValueMapperInstance == EmptyTree) {
 										val discriminatorField = s""""${discriminatorAnnotation.fieldName}":"${derivedProductInfo.symbolName}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
@@ -153,13 +157,13 @@ $discriminatorFieldTail"""
 									q"";
 								}
 
-							case None => // If the product is not annotated with `@discriminatorField`
+							case None => // If the initial coproduct is not annotated with `@discriminatorField`
 								if (discriminatorValueMapperInstance == EmptyTree) { // if no `DiscriminatorValueMapper` is found in the implicit scope
 									def discriminatorFieldValue = s"""${derivedProductInfo.symbolName}${if (appendNonDiscriminatorFields_codeLines == EmptyTree) "\"" else "\","}""";
 									if (productInfo.isAmbiguous) {
 										q"""r.append(discrimHead).append($discriminatorFieldValue)"""
 									} else if (discriminatorDeciderInstance == EmptyTree) {
-										q""
+										EmptyTree
 									} else {
 										q"""if (discrimRequired) { r.append(discrimHead).append($discriminatorFieldValue) }"""
 									}
@@ -177,7 +181,7 @@ $discriminatorFieldTail"""
 									if(productInfo.isAmbiguous) {
 										discriminatorField
 									} else if (discriminatorDeciderInstance == EmptyTree) {
-										q""
+										EmptyTree
 									} else {
 										q"""if (discrimRequired) $discriminatorField"""
 

@@ -56,17 +56,19 @@ object CoproductParser {
  * Primary constructor note: Despite some parameters are mutable, none is mutated.
  *
  * @tparam C the declared abstract type of the instances created by this [[Parser]].
- * @param fullName         the full name of the actual abstract type represented by the type parameter `C`. Only used for error messages.
- * @param discriminator    the name of the discriminator field. Used when disambiguation is necessary.
- * @param productsInfo     the information this [[Parser]] needs about all known concrete subtypes of `C`. It should be sorted by [[CpProductInfo.name]].
- * @param consideredFields an array with the information this [[Parser]] needs about all the fields from the JSON object that will be considered. It should be sorted by [[CpConsideredField.name]]. Any JSON object field whose name is not contained in this array would be ignored. The set of considered fields should be the union of the fields of the concrete implementations specified by the `productsInfo` parameter.
- * @param numberOfShards   number of [[Shard]] required to hold all the [[BitSlot]]s mentioned in the [[CpConsideredField]] instances contained by the `consideredFields` array. The necessity of this parameter is a consequence of the inability of the [[BitSet]] class to grow its shards array (because it is implemented with a value class). */
+ * @param fullName          the full name of the actual abstract type represented by the type parameter `C`. Only used for error messages.
+ * @param discriminator     the name of the discriminator field. Used when disambiguation is necessary.
+ * @param productsInfo      the information this [[Parser]] needs about all known concrete subtypes of `C`. It should be sorted by [[CpProductInfo.name]].
+ * @param consideredFields  an array with the information this [[Parser]] needs about all the fields from the JSON object that will be considered. It should be sorted by [[CpConsideredField.name]]. Any JSON object field whose name is not contained in this array would be ignored. The set of considered fields should be the union of the fields of the concrete implementations specified by the `productsInfo` parameter.
+ * @param numberOfShards    number of [[Shard]] required to hold all the [[BitSlot]]s mentioned in the [[CpConsideredField]] instances contained by the `consideredFields` array. The necessity of this parameter is a consequence of the inability of the [[BitSet]] class to grow its shards array (because it is implemented with a value class).
+ * @param maxNumberOfFields number of field of the product with more fields */
 class CoproductParser[C](
 	fullName: String,
 	discriminator: String,
 	productsInfo: Array[CpProductInfo[C]], // should be sorted by name. Not mutated.
 	consideredFields: Array[CpConsideredField], // should be sorted by name. Not mutated.
-	numberOfShards: Int
+	numberOfShards: Int,
+	maxNumberOfFields: Int
 ) extends Parser[C] {
 	import CoproductParser._
 	import Parser._;
@@ -113,10 +115,12 @@ class CoproductParser[C](
 			}
 			managers;
 		};
-		// create a considered field for each CpConsideredField contained in the fieldParsers array.
+		// create a FieldState for each CpConsideredField contained in the fieldParsers array.
 		val consideredFieldsState: Array[FieldState] = Array.tabulate[FieldState](consideredFields.length) { i => new FieldState(consideredFields(i)) };
 
 		val foundFields: BitSet = new BitSet(new Array[Shard](numberOfShards));
+
+		val chosenManagerFieldsState: Array[FieldState] = new Array(maxNumberOfFields);
 	}
 
 	/** The workplace alone would be enough when the involved data type hierarchy is not recursive. The pool exists to support recursion. */
@@ -151,6 +155,8 @@ class CoproductParser[C](
 					wp.foundFields.clear();
 
 					var chosenManager: Manager = null
+					var aFieldWasFound = false;
+					var firstFieldIsDiscriminator = false;
 
 					var have = cursor.consumeWhitespaces();
 					while (have && cursor.pointedElem != '}') {
@@ -164,22 +170,42 @@ class CoproductParser[C](
 								chosenManager = BinarySearch.find(wp.managers)(_.name.compareTo(productName));
 								if (chosenManager == null) {
 									cursor.miss(s"""The discriminator field value "$productName" does not match the name of any of the concrete subclasses of $fullName.""")
+									have = false
 								} else {
 									have = cursor.consumeWhitespaces()
+
+									// If the type discriminator is the first field, narrow down the search to only the fields contained by the pointed type. This narrowing would also improve the search speed if the discriminator wasn't in the first place, although with less effectiveness the further back it is, but the narrowing is activated only when the discriminator is in the first place for code simplicity sake.
+									if(!aFieldWasFound) {
+										firstFieldIsDiscriminator = true
+										val fields = chosenManager.productInfo.fields
+										index = fields.length;
+										while (index > 0) {
+											index -= 1;
+											val fieldInfo = fields(index);
+											wp.chosenManagerFieldsState(index) = wp.consideredFieldsState(indexMap(fieldInfo.consideredFieldIndex));
+										}
+									}
 								}
 
 							} else {
-								val foundField = BinarySearch.find(wp.consideredFieldsState)(_.name.compareTo(fieldName));
-								if (foundField != null) {
-									val fieldParser = foundField.consideredField;
+								val foundFieldState =
+									if (firstFieldIsDiscriminator) {
+										BinarySearch.find(wp.chosenManagerFieldsState, chosenManager.fieldsValues.length)(_.name.compareTo(fieldName));
+									} else {
+										BinarySearch.find(wp.consideredFieldsState)(_.name.compareTo(fieldName));
+									}
+
+								if (foundFieldState != null) {
+									aFieldWasFound = true;
+									val consideredField = foundFieldState.consideredField;
 
 									// actualize the found-fields set
-									wp.foundFields |= fieldParser.bitSlot;
+									wp.foundFields |= consideredField.bitSlot;
 
 									// parse the field value
-									val fieldValue = fieldParser.parser.parse(cursor);
-									foundField.value = fieldValue;
-									foundField.wasParsed = true;
+									val fieldValue = consideredField.parser.parse(cursor);
+									foundFieldState.value = fieldValue;
+									foundFieldState.wasParsed = true;
 
 								} else {
 									Skip.jsValue(cursor)
@@ -232,10 +258,10 @@ class CoproductParser[C](
 							while (index > 0) {
 								index -= 1;
 								val fieldInfo = chosenProductFields(index);
-								val consideredField = wp.consideredFieldsState(indexMap(fieldInfo.consideredFieldIndex));
+								val fieldState = wp.consideredFieldsState(indexMap(fieldInfo.consideredFieldIndex));
 								chosenManager.fieldsValues(fieldInfo.argIndex) =
-									if (consideredField.wasParsed) {
-										consideredField.value;
+									if (fieldState.wasParsed) {
+										fieldState.value;
 									} else {
 										fieldInfo.oDefaultValue.get
 									}
