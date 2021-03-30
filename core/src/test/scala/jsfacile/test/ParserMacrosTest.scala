@@ -2,7 +2,7 @@ package jsfacile.test
 
 import scala.annotation.tailrec
 
-import jsfacile.api.{JsDocument, Parser}
+import jsfacile.api.{AppendResult, JsDocument, Parser}
 import jsfacile.test.SampleADT._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.refspec.RefSpec
@@ -187,7 +187,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 				override def apply(symbolName: String): String = symbolName.substring(0, 1)
 			}
 
-			val presentationDataJson = presentationDataOriginal.toJson
+			val presentationDataJson = presentationDataOriginal.toJson.value
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assertResult(Right(presentationDataOriginal))(presentationDataParsed)
 		}
@@ -195,8 +195,8 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `for JsDocument`(): Unit = {
 			import jsfacile.api._
 
-			val mixedDtoOriginal = MixedDto(123, "John Galt", presentationDataOriginal.toJsDocument )
-			val mixedDtoJson = mixedDtoOriginal.toJson
+			val mixedDtoOriginal = MixedDto(123, "John Galt", presentationDataOriginal.toJsDocument)
+			val mixedDtoJson = mixedDtoOriginal.toJson.value
 			val mixedDtoParsed = mixedDtoJson.fromJson[MixedDto]
 			assertResult(Right(mixedDtoOriginal))(mixedDtoParsed)
 		}
@@ -204,7 +204,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		def `with HLists`(): Unit = {
 			import jsfacile.api._
 			val pilaOriginal = "top" :: 3 :: true :: Base
-			val pilaJson = pilaOriginal.toJson
+			val pilaJson = pilaOriginal.toJson.value
 			val pilaParsed = pilaJson.fromJson[String :: Int :: Boolean :: Base.type]
 			assertResult(Right(pilaOriginal))(pilaParsed)
 		}
@@ -214,12 +214,12 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 
 			val fooBase = FooBase(7);
 			val fooNext = FooNext(fooBase)
-			val fooJson = fooNext.toJson
+			val fooJson = fooNext.toJson.value
 			val fooParsed = fooJson.fromJson[Foo[Int]]
 			assertResult(Right(fooNext))(fooParsed)
 
 			val arbol = Rama(Rama(Hoja(1), Hoja(2)), Hoja(3))
-			val json = arbol.toJson
+			val json = arbol.toJson.value
 			val arbolParsed = json.fromJson[Arbol[Int]]
 			assertResult(Right(arbol))(arbolParsed)
 		}
@@ -229,7 +229,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			import jsfacile.api._
 
 			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)
-			val json = ToJsonConvertible(set).toJson
+			val json = ToJsonConvertible(set).toJson.value
 			val parsed = json.fromJson[Set[A[String]]]
 			assertResult(Right(set.toList))(parsed.map(_.toList))
 

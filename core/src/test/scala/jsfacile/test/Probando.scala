@@ -33,6 +33,32 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 	def main(args: Array[String]): Unit = {
 
 		///////////////
+
+		{
+			@discriminatorField("tio", true)
+			sealed trait Accessory {
+				def description: String
+			}
+			case class Mouse(description: String, wireless: Boolean) extends Accessory
+			case class Keyboard(description: String, wireless: Boolean, hasNumPad: Boolean) extends Accessory
+			case class Joystick(description: String, wireless: Boolean) extends Accessory
+			object Pin extends Accessory {
+				override def description = "pin";
+			}
+
+			println(Pin.toJsonAs[Accessory])
+
+			implicit def accessoryDiscriminatorDecider[A <: Accessory] = new DiscriminatorDecider[A, AnyAdt] {
+				override def fieldName: String = "type"
+				override def required: Boolean = true
+			}
+
+			println(Pin.toJsonAs[Accessory])
+
+			println(Keyboard("cheap", wireless = true, hasNumPad = false).toJson)
+
+		}
+
 		{
 			implicit val thingsDiscriminatorDecider = new DiscriminatorDecider[Box, ProductsOnly] {
 				override def fieldName: String = "thing"
@@ -43,7 +69,7 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 			}
 
 			val box = Box(Distance(3, Meter), 4)
-			val boxJson = box.toJson;
+			val boxJson = box.toJson.value;
 			println("boxJson:" + boxJson)
 			val boxParsed = boxJson.fromJson[Box]
 			println("boxParsed:" + boxParsed)
@@ -54,14 +80,14 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 
 			case class Foo(id: Int, name: String)
 
-			val aJsDocument: JsDocument = Foo(40, "foo").toJsDocument
+			val aJsDocument: AppendResult = Foo(40, "foo").toJsDocument
 			println(aJsDocument)
 
 			case class MixedDto(id: Int, name: String, jsonData: JsDocument)
 
 			val mixedDto = MixedDto(123, "John Galt", new JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
 			println("mixedDto: " + mixedDto)
-			val json = mixedDto.toJson
+			val json = mixedDto.toJson.value
 			println("json: " + json)
 			val parsed = json.fromJson[MixedDto]
 			println("parsed: " + parsed)
@@ -84,7 +110,7 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 				Parser[Long] ^^ Instant.ofEpochMilli
 
 			val instant = java.time.Instant.now()
-			val json = instant.toJson
+			val json = instant.toJson.value
 			println(json);
 			val parsedInstant = json.fromJson[Instant]
 			assert(Right(instant) == parsedInstant)
@@ -106,12 +132,12 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 
 		val list: List[Thing] = List(Box(Distance(3, Meter), 4), Ball(Distance(1, Millimeter), 2))
 
-		val json = list.toJson
+		val json = list.toJson.value
 		println(json)
 
 		////////////////////////////////////////////////
 
-		val presentationDataJson = presentationDataOriginal.toJson
+		val presentationDataJson = presentationDataOriginal.toJson.value
 		println(presentationDataJson)
 		val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 		assert(presentationDataParsed == Right(presentationDataOriginal))

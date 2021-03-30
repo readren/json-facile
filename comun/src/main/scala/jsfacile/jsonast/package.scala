@@ -4,7 +4,7 @@ import scala.{collection => generic}
 
 import jsfacile.api.ParseError
 import jsfacile.read.{BasicParsers, IterableParser, MapParser, Parser, Skip}
-import jsfacile.write.{Appender, BasicAppenders, IterableAppender, MapAppender, MapFormatDecider}
+import jsfacile.write.{Appender, BasicAppenders, IterableAppender, MapAppender, MapFormatDecider, RecordStr}
 import jsfacile.util.NonVariantHolderOfAMapFactory
 
 package object jsonast {
@@ -26,16 +26,31 @@ package object jsonast {
 	case object JsFalse extends JsBoolean {override def value = false}
 	case object JsNull extends JsValue
 
+	sealed trait AppendResult extends Any {
+		def value: String
+		/** Unconditionally converts this result to a [[JsDocument]]. If this is the result of a flawless append, returns the resulting [[JsDocument]] itself. Else a [[JsDocument]] that contains a single JSON string with the error message. */
+		def makeValid: JsDocument
+	}
 	/** Contains a JSON document.
 	 *
 	 * Useful for fields that are already a JSON document. */
-	case class JsDocument(value: String) extends AnyVal with JsValue {
+	case class JsDocument(value: String) extends AnyVal with AppendResult with JsValue {
 		/** Tries to create an instance of the specified type with the value represented by this [[jsfacile.jsonast.JsDocument]] in JSON format.
 		 *
 		 * @tparam T the type of the instance to be created. This type parameter should be specified explicitly. */
 		def fromJson[T](implicit pt: Parser[T]): Either[ParseError, T] = {
 			Parser.parse(value.toCharArray)(pt)
 		}
+		override def makeValid: JsDocument = this
+	}
+	case class JsInvalid(failures: List[Throwable]) extends AppendResult {
+		override def value: String = {
+			val errorMessage = failures.reverse.map(_.getMessage).mkString("Translation to JSON failed: ", " : and then : ", "");
+			val record = new RecordStr(new java.lang.StringBuilder)
+			BasicAppenders.encodeStringCharSequence(record, errorMessage)
+			record.sb.toString
+		}
+		override def makeValid: JsDocument = JsDocument(this.value)
 	}
 
 	//// Parsers ////
@@ -100,6 +115,8 @@ package object jsonast {
 	implicit val jaAstArray: Appender[JsArray] = (r, a) => r.appendSummoned[generic.Iterable[JsValue]](a.array)(arrayIterableAppender)
 	implicit val jaAstObject: Appender[JsObject] = (r, a) => r.appendSummoned[generic.Map[String, JsValue]](a.fields)(objectMapAppender)
 	implicit val jaJsDocument: Appender[JsDocument] = (r, jd) => r.append(jd.value);
+	implicit val jaJsInvalid: Appender[JsInvalid] = (r, ji) => r.append(ji.value);
+	implicit val jaAppendResult: Appender[AppendResult] = (r, ar) => r.append(ar.value);
 
 	implicit lazy val jaAstValue: Appender[JsValue] = { (r, a) =>
 		val appender: Appender[_ <: JsValue] = a match {

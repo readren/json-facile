@@ -13,7 +13,7 @@ class JsonAstTest extends RefSpec with ScalaCheckDrivenPropertyChecks {
 
 			forAll { (jsValue: JsValue) =>
 
-				val json = jsValue.toJson
+				val json = jsValue.toJson.value
 				val jsParsed = json.fromJson[JsValue]
 				println(s"json: $json")
 				jsParsed == Right(jsValue)

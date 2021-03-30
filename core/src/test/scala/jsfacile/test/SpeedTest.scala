@@ -1,5 +1,7 @@
 package jsfacile.test
 
+import java.nio.charset.Charset
+
 import SampleADT.{PresentationData, presentationDataOriginal}
 import ParserMacrosTest.presentationDataFormat
 
@@ -12,13 +14,15 @@ object SpeedTest {
 		var totalSprayDuration: Float = 0;
 		var totalJsoniterDuration: Float = 0;
 		for (j <- 0 to 10) {
+			println("----");
 
 			System.gc();
 			val jsFacileDuration = {
 				import jsfacile.api._
 
 				//				BasicParsers.newVersion = false;
-				val presentationDataJson = presentationDataOriginal.toJson
+				if(j==0) println("jsfacile:\t\t" + presentationDataOriginal.toJson.value)
+				val presentationDataJson = presentationDataOriginal.toJson.value.toCharArray
 				val ppd = parserOf[PresentationData]
 
 				val start = java.lang.System.nanoTime();
@@ -27,7 +31,7 @@ object SpeedTest {
 					ppd.parse(cursor);
 				}
 				val duration = (java.lang.System.nanoTime() - start) / 1000000000f;
-				println("\njsfacile    :\t" + duration);
+				println("jsfacile:\t\t" + duration);
 				if (j > 0) totalJsFacileDuration += duration
 				duration
 			}
@@ -38,7 +42,7 @@ object SpeedTest {
 					import jsfacile.api._
 
 					//					BasicParsers.newVersion = true;
-					val presentationDataJson = presentationDataOriginal.toJson
+					val presentationDataJson = presentationDataOriginal.toJson.value.toCharArray
 					val ppd = parserOf[PresentationData]
 
 					val start = java.lang.System.nanoTime();
@@ -54,19 +58,20 @@ object SpeedTest {
 				val differenceVsOld = 100 * (jsFacileDuration - jsFacileNewDuration) / jsFacileNewDuration
 				println(s"difference vs old: $differenceVsOld%");
 
-			} else if(false) {
+			} else if(true) {
 
 				System.gc();
 				val sprayDuration = {
 					import spray.json.{enrichAny, enrichString}
 
 					val presentationDataJson = presentationDataOriginal.toJson.compactPrint
+					if(j==0) println("spray:\t\t\t" + presentationDataJson)
 					val start = java.lang.System.nanoTime();
 					for (i <- 0 to 1000_000) {
 						presentationDataFormat.read(presentationDataJson.parseJson);
 					}
 					val duration = (java.lang.System.nanoTime() - start) / 1000000000f;
-					println("spray:\t\t" + duration);
+					println("spray:\t\t\t" + duration);
 					if (j > 0) totalSprayDuration += duration;
 					duration
 				}
@@ -80,10 +85,16 @@ object SpeedTest {
 
 					implicit val codec: JsonValueCodec[PresentationData] = JsonCodecMaker.make
 
-					val presentationDataJson = writeToString(presentationDataOriginal);
+					val presentationDataJson0 = writeToString(presentationDataOriginal)
+					if(j==0) println("jsoniter:\t\t" + presentationDataJson0)
+					val presentationDataJson1 = presentationDataJson0.getBytes(Charset.forName("UTF8"));
 					val start = java.lang.System.nanoTime();
 					for (i <- 0 to 1000_000) {
-						readFromString(presentationDataJson)
+						try {
+							readFromArray(presentationDataJson1)
+						} catch {
+							case e:  Exception => e.printStackTrace()
+						}
 					}
 					val duration = (java.lang.System.nanoTime() - start) / 1000000000f;
 					println("jsoniter:\t\t" + duration);

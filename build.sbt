@@ -1,5 +1,5 @@
 ThisBuild / organization := "org.readren.json-facile"
-ThisBuild / version      := "0.5.1-SNAPSHOT"
+ThisBuild / version      := "0.6.0-SNAPSHOT"
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / autoAPIMappings := true // Enables automatic linking to the external Scaladoc of managed dependencies

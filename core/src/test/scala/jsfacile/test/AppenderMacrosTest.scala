@@ -31,39 +31,39 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 	object `The appender should work ...` {
 
 		def `for a single plain class`(): Unit = {
-			assert(simpleJson == simpleOriginal.toJson)
+			assert(simpleJson == simpleOriginal.toJson.value)
 		}
 
 		def `with nested classes with type parameters`(): Unit = {
-			assert(nestJson == nestOriginal.toJson)
+			assert(nestJson == nestOriginal.toJson.value)
 		}
 
 		def `with option and either`(): Unit = {
-			assertResult("null")(None.toJson)
-			assertResult("null")((None: Option[Simple[Int]]).toJson)
-			assertResult(simpleJson)(Some(simpleOriginal).toJson)
-			assertResult(simpleJson)((Some(simpleOriginal): Option[Simple[Int]]).toJson)
+			assertResult("null")(None.toJson.value)
+			assertResult("null")((None: Option[Simple[Int]]).toJson.value)
+			assertResult(simpleJson)(Some(simpleOriginal).toJson.value)
+			assertResult(simpleJson)((Some(simpleOriginal): Option[Simple[Int]]).toJson.value)
 
-			assertResult(simpleJson)(Left(simpleOriginal).toJson)
-			assertResult(simpleJson)((Left(simpleOriginal): Either[Simple[Int], Char]).toJson)
-			assertResult(simpleJson)(Right(simpleOriginal).toJson)
-			assertResult(simpleJson)((Right(simpleOriginal): Either[Char, Simple[Int]]).toJson)
+			assertResult(simpleJson)(Left(simpleOriginal).toJson.value)
+			assertResult(simpleJson)((Left(simpleOriginal): Either[Simple[Int], Char]).toJson.value)
+			assertResult(simpleJson)(Right(simpleOriginal).toJson.value)
+			assertResult(simpleJson)((Right(simpleOriginal): Either[Char, Simple[Int]]).toJson.value)
 		}
 
 		def `with iterators and maps`(): Unit = {
 			{
-				val mapAsArray: String = treeOriginal.toJson;
+				val mapAsArray: String = treeOriginal.toJson.value;
 				assert(mapAsArray == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":[[{"text":"hola","number":7},{"name":"chau","simple":{"text":"hola","number":7}}]]}""");
 			}
 			{
 				implicit val mfd: MapFormatDecider[Simple[Int], Any, Any] = new MapFormatDecider[Simple[Int], Any, Any] {override val useObject: Boolean = true};
-				val mapAsObjects: String = treeOriginal.toJson;
+				val mapAsObjects: String = treeOriginal.toJson.value;
 				assert(mapAsObjects == """{"height":7,"nests":[{"name":"chau","simple":{"text":"hola","number":7}}],"mapa":{"{\"text\":\"hola\",\"number\":7}":{"name":"chau","simple":{"text":"hola","number":7}}}}""")
 			}
 		}
 
 		def `with abstract types`(): Unit = {
-			val presentationDataJson = presentationDataOriginal.toJson
+			val presentationDataJson = presentationDataOriginal.toJson.value
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assert(presentationDataParsed == Right(presentationDataOriginal))
 		}
@@ -78,7 +78,7 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 				record.append(s""" "insertado":"algo" """)
 				true
 			}
-			val simpleJson = simpleOriginal.toJson
+			val simpleJson = simpleOriginal.toJson.value
 			assert(simpleJson == """{ "insertado":"algo" ,"text":"hola","number":7}""")
 
 			implicit val huecoPi: PrefixInserter[Hueco, CoproductsOnly] = (record: Record, hueco: Hueco, isCoproduct: Boolean, symbol: String) => {
@@ -95,7 +95,7 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 			}
 
 			val huecos = List[Hueco](Vacio(1), Lleno(2, 4), Vacio(3))
-			val huecosJson = huecos.toJson
+			val huecosJson = huecos.toJson.value
 			val huecosParsed = huecosJson.fromJson[List[Hueco]]
 			huecosParsed match {
 				case Right(hs) =>
@@ -121,7 +121,7 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 			  |	def main(args: Array[String]): Unit = {
 			  |		import jsfacile.api.write._
 			  |  	val a: A[Int] = A2(3, "free")
-			  |		val json = a.toJson
+			  |		val json = a.toJson.value
 			  |	}
 			  |}""".stripMargin shouldNot typeCheck
 		}

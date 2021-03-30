@@ -50,7 +50,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 			implicit val appender: Appender[Thing] = thingTranslatorsBuilder.appender
 			implicit val parser: Parser[Thing] = thingTranslatorsBuilder.parser;
 
-			val json = things.toJson
+			val json = things.toJson.value
 			println(json)
 
 			val result = json.fromJson[List[Thing]]
@@ -73,7 +73,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 
 			val set: Set[A[String]] = Set(A1("primero"), B1("dudo", 7), C1("también"), C2)
 
-			val json = set.toJson
+			val json = set.toJson.value
 			println(json)
 
 			val result = json.fromJson[Set[A[String]]]
@@ -192,7 +192,7 @@ class CoproductTranslatorsBuilderTest extends RefSpec with Matchers {
 
 			val set = Set[Temporal](Instant.now, Year.now)
 
-			val json = set.toJson
+			val json = set.toJson.value
 			println(json)
 			val result = json.fromJson[Set[Temporal]]
 			assert(result == Right(set))
