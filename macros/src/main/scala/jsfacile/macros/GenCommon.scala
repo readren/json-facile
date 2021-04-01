@@ -33,7 +33,6 @@ object GenCommon {
 		override val hashCode: Int = this.toString.hashCode
 	}
 
-
 	class FieldAppendingInfo(val name: String, val tpe: sra.Types#Type, val accessor: sra.Trees#Tree)
 
 	/** Knows the mutable state of a [[jsfacile.api.builder.CoproductTranslatorsBuilder.ProductAppendingInfoBuilder]] instance.
@@ -158,6 +157,9 @@ class GenCommon[Ctx <: blackbox.Context](val ctx: Ctx) {
 
 	def addCase[P](coproductType: Type, productType: Type, oAppendingInfo: Option[Expr[ProductAppendingInfo[P]]], oParsingInfo: Option[Expr[ProductParsingInfo[P]]]): ctx.Expr[Unit] = {
 
+		if (!(productType <:< coproductType)) {
+			ctx.abort(ctx.enclosingPosition, s"The product `$productType` should be assignable to the coproduct `$coproductType`")
+		}
 		getClassSymbol(coproductType);
 		getClassSymbol(productType);
 

@@ -27,4 +27,5 @@ package object macros {
 
 	class ProductParsingInfoImpl[P] extends ProductParsingInfo[P]
 	class ProductAppendingInfoImpl[P] extends ProductAppendingInfo[P]
+
 }

@@ -8,18 +8,19 @@ object PrefixInserter {
 	def apply[A, F <: AnyAdt](implicit cfd: PrefixInserter[A, F]): PrefixInserter[A, F] = cfd
 }
 
-/** When an instance of this class is within the implicit scope of an automatic [[Appender]] deriver, the [[jsfacile.write.PrefixInserter.insert]] method is called by it after the discriminator field was appended (if applicable), and before any field is appended.
- * Useful to make the automatic [[Appender]] for concrete ADTs (products) include a discriminator, or fields that are common to a set of classes.
- * Note that this is not a low level replacement of [[jsfacile.joint.DiscriminatorDecider]] for abstract ADTs (coproducts).
- * @tparam A type for which the automatic [[Appender]] would be affected by this [[PrefixInserter]] instance. Subtypes are affected also.
+/** When an instance of this class is in the implicit scope when an [[Appender]] is automatically derived, the [[Appender.append]] method of said [[Appender]] will insert after the discriminator field the JSON fragment returned by the [[fragment]] method.
+ * Useful to make the automatically derived [[Appender]]s include fields that are common to a set of classes.
+ *
+ * @tparam A only the appenders for `A` and subtypes of `A` will be affected by this [[PrefixInserter]].
  * @tparam F determines which kind of [[Appender]]s are affected: appenders for products ([[jsfacile.joint.ProductsOnly]], for coproducts [[jsfacile.write.PrefixInserter.CoproductsOnly]], or both [[jsfacile.write.PrefixInserter.AnyAdt]]. */
 trait PrefixInserter[-A, -F <: AnyAdt] {
 
-	/** @param record     the record where the calling [[jsfacile.write.Appender]] is appending the value
-	 * @param value       the instance being appended
-	 * @param isCoproduct `true` if the calling appender is for a coproduct, which happens when `A` is abstract. `false` if corresponds to a product, which happens when `A` is concrete.
-	 * @param symbol      the symbol name of the actual type of the received value. This name is the same used by automatically derived [[Appender]]s for the value of the discriminator field. */
-	def insert(record: Record, value: A, isCoproduct: Boolean, symbol: String): Boolean
+	/** The fragment of JSON to insert between the type-discriminator field (if it is included) and the other fields.
+	 *  @param value      the instance being appended
+	 * @param isCoproduct `true` if the calling appender is for a coproduct. `false` if calling appender is for a product. Useful to know the kind of the calling appender when the type parameter `F` is [[AnyAdt]].
+	 * @param symbol      the symbol name of the actual type of the received value.
+	 * @return the fragment of JSON to insert after the discriminator field. The commas that separate the returned segment from the surrounding fields are automatically added.*/
+	def fragment(value: A, isCoproduct: Boolean, symbol: String): String
 
 }
 

@@ -88,7 +88,7 @@ class ParserBuilderMacro[C, Ctx <: blackbox.Context](context: Ctx) extends Copro
 			productConfig.oParsingInfo match {
 
 				case None =>
-					nextBitSlot = this.addSubtype(productSymbol.asClass, coproductSymbol, coproductType, coproductType, discriminatorValueMapperInstance, coproductHandler, nextBitSlot, metaConsideredFields, productAdditionTrees);
+					nextBitSlot = this.addSubtype(productSymbol, coproductSymbol, coproductType, coproductType, discriminatorValueMapperInstance, coproductHandler, nextBitSlot, metaConsideredFields, productAdditionTrees);
 
 				case Some(parsingInfo) =>
 					val ics = new InterAddFieldCallsState(nextBitSlot);

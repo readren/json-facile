@@ -73,52 +73,60 @@ class ProductAppenderMacro[P, Ctx <: blackbox.Context](context: Ctx) extends App
 
 					}
 
-				val prefixInserterType = appliedType(typeOf[write.PrefixInserter[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
-				val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true);
-
-				val createAppenderCodeLines = {
-					val appendNonDiscriminatorFields_codeLines = {
-						if (prefixInserterInstance == EmptyTree) {
-							q"..$appendProductFields_codeLines"
-						} else if (appendProductFields_codeLines.isEmpty) {
-							q"$prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})"
-						}
-						else {
-							q"""
-if($prefixInserterInstance.insert(r, p, false, ${productSymbol.name.toString})) {
-	r.append(',');
-}
-..$appendProductFields_codeLines"""
-						}
-					}
-
+				val (aDiscriminatorExists: Boolean, appendDiscriminatorField_codeLine: Tree) = {
 					val discriminatorDeciderType = appliedType(typeOf[DiscriminatorDecider[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
 					val discriminatorDeciderInstance = ctx.inferImplicitValue(discriminatorDeciderType, silent = true, withMacrosDisabled = true);
 
-					val appendDiscriminatorField_codeLine = {
-						if (discriminatorDeciderInstance == EmptyTree) {
-							q"r.append('{');"
+					if (discriminatorDeciderInstance == EmptyTree) {
+						(false, q"r.append('{');")
+					} else {
+						val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
+						val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true);
+
+						if (discriminatorValueMapperInstance == EmptyTree) {
+							val body = s"""":"${productSymbol.name.toString}""""
+							(true, q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append($body)""")
 						} else {
-							val discriminatorValueMapperType = appliedType(typeOf[DiscriminatorValueMapper[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
-							val discriminatorValueMapperInstance = ctx.inferImplicitValue(discriminatorValueMapperType, silent = true, withMacrosDisabled = true);
+							val value = q"$discriminatorValueMapperInstance.apply(${productSymbol.name.toString})";
+							(true, q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append("\":\"").append($value).append('"');""")
+						}
+					}
+				}
 
-							val tail =
-								if (appendNonDiscriminatorFields_codeLines == EmptyTree) {
-									"\""
-								} else {
-									"\","
-								}
+				val appendNonDiscriminatorFields_codeLines = {
+					val prefixInserterType = appliedType(typeOf[write.PrefixInserter[_, _]].typeConstructor, List(productType, typeOf[ProductsOnly]));
+					val prefixInserterInstance = ctx.inferImplicitValue(prefixInserterType, silent = true, withMacrosDisabled = true);
 
-							if (discriminatorValueMapperInstance == EmptyTree) {
-								val body = s"""":"${productSymbol.name.toString}$tail"""
-								q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append($body)"""
+					if (prefixInserterInstance == EmptyTree) {
+						if (appendProductFields_codeLines.isEmpty) {
+							EmptyTree
+						} else {
+							if (aDiscriminatorExists) {
+								q"r.append(','); ..$appendProductFields_codeLines"
 							} else {
-								val value = q"$discriminatorValueMapperInstance.apply(${productSymbol.name.toString})";
-								q"""r.append("{\"").append($discriminatorDeciderInstance.fieldName).append("\":\"").append($value).append($tail);"""
+								q"..$appendProductFields_codeLines"
+							}
+						}
+					} else {
+						val getInsertedFragment = q"val fragment = $prefixInserterInstance.fragment(p, false, ${productSymbol.name.toString})"
+						if (appendProductFields_codeLines.isEmpty) {
+							if(aDiscriminatorExists) {
+								q"$getInsertedFragment; if (fragment.nonEmpty) { r.append(',').append(fragment) };"
+							} else {
+								q"$getInsertedFragment; r.append(fragment);"
+							}
+						} else {
+							val body = q"""$getInsertedFragment; if(fragment.nonEmpty) { r.append(fragment).append(','); }; ..$appendProductFields_codeLines"""
+							if(aDiscriminatorExists) {
+								q"r.append(','); $body"
+							} else {
+								body
 							}
 						}
 					}
+				}
 
+				val createAppenderCodeLines = {
 					q"""
 new Appender[$productType] {
 	override def append(r: Record, p: $productType): Record = {

@@ -73,24 +73,22 @@ class AppenderMacrosTest extends RefSpec with Matchers with ScalaCheckPropertyCh
 				override def fieldName: String = "?"
 				override def required: Boolean = true
 			}
-			implicit val pi: PrefixInserter[Simple[Int], ProductsOnly] = (record: Record, _: Simple[Int], isCoproduct: Boolean, symbol: String) => {
+			implicit val pi: PrefixInserter[Simple[Int], ProductsOnly] = (_: Simple[Int], isCoproduct: Boolean, symbol: String) => {
 				assert(!isCoproduct && symbol == "Simple")
-				record.append(s""" "insertado":"algo" """)
-				true
+				s""" "insertado":"algo" """
 			}
 			val simpleJson = simpleOriginal.toJson.value
 			assert(simpleJson == """{ "insertado":"algo" ,"text":"hola","number":7}""")
 
-			implicit val huecoPi: PrefixInserter[Hueco, CoproductsOnly] = (record: Record, hueco: Hueco, isCoproduct: Boolean, symbol: String) => {
+			implicit val huecoPi: PrefixInserter[Hueco, CoproductsOnly] = (hueco: Hueco, isCoproduct: Boolean, symbol: String) => {
 				assert(isCoproduct)
 				hueco match {
 					case Vacio(i) =>
 						assert(symbol == "Vacio")
-						record.append(s""""x2":${i * 2}""")
-						true
+						s""""x2":${i * 2}"""
 					case _: Lleno =>
 						assert(symbol == "Lleno")
-						false
+						""
 				}
 			}
 

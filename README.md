@@ -64,8 +64,8 @@ Add the `core` artifact with a "compile" scope and the `macros` artifact with "c
 
 ```scala
 libraryDependencies ++= Seq(
-	"org.readren.json-facile" %% "core" % "0.5.0-SNAPSHOT",
-	"org.readren.json-facile" %% "macros" % "0.5.0-SNAPSHOT" % "compile-internal"
+	"org.readren.json-facile" %% "core" % "0.7.0-SNAPSHOT",
+	"org.readren.json-facile" %% "macros" % "0.7.0-SNAPSHOT" % "compile-internal"
 )
 ```
 
@@ -88,12 +88,9 @@ val foos: List[Foo] = List(
 	Qux(3, Some(12.3))
 )
 
-// Convert the ADT to JsDocument
-val jsonDoc: JsDocument = foos.toJsDocument
+// Convert the ADT to JSON
+val jsonDoc: AppendResult = foos.toJson
 println(jsonDoc.value)
-// or directly to a String
-val jsonString: String = foos.toJson
-println(jsonString)
 ```
 prints
 
@@ -110,7 +107,7 @@ assert(Right(foos) == foosParsed) // OK
 ```
 ### Choose the name of the type discriminator field and if it must be appended always or only when it's necessary.
 
-By default, the type discriminator field name is the question mark (`fieldName="?"`) and it's appended only when necessary (`required=false`).
+By default, the type discriminator field name is the question mark (`fieldName="?"`), and it's appended only when necessary (`required=false`).
 ```scala
 import jsfacile.api._
 
@@ -128,7 +125,7 @@ val accessories: List[Accessory] = List(
 )
 
 {
-	val json1: JsDocument = accessories.toJsDocument
+	val json1 = accessories.toJson
 	println(json1.value);
 
 	val parsed1: Either[ParseError, List[Accessory]] = json1.fromJson[List[Accessory]]
@@ -141,7 +138,7 @@ prints
 ```
 Note that the `Keyboard` object has no type discriminator because no other subtype of `Accessory` has the same required (non-optional) fields names.
 
-There are two ways to change the default behaviour: having an instance of the `jsfacile.api.DiscriminatorDecider` type-class in the implicit scope when the appender is automatically derived; or annotating the abstract type with the `jsfacile.api.discriminatorField` annotation. The second has precedense over the first.
+There are two ways to change the default behaviour: having an instance of the `jsfacile.api.DiscriminatorDecider` type-class in the implicit scope when the appender is automatically derived; or annotating the abstract type with the `jsfacile.api.discriminatorField` annotation. The second has precedence over the first.
 
 ```scala
 implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory, CoproductsOnly] {
@@ -149,7 +146,7 @@ implicit val accessoryDiscriminatorDecider = new DiscriminatorDecider[Accessory,
 	override def required: Boolean = true
 }
 
-val json2: JsDocument = accessories.toJsDocument // the appender is automatically derived here
+val json2 = accessories.toJson // the appender is automatically derived here
 println(json2.value);
 
 val parsed2: Either[ParseError, List[Accessory]] = json2.fromJson[List[Accessory]]
@@ -175,7 +172,7 @@ implicit def accessoryDiscriminatorDecider[A <: Accessory] = new DiscriminatorDe
 	override def required: Boolean = true
 }
 
-println(Keyboard("cheap", wireless = true, hasNumPad = false).toJson)
+println(Keyboard("cheap", wireless = true, hasNumPad = false).toJson.value)
 ```
 prints
 ```json
@@ -192,9 +189,8 @@ You can instruct the appenders for types that extend certain type (`Accessory` i
 ```scala
 	import jsfacile.api._
 
-	implicit val commonFieldsInserter: PrefixInserter[Accessory, AnyAdt] = (record: Record, value: Accessory, isCoproduct: Boolean, symbol: String) => {
-		record.append(s""" "shortDescription":"${accessory.description.substring(0, 10)}" """)
-		true // instructs to add a comma if there are fields to append after. 
+	implicit val commonFieldsInserter: PrefixInserter[Accessory, AnyAdt] = (value: Accessory, isCoproduct: Boolean, symbol: String) => {
+		s""" "shortDescription":"${accessory.description.substring(0, 10)}" """
 	}
 
 
@@ -207,7 +203,7 @@ class Key[V](val id: Long, val value: V)
 
 val map = Map[Key[Boolean], String](new Key(1, false) -> "one", new Key(2, true) -> "two")
 
-println(map.toJson)
+println(map.toJson.value)
 ```
 prints
 ```json
@@ -219,7 +215,7 @@ implicit val mfd = new MapFormatDecider[Key[Boolean], Any, Map] {
 	override val useObject: Boolean = true
 }
 
-println(map.toJson)
+println(map.toJson.value)
 ```
 prints
 ```json
@@ -238,8 +234,8 @@ case class MixedDto(id: Int, name: String, jsonData: JsDocument)
 
 val mixedDto = MixedDto(123, "John Galt", new JsDocument("""{"age": 40, "isRebel": true, "infractions":["has self-esteem","is intransigent"]}"""))
 val json = mixedDto.toJson
-println(json)
-val parsed = json.fromJson[MixedDto]
+println(json.value)
+val parsed = json.value.fromJson[MixedDto]
 assert(Right(mixedDto) == parsed, json)
 ```
 prints
@@ -258,7 +254,7 @@ val aJsDocument: JsDocument = Foo(40, "foo").toJsDocument
 import jsfacile.jsonast._
 
 val aJsValue: JsValue = JsObject("id" -> JsNumber(3), "data" -> JsDocument("""[true, "hello"]"""))
-println(aJsValue.toJson)
+println(aJsValue.toJson.value)
 ```
 prints
 ```json
@@ -295,7 +291,7 @@ val things = List[Thing](
 	new Box(1.23, 32.1f),
 	new Ball(4.56, 3)
 )
-val json = things.toJson
+val json = things.toJson.value
 println(json)
 
 val result = json.fromJson[List[Thing]]
@@ -327,7 +323,7 @@ implicit val instantParser: Parser[Instant] =
 	Parser[Long] ^^ Instant.ofEpochMilli
 
 val instant = java.time.Instant.now()
-val json = instant.toJson // this uses the `instanceAppender` 
+val json = instant.toJson.value // this uses the `instanceAppender` 
 println(json)
 val parsedInstant = json.fromJson[Instant] // this uses the `instantParser`
 assert(Right(instant) == parsedInstant)
@@ -450,7 +446,7 @@ implicit val temporalParser: Parser[Temporal] = temporalTranslatorsBuilder.parse
 
 val set = Set[Temporal](Instant.now, Year.now);
 
-val json = set.toJson;
+val json = set.toJson.value;
 println(json);
 val result = json.fromJson[Set[Temporal]];
 assert(result == Right(set));
@@ -489,7 +485,7 @@ object example1 {
 
 		// convert the HList to JSON representation
 		import jsfacile.api._
-		val json = hList.toJson
+		val json = hList.toJson.value
 		println(json);
 
 		// convert the JSON string back to an HList instance
@@ -516,7 +512,7 @@ object example2 {
 	val fooBase = FooBase(7);
 	val fooNext = FooNext(fooBase)
 
-	val fooJson = fooNext.toJson
+	val fooJson = fooNext.toJson.value
 	val fooParsed = fooJson.fromJson[Foo[Int]]
 	assert(Right(fooNext) == fooParsed)
 ```
@@ -571,7 +567,7 @@ object example3 {
 
 		// Convert the things map to JSON representation
 		import jsfacile.api._
-		val json = thingsById.toJson
+		val json = thingsById.toJson.value
 
 		// Convert the JSON string back to an algebraic data type instance
 		// The type parameter is required. 
@@ -612,7 +608,7 @@ object limitations1 {
 
 	def main(args: Array[String]): Unit = {
 		val things = List[Thing](new Box(12.3, 32.1f), new Ball(45.6f, "3 kg"))
-		val json = things.toJson
+		val json = things.toJson.value
 		println(json) // out: [{"length":12.3,"weight":32.1},{"radius":45.6,"weight":"3 kg"}]
 		val thingsParsed = json.fromJson[List[Thing]]
 		println(thingsParsed) // compile error: Unable to derive a parser for `List[jsfacile.test.Probando.Thing]` because it depends on the parser for `jsfacile.test.Probando.Thing` whose derivation has failed saying: Unsupported situation while building a `Parser[jsfacile.test.Probando.Thing]`: two implementations, `class Ball` and `class Box`, have a field with the same name ("weight") but different type.

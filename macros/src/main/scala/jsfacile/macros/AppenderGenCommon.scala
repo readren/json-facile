@@ -7,6 +7,22 @@ import jsfacile.write.Appender
 class AppenderGenCommon[Ctx <: blackbox.Context](context: Ctx) extends GenCommon(context) {
 	import ctx.universe._
 
+	sealed trait YesOrNo
+	case object Yes extends YesOrNo
+	case object No extends YesOrNo
+	case class Ask(varName: TermName) extends YesOrNo
+
+	//	protected def separator_code(yon1: YesOrNo, yon2: YesOrNo): Tree = {
+	//			(yon1, yon2) match {
+	//				case (Yes, Yes) => q"r.append(',');"
+	//				case (Ask(tn), Yes) => q"if ($tn) r.append(',');"
+	//				case (Yes, Ask(tn)) => q"if ($tn) r.append(',');"
+	//				case (Ask(tn1), Ask(tn2)) => q"if ($tn1 && $tn2) r.append(',');"
+	//				case _ => EmptyTree
+	//			}
+	//	}
+
+
 	def buildBody[T](initialType: Type, initialHandler: Handler, isOuterMacroInvocation: Boolean): ctx.Expr[Appender[T]] = {
 		val body =
 			if (isOuterMacroInvocation) {

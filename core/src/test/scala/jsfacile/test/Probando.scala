@@ -1,15 +1,9 @@
 package jsfacile.test
 
 import java.time.Instant
-
-import jsfacile.api._
-import jsfacile.api.builder.CoproductTranslatorsBuilder
-import jsfacile.jsonast.JsObject
-import jsfacile.test.SampleADT.DistanceUnit.{Meter, Millimeter}
-//import jsfacile.macros.Probe
 import jsfacile.test.SampleADT._
-//import jsfacile.test.ParserMacrosTest.{A1, Arbol, B1, C1, C2, Foo, FooBase, FooNext, Hoja, Rama, Tree}
-////import jsfacile.test.SampleADT.DistanceUnit.Value
+import jsfacile.test.SampleADT.DistanceUnit._
+
 
 object Probando { // Internal error: unable to find the outer accessor symbol of object App
 
@@ -35,6 +29,36 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 		///////////////
 
 		{
+			import jsfacile.api._
+			sealed trait Foo
+			case class Bar(xs: Vector[String]) extends Foo
+			case class Qux(i: Int, d: Option[Double]) extends Foo
+
+			val foos: List[Foo] = List(
+				Bar(Vector("one", "two")),
+				Qux(3, Some(12.3))
+			)
+
+			// Convert the ADT to JsDocument
+			val jsonDoc: AppendResult = foos.toJson
+			println(jsonDoc.value)
+
+		}
+
+		{
+			import jsfacile.api._
+
+			implicit val dd = new DiscriminatorDecider[Zero.type, AnyAdt] {
+				override def fieldName: String = "tipo"
+				override def required: Boolean = true
+			}
+
+			println(Zero.toJson.value)
+		}
+
+		{
+			import jsfacile.api._
+
 			@discriminatorField("tio", true)
 			sealed trait Accessory {
 				def description: String
@@ -60,6 +84,8 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 		}
 
 		{
+			import jsfacile.api._
+
 			implicit val thingsDiscriminatorDecider = new DiscriminatorDecider[Box, ProductsOnly] {
 				override def fieldName: String = "thing"
 				override def required: Boolean = false
@@ -103,6 +129,8 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 		////////////////////////////////////////////////
 
 		{
+			import jsfacile.api._
+
 			implicit val instantAppender: Appender[Instant] =
 				(record, instant) => record.append(instant.toEpochMilli);
 
@@ -118,30 +146,35 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 
 		////////////////////////////////////////////////
 
-		val thingBuilder = new CoproductTranslatorsBuilder[Thing]
-		val ballAppendingInfoBuilder = thingBuilder.productAppendingInfoBuilder[Ball]
-		ballAppendingInfoBuilder.add("radius", _.radius)
-		ballAppendingInfoBuilder.add("weight", _.weight)
+		{
+			import jsfacile.api._
+			import jsfacile.api.builder._
 
-		thingBuilder.add[Box]
-		thingBuilder.add[Ball](ballAppendingInfoBuilder.complete("ball"))
+			val thingBuilder = new CoproductTranslatorsBuilder[Thing]
+			val ballAppendingInfoBuilder = thingBuilder.productAppendingInfoBuilder[Ball]
+			ballAppendingInfoBuilder.add("radius", _.radius)
+			ballAppendingInfoBuilder.add("weight", _.weight)
 
-		val thingAppender = thingBuilder.appender
+			thingBuilder.add[Box]
+			thingBuilder.add[Ball](ballAppendingInfoBuilder.complete("ball"))
 
-		implicit val ta: Appender[Thing] = thingAppender
+			val thingAppender = thingBuilder.appender
 
-		val list: List[Thing] = List(Box(Distance(3, Meter), 4), Ball(Distance(1, Millimeter), 2))
+			implicit val ta: Appender[Thing] = thingAppender
 
-		val json = list.toJson.value
-		println(json)
+			val list: List[Thing] = List(Box(Distance(3, Meter), 4), Ball(Distance(1, Millimeter), 2))
 
-		////////////////////////////////////////////////
+			val json = list.toJson.value
+			println(json)
 
-		val presentationDataJson = presentationDataOriginal.toJson.value
-		println(presentationDataJson)
-		val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
-		assert(presentationDataParsed == Right(presentationDataOriginal))
+			////////////////////////////////////////////////
 
+			val presentationDataJson = presentationDataOriginal.toJson.value
+			println(presentationDataJson)
+			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
+			assert(presentationDataParsed == Right(presentationDataOriginal))
+
+		}
 
 	}
 }
