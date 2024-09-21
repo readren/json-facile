@@ -29,6 +29,8 @@
 .idea/dictionaries/
 .idea/vcs.xml
 .idea/jsLibraryMappings.xml
+.idea/bsp.xml
+.idea/sbt.xml
 
 # IntelliJ IDEA Gradde 
 .idea/gradle.xml
