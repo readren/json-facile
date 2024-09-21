@@ -92,7 +92,7 @@ class CoproductTranslatorsBuilder[C] {
 	 * The type parameter is mandatory.
 	 * @tparam T the subtype of C to add to the set of considered subtypes of `C`.
 	 *  */
-	def add[T](): Unit = macro macrosEntrance.addCase[C, T];
+	def add[T <: C](): Unit = macro macrosEntrance.addCase[C, T];
 
 	/** $addProduct customizing the [[Appender]][P] used by the [[Appender]][C] when the value to append is and instance of `P`.
 	 * The [[Parser]][P] is derived automatically but the [[Appender]][P] is determined by the provided [[ProductAppendingInfo]].
@@ -100,7 +100,7 @@ class CoproductTranslatorsBuilder[C] {
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.
 	 * */
-	def add[P](appendingInfo: ProductAppendingInfo[P]): Unit = macro macrosEntrance.addCaseWithAppender[C, P];
+	def add[P <: C](appendingInfo: ProductAppendingInfo[P]): Unit = macro macrosEntrance.addCaseWithAppender[C, P];
 
 	/** $addProduct customizing the discrimination and the [[Parser]][P] used by the [[Parser]][C] when the JSON fragment being parsed is a representation of `P`.
 	 * The [[Appender]][P] is derived automatically but the [[Parser]][P] is determined by the provided [[ProductParsingInfo]], which must have been created by the [[ProductParsingInfoBuilder.complete*]] method.
@@ -108,7 +108,7 @@ class CoproductTranslatorsBuilder[C] {
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.
 	 * */
-	def add[P](parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithParser[C, P];
+	def add[P <: C](parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithParser[C, P];
 
 	/** $addProduct customizing both, the [[Appender]][P] used by the [[Appender]][C] when the value to append is and instance of `P`; and the [[Parser]][P] used by the [[Parser]][C] when the JSON fragment being parsed is a representation of `P`.
 	 * The [[Appender]][P] is determined by the provided [[ProductAppendingInfo]].
@@ -117,7 +117,7 @@ class CoproductTranslatorsBuilder[C] {
 	 * The type parameter is mandatory.
 	 * @tparam P the direct subtype of C to add to the set of considered subtypes of the coproduct.
 	 * */
-	def add[P](appendingInfo: ProductAppendingInfo[P], parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithBoth[C, P];
+	def add[P <: C](appendingInfo: ProductAppendingInfo[P], parsingInfo: ProductParsingInfo[P]): Unit = macro macrosEntrance.addCaseWithBoth[C, P];
 
 	/** Clears all the information supplied to this builder, leaving it as if it were just created.
 	 *
