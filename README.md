@@ -1,7 +1,9 @@
 # json-facile
 _json-facile_ is a lightweight, boilerplateless and efficient [JSON] implementation in Scala.
 
-* Converts between scala algebraic data types (ADTs) and JSON documents directly, without any intermediate representation.
+* Converts between scala data types and JSON documents directly, without any intermediate representation.
+ 
+* Seamless conversion for algebraic data types (ADTs), generics (e.g. `Foo[T]`), and heterogeneous structures (e.g. HList). No manual coding needed; other types work with trivial setup. 
 
 * No external dependencies.
 
@@ -105,9 +107,50 @@ println(foosParsed); // out: Right(List(Bar(Vector(one, two)), Qux(3,Some(12.3))
 
 assert(Right(foos) == foosParsed) // OK
 ```
+
+### Generic traits and classes are supported.
+```scala
+sealed trait Tree[V]
+case class Branch[V](a: Tree[V], b: Tree[V]) extends Tree[V]
+case class Leaf[V](v: V) extends Tree[V]
+
+val originalTree = Branch(Branch(Leaf(1), Leaf(2)), Leaf(3))
+val json = originalTree.toJsonAs[Tree[Int]].value
+println(json) // prints: {"a":{"a":{"v":1},"b":{"v":2}},"b":{"v":3}}
+val Right(parsedTree) = json.fromJson[Tree[Int]]
+println(parsedTree) // prints: Branch(Branch(Leaf(1),Leaf(2)),Leaf(3))
+assert(originalTree == parsedTree)
+```
+
+### Heterogeneous types are supported
+```scala
+sealed abstract class HList {
+	def ::[H](head: H): ::[H, this.type] = new ::(head, this)
+}
+final case class ::[+H, +T <: HList](head: H, tail: T) extends HList
+case object Base extends HList
+
+// create an HList instance
+val hList = true :: "text" :: 3 :: Base
+
+// convert the HList to JSON representation
+import jsfacile.api._
+val json = hList.toJson.value
+println(json);
+
+// convert the JSON string back to an HList instance
+val parsedHList = json.fromJson[Boolean :: String :: Int :: Base.type]
+
+// check
+assert(parsedHList == Right(hList))
+```
+prints
+```json
+{"head":true,"tail":{"head":"text","tail":{"head":3,"tail":{}}}}
+```
 ### Choose the name of the type discriminator field and if it must be appended always or only when it's necessary.
 
-By default, the type discriminator field name is the question mark (`fieldName="?"`), and it's appended only when necessary (`required=false`).
+By default, the type discriminator field name is the question mark (`fieldName="?"`), and it is appended only when necessary (`required=false`).
 ```scala
 import jsfacile.api._
 
@@ -469,39 +512,8 @@ Other good features found in *json-facile* are:
 2. The easy thing is to implement custom parsers using either the `jsfacile.read.Parser` combinators or the low-level `jsfacile.read.Cursor` API.
 
 ## More examples
-1. A good example of the support of parameterized ADTs (algebraic data types) is HList.
 	
-```scala
-object example1 {
-	sealed abstract class HList {
-		def ::[H](head: H): ::[H, this.type] = new ::(head, this)
-	}
-	final case class ::[+H, +T <: HList](head: H, tail: T) extends HList
-	case object Base extends HList
-
-	def main(args: Array[String]) {
-		// create an HList instance
-		val hList = true :: "text" :: 3 :: Base
-
-		// convert the HList to JSON representation
-		import jsfacile.api._
-		val json = hList.toJson.value
-		println(json);
-
-		// convert the JSON string back to an HList instance
-		val parsedHList = json.fromJson[Boolean :: String :: Int :: Base.type]
-
-		// check
-		assert(parsedHList == Right(hList))
-	}
-}
-```
-prints
-```json
-{"head":true,"tail":{"head":"text","tail":{"head":3,"tail":{}}}}
-```
-	
-2. This example shows the support of recursive data types.
+1. This example shows the support of recursive data types.
 
 ```scala
 object example2 {
@@ -516,7 +528,7 @@ object example2 {
 	val fooParsed = fooJson.fromJson[Foo[Int]]
 	assert(Right(fooNext) == fooParsed)
 ```
-3. Next is a more elavorate ADTs (algebraic data types) hierarchy that includes enumerations and collections.
+2. Next is a more elavorate ADTs (algebraic data types) hierarchy that includes enumerations and collections.
 
 ```scala
 object example3 {
@@ -617,17 +629,17 @@ object limitations1 {
 ```
 This limitation is a consequence of a design decision: configuration simplicity and execution speed is more important than support of rare or easily avoidable use cases.
 
-Note that the appender does not complain. Only the parser. This is intended because the generated JSON document may be parsed by other JSON library that supports namesakes fields with differnt types. 
+Note that the appender does not complain. Only the parser. This is intended because the generated JSON document may be parsed by other JSON library that supports namesakes fields with different types. 
 
 2. Given the `Appender`s and `Parser`s are automatically derived at compile-time, the compilation time suffers an increase proportional to the amount of derivations.
 This problem can be easily mittigated moving the involved ADTs to a separate SBT project.
 
-3. Recursive data types are vulnerable to run-time stack overflow error when the recursion deph level of the data is high enough. This will be solved when I come up with a simple way to configure the limit.
+3. Recursive data types are vulnerable to run-time stack overflow error when the recursion depth level of the data is high enough. This will be solved when I come up with a simple way to configure the limit.
 
 ## Edge cases
 ### BigDecimal input limit
 The `Parser[BigDecimal]` that is bundled in the `json-facile` library is not configurable. There is no need of such thing because it is possible to override it with no much effort.
-Suppouse you want to limit the size of the input number to protect your service against malicius attacks. You can achieve that with:
+Suppose you want to limit the size of the input number to protect your service against malicious attacks. You can achieve that with:
 ```scala
 val BIG_DECIMAL_INPUT_MAX_LENGTH = 12
 

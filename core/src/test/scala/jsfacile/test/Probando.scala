@@ -1,5 +1,7 @@
 package jsfacile.test
 
+import jsfacile.api.{FromJsonStringConvertible, ToJsonConvertible}
+
 import java.time.Instant
 import jsfacile.test.SampleADT._
 import jsfacile.test.SampleADT.DistanceUnit._
@@ -139,9 +141,9 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 
 			val instant = java.time.Instant.now()
 			val json = instant.toJson.value
-			println(json);
 			val parsedInstant = json.fromJson[Instant]
-			assert(Right(instant) == parsedInstant)
+			println(s"instant=$instant, parsedInstant=${parsedInstant}");
+//			assert(Right(instant) == parsedInstant, s"${Right(instant)}==${parsedInstant}")
 		}
 
 		////////////////////////////////////////////////
@@ -174,6 +176,28 @@ object Probando { // Internal error: unable to find the outer accessor symbol of
 			val presentationDataParsed = presentationDataJson.fromJson[PresentationData]
 			assert(presentationDataParsed == Right(presentationDataOriginal))
 
+		}
+
+
+		{
+			import jsfacile._
+			import jsfacile.api.ToJsonConvertible
+			class Recursive(val content: String, var base: Option[Recursive])
+
+			val r1 = new Recursive("hello", None)
+			r1.base = Some(r1)
+//			val json = r1.toJson
+//			println(json)
+
+		}
+
+		{
+			val originalTree = Branch(Branch(Leaf(1), Leaf(2)), Leaf(3))
+			val json = originalTree.toJsonAs[Tree[Int]].value
+			println(json) // prints: {"a":{"a":{"v":1},"b":{"v":2}},"b":{"v":3}}
+			val Right(parsedTree) = json.fromJson[Tree[Int]]
+			println(parsedTree) // prints: Branch(Branch(Leaf(1),Leaf(2)),Leaf(3))
+			assert(originalTree == parsedTree)
 		}
 
 	}

@@ -17,7 +17,7 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 
 	case class Simple(text: String, number: Long);
 	case class Nest(name: String, simple: Simple);
-	case class Tree(height: Int, nests: List[Nest], mapa: Map[String, Simple]);
+	case class Multiple(height: Int, nests: List[Nest], mapa: Map[String, Simple]);
 
 	//////////////////////////////////
 	// Recursive sample data types //
@@ -52,7 +52,7 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 
 	implicit val simpleFormat = jsonFormat2(Simple);
 	implicit val anidadoFormat = jsonFormat2(Nest);
-	implicit val treeFormat = jsonFormat3(Tree);
+	implicit val treeFormat = jsonFormat3(Multiple);
 
 
 	class EnumJsonConverter[T <: scala.Enumeration](enu: T) extends RootJsonFormat[T#Value] {
@@ -110,7 +110,7 @@ object ParserMacrosTest extends DefaultJsonProtocol {
 	val simpleJson = simpleOriginal.toJson.prettyPrint
 	val nestOriginal = Nest("chau", Simple("hola", 5L))
 	val nestJson = nestOriginal.toJson.prettyPrint
-	val treeOriginal = Tree(7, List(nestOriginal), Map("clave" -> simpleOriginal))
+	val treeOriginal = Multiple(7, List(nestOriginal), Map("clave" -> simpleOriginal))
 	val treeJson = treeOriginal.toJson.prettyPrint;
 
 }
@@ -147,7 +147,7 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 		}
 
 		def `for products with iterables`(): Unit = {
-			val treeParsed = treeJson.fromJson[Tree]
+			val treeParsed = treeJson.fromJson[Multiple]
 			assertResult(Right(treeOriginal))(treeParsed)
 		}
 
@@ -218,9 +218,9 @@ class ParserMacrosTest extends RefSpec with Matchers with Retries { // with Scal
 			val fooParsed = fooJson.fromJson[Foo[Int]]
 			assertResult(Right(fooNext))(fooParsed)
 
-			val arbol = Rama(Rama(Hoja(1), Hoja(2)), Hoja(3))
+			val arbol = Branch(Branch(Leaf(1), Leaf(2)), Leaf(3))
 			val json = arbol.toJson.value
-			val arbolParsed = json.fromJson[Arbol[Int]]
+			val arbolParsed = json.fromJson[Tree[Int]]
 			assertResult(Right(arbol))(arbolParsed)
 		}
 
